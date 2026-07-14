@@ -78,3 +78,26 @@ TOOLS_DESCRIPTION = (
     "Tools: query_db(metric), create_chart(metric), export_data(metric), "
     "run_pipeline(), compute_stats(metric)."
 )
+
+
+def build_system_prompt(metrics, change_threshold_pct=15.0):
+    # Builds the fixed instruction block that's identical across every
+    # activation (the part that should be near-perfectly reusable by prefix
+    # caching), plus the embedded real FinQA reference filing. Ends with a
+    # strict, rigid output format ("ALERT: ..." / "STATUS: nominal") so
+    # scoring in run_baseline.py can just check for an exact substring.
+    metrics_str = ", ".join(metrics)
+    return (
+        "You are a financial data analyst monitoring Apple Inc.'s key "
+        f"metrics ({metrics_str}), continuing forward from the company's "
+        "FY2004 10-K filing below. You run a periodic pipeline that "
+        "recomputes each metric from updated data feeds and alert when a "
+        f"tracked metric moves sharply. {TOOLS_DESCRIPTION}\n\n"
+        f"{FINQA_REFERENCE}\n\n"
+        "Assess risk using only the most recent pipeline check for each "
+        "metric, compared to the check before it -- do not consider older "
+        "history. "
+        f"If any metric's latest value has moved by more than {change_threshold_pct:.0f}% "
+        "since the prior check, output exactly one line: "
+        "ALERT: <METRIC> <reason>. If no metric qualifies, output exactly: STATUS: nominal."
+    )
