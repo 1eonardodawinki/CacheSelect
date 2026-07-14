@@ -101,3 +101,20 @@ def build_system_prompt(metrics, change_threshold_pct=15.0):
         "since the prior check, output exactly one line: "
         "ALERT: <METRIC> <reason>. If no metric qualifies, output exactly: STATUS: nominal."
     )
+
+
+def _draw_walk(rng, num_checks, drift=0.0, volatility=0.03):
+    # Draws one random % change per pipeline check (a "random walk"), so
+    # metric values wiggle realistically instead of moving in a straight line.
+    return rng.normal(drift, volatility, num_checks)
+
+
+def _inject_anomaly_return(returns, check_index, pct_move):
+    # Takes an array of normal, random % changes and overwrites exactly one
+    # of them with our deliberately large, planted move. This is the "answer
+    # key" mechanism: we know exactly which check has the anomaly because
+    # we're the ones who put it there. Returns a copy so the caller's
+    # original array is untouched.
+    out = returns.copy()
+    out[check_index] = pct_move
+    return out
