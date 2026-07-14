@@ -33,18 +33,18 @@ AGENT_MODULES = {}
 
 def _get_agent_module(agent_name):
     # Looks up which trace-generator module to use for a given --agent
-    # value. New agents (code_reviewer, data_analyst) get added here as a new
-    # elif branch once their trace generator files exist -- nothing else in
-    # this file needs to change, since everything downstream only talks to
-    # the shared TraceBundle/Activation shapes from trace_common.py.
+    # value. Nothing else in this file needs to change when a new agent is
+    # added, since everything downstream only talks to the shared
+    # TraceBundle/Activation shapes from trace_common.py.
     if agent_name not in AGENT_MODULES:
         if agent_name == "travel_planner":
             import travel_planner_trace as mod
+        elif agent_name == "code_reviewer":
+            import code_reviewer_trace as mod
+        elif agent_name == "data_analyst":
+            import data_analyst_trace as mod
         else:
-            raise ValueError(
-                f"Unknown agent '{agent_name}'. Only 'travel_planner' is implemented "
-                "so far; code_reviewer and data_analyst are not built yet."
-            )
+            raise ValueError(f"Unknown agent '{agent_name}'.")
         AGENT_MODULES[agent_name] = mod
     return AGENT_MODULES[agent_name]
 
@@ -246,7 +246,7 @@ def print_summary(results):
 
 def build_arg_parser():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--agent", required=True, choices=["travel_planner"])
+    p.add_argument("--agent", required=True, choices=["travel_planner", "code_reviewer", "data_analyst"])
     p.add_argument("--apc", required=True, choices=["on", "off"])
     p.add_argument("--trace-file", default=None, help="Reload a previously saved trace (for a matched on/off pair).")
     p.add_argument("--save-trace", default=None, help="Save the generated trace to this path.")
