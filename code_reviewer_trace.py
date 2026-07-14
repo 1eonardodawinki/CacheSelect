@@ -41,3 +41,20 @@ def build_system_prompt(files, coverage_drop_threshold_pct=15.0):
         "since the prior check, output exactly one line: "
         "ALERT: <FILE> <reason>. If no file qualifies, output exactly: STATUS: nominal."
     )
+
+
+def _draw_coverage_walk(rng, num_checks, drift=0.0, volatility=0.02):
+    # Draws one random % change per commit (a "random walk"), so coverage
+    # wiggles realistically instead of moving in a straight line.
+    return rng.normal(drift, volatility, num_checks)
+
+
+def _inject_anomaly_return(returns, check_index, pct_move):
+    # Takes an array of normal, random coverage-change values and overwrites
+    # exactly one of them with our deliberately large, planted drop. This is
+    # the "answer key" mechanism: we know exactly which commit has the
+    # anomaly because we're the ones who put it there. Returns a copy so the
+    # caller's original array is untouched.
+    out = returns.copy()
+    out[check_index] = pct_move
+    return out
