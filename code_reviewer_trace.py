@@ -74,3 +74,34 @@ def generate_coverage_series(file, num_checks, start_coverage, seed,
     coverage = start_coverage * np.cumprod(1 + returns)
     coverage = np.clip(coverage, 0.0, 100.0)
     return coverage.tolist()
+
+
+def format_coverage_window(file, coverage_values, window_start_idx):
+    # Renders one file's visible window of coverage checks as plain text for
+    # the prompt, e.g. "src/auth.py:\n  commit 5: coverage 87.3%".
+    # `window_start_idx` is added on so the commit numbers shown reflect
+    # their true position in the full coverage history, not just their
+    # position within this particular window.
+    lines = [f"{file}:"]
+    for offset, cov in enumerate(coverage_values):
+        check_idx = window_start_idx + offset
+        lines.append(f"  commit {check_idx}: coverage {cov:.1f}%")
+    return "\n".join(lines)
+
+
+def build_activation_messages(system_prompt, file_windows, window_start_idx):
+    # Assembles the two-message chat payload for one activation: the fixed
+    # system prompt (built once, reused every activation) plus a user
+    # message listing every tracked file's current coverage window.
+    blocks = [
+        format_coverage_window(file, values, window_start_idx)
+        for file, values in file_windows.items()
+    ]
+    user_content = (
+        "Latest coverage checks:\n\n" + "\n\n".join(blocks) +
+        "\n\nReview the latest check for each file and report any threshold breaches."
+    )
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_content},
+    ]
