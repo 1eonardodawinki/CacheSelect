@@ -105,3 +105,104 @@ def build_activation_messages(system_prompt, file_windows, window_start_idx):
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
+
+
+def generate_trace(
+    routes=None,  # accepted for signature compatibility with run_baseline.py's generic call;
+                  # "routes" here means "files" -- see DEFAULT_FILES
+    num_activations=20,
+    window_size=30,
+    stride=1,
+    seed=42,
+    anomaly_activation_index=None,
+    anomaly_route=None,  # same compatibility note -- this is the anomaly file
+    anomaly_pct_move=-0.40,
+    volatility=0.02,
+    start_prices=None,  # same compatibility note -- starting coverage % per file
+    price_drop_threshold_pct=15.0,
+):
+    # Pure function, same determinism guarantee as travel_planner_trace.py.
+    files = list(routes) if routes else list(DEFAULT_FILES)
+    if anomaly_activation_index is None:
+        anomaly_activation_index = num_activations // 2  # default: plant it roughly in the middle
+    if anomaly_route is None:
+        anomaly_route = files[1] if len(files) > 1 else files[0]
+    if start_prices is None:
+        # Plausible starting coverage per file, comfortably below 100% so
+        # the random walk has room to move in both directions.
+        start_prices = {f: 90.0 - 3.0 * i for i, f in enumerate(files)}
+
+    # Total commit history needed to cover every activation's window. E.g.
+    # window_size=30, stride=1, num_activations=20 -> 49 commits total, since
+    # activation 19's window is commits [19, 49).
+    num_checks = window_size + stride * (num_activations - 1)
+
+    # Convert "the anomaly should be the NEWEST commit visible in activation
+    # N's window" into an absolute index into the full commit history. This
+    # is what makes ground truth unambiguous: by construction, no other
+    # activation has this commit as its newest one, even though a sliding
+    # window means this commit is still technically visible in several
+    # activations before and after.
+    anomaly_check_index = window_size - 1 + anomaly_activation_index * stride
+
+    system_prompt = build_system_prompt(files, price_drop_threshold_pct)
+
+    # Generate one full coverage history per file. Only `anomaly_route` gets
+    # the anomaly injected; the other files are just normal random walks.
+    coverage_series = {}
+    for i, file in enumerate(files):
+        is_anomaly_file = file == anomaly_route
+        coverage_series[file] = generate_coverage_series(
+            file=file,
+            num_checks=num_checks,
+            start_coverage=start_prices[file],
+            seed=seed + i,  # different-but-deterministic seed per file, so
+                             # files don't all move in lockstep
+            volatility=volatility,
+            anomaly_check_index=anomaly_check_index if is_anomaly_file else None,
+            anomaly_pct_move=anomaly_pct_move if is_anomaly_file else None,
+        )
+
+    # Slice out each activation's window and build its prompt + ground truth.
+    activations = []
+    for act_idx in range(num_activations):
+        window_start = act_idx * stride
+        window_end = window_start + window_size
+        file_windows = {f: coverage_series[f][window_start:window_end] for f in files}
+        messages = build_activation_messages(system_prompt, file_windows, window_start)
+        # Flat string version, purely for human-readable dumps (see trace_common.py).
+        prompt = messages[0]["content"] + "\n\n" + messages[1]["content"]
+
+        # True on exactly one activation -- the one whose newest commit is the
+        # planted anomaly. Every other activation should produce "STATUS: nominal".
+        expect_flag = act_idx == anomaly_activation_index
+        ground_truth = ActivationGroundTruth(
+            activation_index=act_idx,
+            expect_flag=expect_flag,
+            anomaly_entity=anomaly_route if expect_flag else None,
+            anomaly_bar_index=anomaly_check_index if expect_flag else None,
+            anomaly_magnitude=anomaly_pct_move if expect_flag else None,
+        )
+        activations.append(Activation(index=act_idx, prompt=prompt, messages=messages, ground_truth=ground_truth))
+
+    return TraceBundle(
+        agent_name="code_reviewer",
+        tickers_or_entities=files,
+        num_activations=num_activations,
+        window_size=window_size,
+        stride=stride,
+        seed=seed,
+        anomaly_activation_index=anomaly_activation_index,
+        anomaly_entity=anomaly_route,
+        anomaly_magnitude=anomaly_pct_move,
+        # Every argument used to build this trace, saved for reproducibility
+        # -- so a saved trace file fully documents how to regenerate it.
+        generation_params=dict(
+            files=files, num_activations=num_activations, window_size=window_size,
+            stride=stride, seed=seed, anomaly_activation_index=anomaly_activation_index,
+            anomaly_file=anomaly_route, anomaly_pct_move=anomaly_pct_move,
+            volatility=volatility, start_prices=start_prices,
+            coverage_drop_threshold_pct=price_drop_threshold_pct,
+        ),
+        activations=activations,
+    )
