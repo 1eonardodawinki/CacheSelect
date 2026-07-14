@@ -1,5 +1,14 @@
 # Data Analyst periodic-agent trace generator.
 #
+# In simple terms: this agent pretends to keep an eye on a few of Apple's
+# financial numbers (sales, costs, profit margin), starting from Apple's
+# real 2004 annual report as a baseline. It then keeps checking updated
+# internal estimates of those numbers, as if new data keeps trickling in
+# between official filings -- if one number suddenly moves a lot, it
+# sends an alert. Otherwise it just says everything looks normal. It
+# repeats this check over and over, each time seeing a slightly updated
+# window of recent tracking history.
+#
 # Reimplements the "Data Analyst" agent from Norgren (arXiv:2605.26289,
 # Section 4.1) -- tools: query_db, create_chart, export_data, run_pipeline,
 # compute_stats -- restructured for periodic reactivation, same as
