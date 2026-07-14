@@ -1,5 +1,12 @@
 # Travel Planner periodic-agent trace generator.
 #
+# In simple terms: this agent pretends to watch flight prices for a few
+# routes (e.g. London to New York). Every so often it checks the latest
+# prices, and if one route's price just dropped a lot, it sends an alert
+# so the user could book while it's cheap. Otherwise it just says
+# everything looks normal. It repeats this check over and over, each time
+# seeing a slightly updated window of recent price history.
+#
 # Reimplements the "Travel Planner" agent from Norgren (arXiv:2605.26289,
 # Section 4.1) -- tools: get_weather, search_flights, book_hotel,
 # search_restaurants, create_itinerary -- but restructured for DeltaCache's
