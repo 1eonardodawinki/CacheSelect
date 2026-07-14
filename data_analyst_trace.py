@@ -64,3 +64,17 @@ FINQA_REFERENCE = (
     f"{FINQA_PRE_TEXT}\n\n{FINQA_TABLE}\n\n{FINQA_POST_TEXT}\n"
     "--- end reference excerpt ---"
 )
+
+# The three tracked metrics, seeded from Apple's real FY2004 values in the
+# reference filing above ($ millions, except the percentage).
+DEFAULT_METRICS = ["net_sales", "cost_of_sales", "gross_margin_pct"]
+REAL_2004_VALUES = {
+    "net_sales": 8279.0,
+    "cost_of_sales": 6020.0,
+    "gross_margin_pct": 27.3,
+}
+
+TOOLS_DESCRIPTION = (
+    "Tools: query_db(metric), create_chart(metric), export_data(metric), "
+    "run_pipeline(), compute_stats(metric)."
+)
