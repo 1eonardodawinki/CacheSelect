@@ -244,6 +244,10 @@ def print_summary(results):
 
 
 def build_arg_parser():
+    # Defines every CLI flag this script accepts -- which agent/trace to run,
+    # the APC on/off switch, trace generation parameters, model/GPU settings,
+    # and output options. See the module comment at the top of this file for
+    # example invocations.
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--agent", required=True, choices=["travel_planner", "code_reviewer", "data_analyst"])
     p.add_argument("--apc", required=True, choices=["on", "off"])
@@ -282,6 +286,9 @@ def build_arg_parser():
 
 
 def main():
+    # Entry point: parse args, get/generate the trace, load the model,
+    # warm up, run the full sweep, save results, print a summary -- the
+    # complete flow for one process invocation (one APC configuration).
     from vllm import SamplingParams
 
     args = build_arg_parser().parse_args()
