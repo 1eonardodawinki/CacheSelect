@@ -168,3 +168,105 @@ def build_activation_messages(system_prompt, metric_windows, window_start_idx):
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_content},
     ]
+
+
+def generate_trace(
+    routes=None,  # accepted for signature compatibility with run_baseline.py's generic call;
+                  # "routes" here means "metrics" -- see DEFAULT_METRICS
+    num_activations=20,
+    window_size=30,
+    stride=1,
+    seed=42,
+    anomaly_activation_index=None,
+    anomaly_route=None,  # same compatibility note -- this is the anomaly metric
+    anomaly_pct_move=-0.30,
+    volatility=0.03,
+    start_prices=None,  # same compatibility note -- starting values per metric
+    price_drop_threshold_pct=15.0,
+):
+    # Pure function, same determinism guarantee as travel_planner_trace.py:
+    # identical arguments always produce byte-identical output.
+    metrics = list(routes) if routes else list(DEFAULT_METRICS)
+    if anomaly_activation_index is None:
+        anomaly_activation_index = num_activations // 2  # default: plant it roughly in the middle
+    if anomaly_route is None:
+        anomaly_route = metrics[1] if len(metrics) > 1 else metrics[0]
+    # Real FY2004 values from the FinQA filing unless the caller overrides them.
+    start_values = start_prices if start_prices else dict(REAL_2004_VALUES)
+
+    # Total pipeline-check history needed to cover every activation's window.
+    # E.g. window_size=30, stride=1, num_activations=20 -> 49 checks total,
+    # since activation 19's window is checks [19, 49).
+    num_checks = window_size + stride * (num_activations - 1)
+
+    # Convert "the anomaly should be the NEWEST check visible in activation N's
+    # window" into an absolute index into the full metric history. This is
+    # what makes ground truth unambiguous: by construction, no other
+    # activation has this check as its newest one, even though a sliding
+    # window means this check is still technically visible in several
+    # activations before and after.
+    anomaly_check_index = window_size - 1 + anomaly_activation_index * stride
+
+    system_prompt = build_system_prompt(metrics, price_drop_threshold_pct)
+
+    # Generate one full value history per metric, continuing forward from its
+    # real FY2004 starting value. Only `anomaly_route` gets the anomaly
+    # injected; the other metrics are just normal random walks.
+    metric_series = {}
+    for i, metric in enumerate(metrics):
+        is_anomaly_metric = metric == anomaly_route
+        metric_series[metric] = generate_metric_series(
+            metric=metric,
+            num_checks=num_checks,
+            start_value=start_values[metric],
+            seed=seed + i,  # different-but-deterministic seed per metric, so
+                             # metrics don't all move in lockstep
+            volatility=volatility,
+            anomaly_check_index=anomaly_check_index if is_anomaly_metric else None,
+            anomaly_pct_move=anomaly_pct_move if is_anomaly_metric else None,
+        )
+
+    # Slice out each activation's window and build its prompt + ground truth.
+    activations = []
+    for act_idx in range(num_activations):
+        window_start = act_idx * stride
+        window_end = window_start + window_size
+        metric_windows = {m: metric_series[m][window_start:window_end] for m in metrics}
+        messages = build_activation_messages(system_prompt, metric_windows, window_start)
+        # Flat string version, purely for human-readable dumps (see trace_common.py).
+        prompt = messages[0]["content"] + "\n\n" + messages[1]["content"]
+
+        # True on exactly one activation -- the one whose newest check is the
+        # planted anomaly. Every other activation should produce "STATUS: nominal".
+        expect_flag = act_idx == anomaly_activation_index
+        ground_truth = ActivationGroundTruth(
+            activation_index=act_idx,
+            expect_flag=expect_flag,
+            anomaly_entity=anomaly_route if expect_flag else None,
+            anomaly_bar_index=anomaly_check_index if expect_flag else None,
+            anomaly_magnitude=anomaly_pct_move if expect_flag else None,
+        )
+        activations.append(Activation(index=act_idx, prompt=prompt, messages=messages, ground_truth=ground_truth))
+
+    return TraceBundle(
+        agent_name="data_analyst",
+        tickers_or_entities=metrics,
+        num_activations=num_activations,
+        window_size=window_size,
+        stride=stride,
+        seed=seed,
+        anomaly_activation_index=anomaly_activation_index,
+        anomaly_entity=anomaly_route,
+        anomaly_magnitude=anomaly_pct_move,
+        # Every argument used to build this trace, saved for reproducibility
+        # -- so a saved trace file fully documents how to regenerate it.
+        generation_params=dict(
+            metrics=metrics, num_activations=num_activations, window_size=window_size,
+            stride=stride, seed=seed, anomaly_activation_index=anomaly_activation_index,
+            anomaly_metric=anomaly_route, anomaly_pct_move=anomaly_pct_move,
+            volatility=volatility, start_values=start_values,
+            change_threshold_pct=price_drop_threshold_pct,
+            finqa_source_id="AAPL/2004/page_36.pdf-2",
+        ),
+        activations=activations,
+    )
