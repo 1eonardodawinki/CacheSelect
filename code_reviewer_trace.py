@@ -1,5 +1,13 @@
 # Code Reviewer periodic-agent trace generator.
 #
+# In simple terms: this agent pretends to watch test coverage for a few
+# code files. Every time there's a new commit, it checks how well-tested
+# each file is, and if one file's coverage just dropped a lot (e.g.
+# someone deleted its tests), it sends an alert so the regression gets
+# caught early. Otherwise it just says everything looks normal. It repeats
+# this check after every commit, each time seeing a slightly updated
+# window of recent coverage history.
+#
 # Reimplements the "Code Reviewer" agent from Norgren (arXiv:2605.26289,
 # Section 4.1) -- tools: analyze_code, run_tests, check_coverage, lint_code,
 # review_pr -- restructured for periodic reactivation: instead of reviewing
