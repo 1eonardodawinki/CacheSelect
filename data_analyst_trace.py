@@ -136,3 +136,35 @@ def generate_metric_series(metric, num_checks, start_value, seed,
     if metric == "gross_margin_pct":
         values = np.clip(values, 0.0, 100.0)
     return values.tolist()
+
+
+def format_metric_window(metric, values, window_start_idx):
+    # Renders one metric's visible window of pipeline checks as plain text
+    # for the prompt, e.g. "net_sales:\n  check 5: 8,412.30$M". `window_start_idx`
+    # is added on so the check numbers shown reflect their true position in
+    # the full metric history, not just their position within this window.
+    unit = "%" if metric == "gross_margin_pct" else "$M"
+    lines = [f"{metric}:"]
+    for offset, value in enumerate(values):
+        check_idx = window_start_idx + offset
+        lines.append(f"  check {check_idx}: {value:,.2f}{unit}")
+    return "\n".join(lines)
+
+
+def build_activation_messages(system_prompt, metric_windows, window_start_idx):
+    # Assembles the two-message chat payload for one activation: the fixed
+    # system prompt (built once, reused every activation, includes the real
+    # FinQA excerpt) plus a user message listing every tracked metric's
+    # current pipeline-check window.
+    blocks = [
+        format_metric_window(metric, values, window_start_idx)
+        for metric, values in metric_windows.items()
+    ]
+    user_content = (
+        "Latest pipeline checks:\n\n" + "\n\n".join(blocks) +
+        "\n\nReview the latest check for each metric and report any threshold breaches."
+    )
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_content},
+    ]
