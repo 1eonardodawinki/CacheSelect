@@ -270,3 +270,12 @@ def generate_trace(
         ),
         activations=activations,
     )
+
+
+if __name__ == "__main__":
+    # Quick manual sanity check, same pattern as the other two agents.
+    bundle = generate_trace(num_activations=5, window_size=10, stride=1, seed=1)
+    for a in bundle.activations:
+        print(f"=== activation {a.index} (expect_flag={a.ground_truth.expect_flag}) ===")
+        print(a.prompt)
+        print()
