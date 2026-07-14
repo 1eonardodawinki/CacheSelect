@@ -3,8 +3,7 @@
 #
 # Agent-agnostic -- works against any trace generator module that exposes a
 # generate_trace(...) -> TraceBundle function using the shared dataclasses in
-# trace_common.py. Currently supports: travel_planner. code_reviewer and
-# data_analyst will be added the same way once built.
+# trace_common.py. Supports: travel_planner, code_reviewer, data_analyst.
 #
 # Requires a CUDA GPU -- this machine does not have one; run on a GPU host.
 #
