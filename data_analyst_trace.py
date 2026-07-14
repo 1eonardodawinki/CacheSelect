@@ -26,3 +26,41 @@
 import numpy as np
 
 from trace_common import Activation, ActivationGroundTruth, TraceBundle
+
+# Verbatim from FinQA dev.json, example id "AAPL/2004/page_36.pdf-2"
+# (github.com/czyssrs/FinQA, dataset/dev.json). Real filing text, not
+# generated or paraphrased.
+FINQA_PRE_TEXT = (
+    "Net sales of the retail segment grew to $1.185 billion during 2004 from "
+    "$621 million and $283 million, in 2003 and 2002, respectively. The "
+    "increases in net sales during both 2004 and 2003 reflect the impact of "
+    "new store openings for each fiscal year, including the opening of 21 "
+    "new stores in 2004 and 25 new stores in 2003. Gross margin for the "
+    "three fiscal years ended September 25, 2004 are as follows "
+    "(in millions, except gross margin percentages):"
+)
+
+FINQA_TABLE = (
+    "                          2004      2003      2002\n"
+    "net sales               $8279     $6207     $5742\n"
+    "cost of sales             6020      4499      4139\n"
+    "gross margin             $2259     $1708     $1603\n"
+    "gross margin percentage   27.3%     27.5%     27.9%"
+)
+
+FINQA_POST_TEXT = (
+    "Gross margin declined in fiscal 2004 to 27.3% of net sales from 27.5% "
+    "of net sales in 2003. The company's gross margin during fiscal 2004 "
+    "declined due to an increase in mix towards lower margin iPod and iBook "
+    "sales, pricing actions on certain Power Macintosh G5 models that were "
+    "transitioned during the beginning of 2004, higher warranty costs on "
+    "certain portable Macintosh products, and higher freight and duty costs "
+    "during fiscal 2004."
+)
+
+FINQA_REFERENCE = (
+    "--- Reference filing excerpt: Apple Inc., FY2004 10-K "
+    "(source: FinQA dataset, github.com/czyssrs/FinQA, id AAPL/2004/page_36.pdf-2) ---\n"
+    f"{FINQA_PRE_TEXT}\n\n{FINQA_TABLE}\n\n{FINQA_POST_TEXT}\n"
+    "--- end reference excerpt ---"
+)
