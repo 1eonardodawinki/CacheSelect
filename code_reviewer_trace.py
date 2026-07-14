@@ -58,3 +58,19 @@ def _inject_anomaly_return(returns, check_index, pct_move):
     out = returns.copy()
     out[check_index] = pct_move
     return out
+
+
+def generate_coverage_series(file, num_checks, start_coverage, seed,
+                              drift=0.0, volatility=0.02,
+                              anomaly_check_index=None, anomaly_pct_move=None):
+    # Same mechanism as travel_planner_trace.py's generate_price_series:
+    # seeded random walk of % changes, compounded onto the starting coverage,
+    # clamped to a valid percentage range since coverage can't go below 0%
+    # or above 100%.
+    rng = np.random.default_rng(seed)
+    returns = _draw_coverage_walk(rng, num_checks, drift, volatility)
+    if anomaly_check_index is not None and anomaly_pct_move is not None:
+        returns = _inject_anomaly_return(returns, anomaly_check_index, anomaly_pct_move)
+    coverage = start_coverage * np.cumprod(1 + returns)
+    coverage = np.clip(coverage, 0.0, 100.0)
+    return coverage.tolist()
