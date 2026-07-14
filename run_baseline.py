@@ -1,22 +1,21 @@
-"""Baseline harness: runs a periodic-agent trace against unmodified vLLM and
-measures Time-To-First-Token (TTFT) and accuracy, once per APC configuration.
-
-Agent-agnostic -- works against any trace generator module that exposes a
-generate_trace(...) -> TraceBundle function using the shared dataclasses in
-trace_common.py. Currently supports: travel_planner. code_reviewer and
-data_analyst will be added the same way once built.
-
-Requires a CUDA GPU -- this machine does not have one; run on a GPU host.
-
-Usage (two separate process runs, required since APC is fixed at engine
-construction time -- the second run reloads the exact trace the first run
-saved, guaranteeing both see byte-identical prompts):
-
-    python run_baseline.py --agent travel_planner --apc on  --tag run1 \\
-        --save-trace results/trace_run1.json
-    python run_baseline.py --agent travel_planner --apc off --tag run1 \\
-        --trace-file results/trace_run1.json
-"""
+# Baseline harness: runs a periodic-agent trace against unmodified vLLM and
+# measures Time-To-First-Token (TTFT) and accuracy, once per APC configuration.
+#
+# Agent-agnostic -- works against any trace generator module that exposes a
+# generate_trace(...) -> TraceBundle function using the shared dataclasses in
+# trace_common.py. Currently supports: travel_planner. code_reviewer and
+# data_analyst will be added the same way once built.
+#
+# Requires a CUDA GPU -- this machine does not have one; run on a GPU host.
+#
+# Usage (two separate process runs, required since APC is fixed at engine
+# construction time -- the second run reloads the exact trace the first run
+# saved, guaranteeing both see byte-identical prompts):
+#
+#     python run_baseline.py --agent travel_planner --apc on  --tag run1 \
+#         --save-trace results/trace_run1.json
+#     python run_baseline.py --agent travel_planner --apc off --tag run1 \
+#         --trace-file results/trace_run1.json
 
 import argparse
 import csv
@@ -33,11 +32,11 @@ AGENT_MODULES = {}
 
 
 def _get_agent_module(agent_name):
-    """Looks up which trace-generator module to use for a given --agent
-    value. New agents (code_reviewer, data_analyst) get added here as a new
-    elif branch once their trace generator files exist -- nothing else in
-    this file needs to change, since everything downstream only talks to
-    the shared TraceBundle/Activation shapes from trace_common.py."""
+    # Looks up which trace-generator module to use for a given --agent
+    # value. New agents (code_reviewer, data_analyst) get added here as a new
+    # elif branch once their trace generator files exist -- nothing else in
+    # this file needs to change, since everything downstream only talks to
+    # the shared TraceBundle/Activation shapes from trace_common.py.
     if agent_name not in AGENT_MODULES:
         if agent_name == "travel_planner":
             import travel_planner_trace as mod
@@ -52,8 +51,8 @@ def _get_agent_module(agent_name):
 
 @dataclasses.dataclass
 class ActivationResult:
-    """Everything we recorded for one activation's request to the model --
-    one row of the final results table."""
+    # Everything we recorded for one activation's request to the model --
+    # one row of the final results table.
 
     activation_index: int
     apc: str  # "on" or "off" -- which configuration produced this result
@@ -83,17 +82,16 @@ class ActivationResult:
 
 
 def score_response(ground_truth, text, entities):
-    """Grades one model response against its ground truth. Looks for the
-    exact "ALERT: <ENTITY>" pattern the system prompt instructed the model
-    to use -- deliberately a strict substring check, not fuzzy text
-    understanding, because the system prompt forces a rigid output format
-    specifically so this check can be simple and reliable.
-
-    Correct means: if an anomaly was planted, the model flagged EXACTLY that
-    one entity and nothing else; if nothing was planted, the model flagged
-    nothing at all. Partial credit (e.g. flagging the right entity plus an
-    extra false alarm) counts as incorrect.
-    """
+    # Grades one model response against its ground truth. Looks for the
+    # exact "ALERT: <ENTITY>" pattern the system prompt instructed the model
+    # to use -- deliberately a strict substring check, not fuzzy text
+    # understanding, because the system prompt forces a rigid output format
+    # specifically so this check can be simple and reliable.
+    #
+    # Correct means: if an anomaly was planted, the model flagged EXACTLY that
+    # one entity and nothing else; if nothing was planted, the model flagged
+    # nothing at all. Partial credit (e.g. flagging the right entity plus an
+    # extra false alarm) counts as incorrect.
     text_upper = text.upper()
     flagged = [e for e in entities if f"ALERT: {e.upper()}" in text_upper]
     if ground_truth.expect_flag:
@@ -104,10 +102,10 @@ def score_response(ground_truth, text, entities):
 
 
 def load_or_generate_trace(args) -> TraceBundle:
-    """Either reloads a previously-saved trace (--trace-file) or generates a
-    fresh one and optionally saves it (--save-trace). Reloading is how the
-    --apc off run guarantees it sees the exact same prompts the --apc on run
-    already saw -- see the module docstring's Usage example."""
+    # Either reloads a previously-saved trace (--trace-file) or generates a
+    # fresh one and optionally saves it (--save-trace). Reloading is how the
+    # --apc off run guarantees it sees the exact same prompts the --apc on run
+    # already saw -- see the module comment's Usage example at the top of this file.
     if args.trace_file:
         return load_trace(args.trace_file)
     mod = _get_agent_module(args.agent)
@@ -144,17 +142,16 @@ def build_llm(args):
 
 
 def warmup(llm, sampling_params):
-    """Fires one throwaway request before the real sweep starts, to absorb
-    any one-time first-call overhead (e.g. CUDA graph capture) so it doesn't
-    pollute activation 0's timing.
-
-    The warmup text is deliberately generic and shares no words/tokens with
-    the real system prompt. If it did, under --apc on this warmup call would
-    itself populate the prefix cache with (part of) the real system prompt
-    before activation 0 ever runs -- silently giving activation 0 a "free"
-    cache hit that would never happen in a real cold start, and making the
-    --apc on vs --apc off comparison unfair.
-    """
+    # Fires one throwaway request before the real sweep starts, to absorb
+    # any one-time first-call overhead (e.g. CUDA graph capture) so it doesn't
+    # pollute activation 0's timing.
+    #
+    # The warmup text is deliberately generic and shares no words/tokens with
+    # the real system prompt. If it did, under --apc on this warmup call would
+    # itself populate the prefix cache with (part of) the real system prompt
+    # before activation 0 ever runs -- silently giving activation 0 a "free"
+    # cache hit that would never happen in a real cold start, and making the
+    # --apc on vs --apc off comparison unfair.
     outputs = llm.chat(
         [[{"role": "user", "content": "Warm up. Reply with one word."}]],
         sampling_params,
@@ -166,18 +163,17 @@ def warmup(llm, sampling_params):
 
 
 def run_sweep(llm, tokenizer, trace: TraceBundle, sampling_params, apc_label):
-    """Runs every activation in the trace through the model, ONE AT A TIME,
-    in order -- and records the result of each.
-
-    Deliberately sequential (a Python for-loop calling llm.chat() once per
-    activation), NOT one batched llm.chat() call with all prompts at once.
-    Batching would let vLLM's scheduler interleave multiple activations'
-    prefill/decode work in the same forward pass, which could inflate or
-    deflate any individual activation's measured TTFT depending on what else
-    happens to be running alongside it -- that's not how a real periodic
-    agent behaves (it checks in once every 15 minutes, not all at once), and
-    it would make the TTFT numbers meaningless for our purposes.
-    """
+    # Runs every activation in the trace through the model, ONE AT A TIME,
+    # in order -- and records the result of each.
+    #
+    # Deliberately sequential (a Python for-loop calling llm.chat() once per
+    # activation), NOT one batched llm.chat() call with all prompts at once.
+    # Batching would let vLLM's scheduler interleave multiple activations'
+    # prefill/decode work in the same forward pass, which could inflate or
+    # deflate any individual activation's measured TTFT depending on what else
+    # happens to be running alongside it -- that's not how a real periodic
+    # agent behaves (it checks in once every 15 minutes, not all at once), and
+    # it would make the TTFT numbers meaningless for our purposes.
     results = []
     for activation in trace.activations:
         prompt_token_count = len(tokenizer.encode(activation.prompt))
@@ -204,10 +200,10 @@ def run_sweep(llm, tokenizer, trace: TraceBundle, sampling_params, apc_label):
 
 
 def save_results(results, output_dir, apc_label, tag):
-    """Writes the results table to both CSV (easy to eyeball / open in a
-    spreadsheet) and JSON (easy to reload programmatically for plotting
-    later) -- same data, two formats, filenames tagged by run name and APC
-    setting so on/off runs never overwrite each other."""
+    # Writes the results table to both CSV (easy to eyeball / open in a
+    # spreadsheet) and JSON (easy to reload programmatically for plotting
+    # later) -- same data, two formats, filenames tagged by run name and APC
+    # setting so on/off runs never overwrite each other.
     os.makedirs(output_dir, exist_ok=True)
     base = f"{tag}_apc-{apc_label}"
     csv_path = os.path.join(output_dir, base + ".csv")
@@ -226,16 +222,15 @@ def save_results(results, output_dir, apc_label, tag):
 
 
 def print_summary(results):
-    """Prints a quick human-readable summary to the terminal after a run, so
-    you don't have to open the CSV just to sanity-check that something
-    reasonable happened. The cached_tokens/prompt ratio is the single most
-    telling number here: under --apc off it should sit at ~0% for every
-    activation; under --apc on with vanilla (unmodified) vLLM, it should
-    jump up after activation 0 but then stay roughly flat regardless of how
-    much the underlying data actually overlaps -- that flatness is the
-    literal "vanilla caching doesn't handle periodic agents well" result
-    this whole baseline exists to demonstrate, before DeltaCache changes it.
-    """
+    # Prints a quick human-readable summary to the terminal after a run, so
+    # you don't have to open the CSV just to sanity-check that something
+    # reasonable happened. The cached_tokens/prompt ratio is the single most
+    # telling number here: under --apc off it should sit at ~0% for every
+    # activation; under --apc on with vanilla (unmodified) vLLM, it should
+    # jump up after activation 0 but then stay roughly flat regardless of how
+    # much the underlying data actually overlaps -- that flatness is the
+    # literal "vanilla caching doesn't handle periodic agents well" result
+    # this whole baseline exists to demonstrate, before DeltaCache changes it.
     ttfts = [r.ttft_seconds for r in results if r.ttft_seconds is not None]
     accuracy = sum(1 for r in results if r.correct) / len(results)
     cache_ratios = [

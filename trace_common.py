@@ -1,10 +1,9 @@
-"""Shared trace data structures, used by every agent-specific trace generator
-(travel_planner_trace.py, and later code_reviewer_trace.py / data_analyst_trace.py).
-
-Keeping this common lets run_baseline.py stay agent-agnostic: it only needs
-to know about TraceBundle/Activation/ActivationGroundTruth, not about
-flights, code diffs, or database queries.
-"""
+# Shared trace data structures, used by every agent-specific trace generator
+# (travel_planner_trace.py, and later code_reviewer_trace.py / data_analyst_trace.py).
+#
+# Keeping this common lets run_baseline.py stay agent-agnostic: it only needs
+# to know about TraceBundle/Activation/ActivationGroundTruth, not about
+# flights, code diffs, or database queries.
 
 import dataclasses
 import json
@@ -13,14 +12,13 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True)
 class ActivationGroundTruth:
-    """The "answer key" for one activation: what the model's response SHOULD
-    say, so run_baseline.py can automatically grade correctness instead of a
-    human reading every response.
-
-    "frozen=True" means these objects can't be edited after creation -- once
-    the ground truth for an activation is decided, nothing downstream can
-    accidentally change it.
-    """
+    # The "answer key" for one activation: what the model's response SHOULD
+    # say, so run_baseline.py can automatically grade correctness instead of a
+    # human reading every response.
+    #
+    # "frozen=True" means these objects can't be edited after creation -- once
+    # the ground truth for an activation is decided, nothing downstream can
+    # accidentally change it.
 
     activation_index: int  # which activation this belongs to (0, 1, 2, ...)
 
@@ -47,8 +45,8 @@ class ActivationGroundTruth:
 
 @dataclass(frozen=True)
 class Activation:
-    """One single "check-in" of the periodic agent -- i.e. one activation of
-    the agent, sent as one request to the model."""
+    # One single "check-in" of the periodic agent -- i.e. one activation of
+    # the agent, sent as one request to the model.
 
     index: int  # 0-based position in the trace (activation 0 is the first ever run)
 
@@ -68,8 +66,8 @@ class Activation:
 
 @dataclass(frozen=True)
 class TraceBundle:
-    """The full test: an ordered sequence of activations for one agent, plus
-    everything needed to describe/reproduce how it was generated."""
+    # The full test: an ordered sequence of activations for one agent, plus
+    # everything needed to describe/reproduce how it was generated.
 
     agent_name: str  # "travel_planner" | "code_reviewer" | "data_analyst"
 
@@ -106,19 +104,19 @@ class TraceBundle:
 
 
 def save_trace(bundle: TraceBundle, path: str) -> None:
-    """Writes a trace to a JSON file. Used so the --apc on and --apc off runs
-    can be pointed at the exact same generated trace (see run_baseline.py),
-    instead of trusting that calling generate_trace() twice produces
-    identical results."""
+    # Writes a trace to a JSON file. Used so the --apc on and --apc off runs
+    # can be pointed at the exact same generated trace (see run_baseline.py),
+    # instead of trusting that calling generate_trace() twice produces
+    # identical results.
     with open(path, "w") as f:
         json.dump(dataclasses.asdict(bundle), f, indent=2)
 
 
 def load_trace(path: str) -> TraceBundle:
-    """Reads a trace back from JSON. json.load() gives back plain dicts, not
-    our dataclasses, so this manually rebuilds the Activation and
-    ActivationGroundTruth objects from those dicts before wrapping
-    everything back into a TraceBundle."""
+    # Reads a trace back from JSON. json.load() gives back plain dicts, not
+    # our dataclasses, so this manually rebuilds the Activation and
+    # ActivationGroundTruth objects from those dicts before wrapping
+    # everything back into a TraceBundle.
     with open(path) as f:
         data = json.load(f)
     activations = [
