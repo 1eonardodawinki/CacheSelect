@@ -118,3 +118,21 @@ def _inject_anomaly_return(returns, check_index, pct_move):
     out = returns.copy()
     out[check_index] = pct_move
     return out
+
+
+def generate_metric_series(metric, num_checks, start_value, seed,
+                            drift=0.0, volatility=0.03,
+                            anomaly_check_index=None, anomaly_pct_move=None):
+    # Same mechanism as travel_planner_trace.py's generate_price_series:
+    # a seeded random walk of % changes, compounded onto the real starting
+    # value, with one position optionally overwritten as the planted anomaly.
+    rng = np.random.default_rng(seed)
+    returns = _draw_walk(rng, num_checks, drift, volatility)
+    if anomaly_check_index is not None and anomaly_pct_move is not None:
+        returns = _inject_anomaly_return(returns, anomaly_check_index, anomaly_pct_move)
+    values = start_value * np.cumprod(1 + returns)
+    # gross_margin_pct is a percentage -- clamp to a sane range so it never
+    # drifts somewhere nonsensical like negative or above 100 over many steps.
+    if metric == "gross_margin_pct":
+        values = np.clip(values, 0.0, 100.0)
+    return values.tolist()
