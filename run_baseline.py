@@ -221,6 +221,42 @@ def save_results(results, output_dir, agent, apc_label, tag):
     return csv_path, json_path
 
 
+def save_transcript(trace: TraceBundle, results, output_dir, agent, apc_label, tag):
+    # Writes one human-readable text file per (agent, tag, apc) combination
+    # containing the exact system+user prompt sent to the model and its raw
+    # output, for every activation in order -- so you can see precisely what
+    # went in and what came out without cross-referencing the trace JSON
+    # against the results CSV by activation_index yourself.
+    #
+    # Same naming convention as save_results, so it's naturally overwritten
+    # on a rerun with the same --tag (giving you "the last run") and
+    # naturally preserved across runs if you vary --tag (giving you "all
+    # runs", same as the CSV/JSON already do).
+    os.makedirs(output_dir, exist_ok=True)
+    path = os.path.join(output_dir, f"{agent}_{tag}_apc-{apc_label}_transcript.txt")
+    results_by_index = {r.activation_index: r for r in results}
+
+    with open(path, "w") as f:
+        for activation in trace.activations:
+            r = results_by_index[activation.index]
+            system_msg = next(m["content"] for m in activation.messages if m["role"] == "system")
+            user_msg = next(m["content"] for m in activation.messages if m["role"] == "user")
+            f.write("=" * 80 + "\n")
+            f.write(
+                f"Activation {activation.index} | expect_flag={r.expect_flag} "
+                f"| anomaly_entity={r.anomaly_entity} | correct={r.correct}\n"
+            )
+            f.write("=" * 80 + "\n\n")
+            f.write("--- SYSTEM PROMPT ---\n")
+            f.write(system_msg + "\n\n")
+            f.write("--- USER MESSAGE ---\n")
+            f.write(user_msg + "\n\n")
+            f.write("--- MODEL OUTPUT ---\n")
+            f.write(r.output_text + "\n\n")
+
+    return path
+
+
 def print_summary(results):
     # Prints a quick human-readable summary to the terminal after a run, so
     # you don't have to open the CSV just to sanity-check that something
@@ -310,7 +346,8 @@ def main():
     tag = "smoke" if args.smoke_test else args.tag  # smoke-test results never
                                                        # overwrite real run results
     csv_path, json_path = save_results(results, args.output_dir, args.agent, args.apc, tag)
-    print(f"Saved {csv_path} and {json_path}")
+    transcript_path = save_transcript(trace, results, args.output_dir, args.agent, args.apc, tag)
+    print(f"Saved {csv_path}, {json_path}, and {transcript_path}")
     print_summary(results)
 
     if args.smoke_test:
