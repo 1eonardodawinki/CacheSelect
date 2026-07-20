@@ -18,7 +18,7 @@
 
 import numpy as np
 
-from trace_common import Activation, ActivationGroundTruth, TraceBundle
+from harness.trace_common import Activation, ActivationGroundTruth, TraceBundle
 
 # Plausible tracked files. Arbitrary but realistic-looking, same spirit as
 # travel_planner_trace.py's DEFAULT_ROUTES.

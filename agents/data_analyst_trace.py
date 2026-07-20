@@ -34,7 +34,7 @@
 
 import numpy as np
 
-from trace_common import Activation, ActivationGroundTruth, TraceBundle
+from harness.trace_common import Activation, ActivationGroundTruth, TraceBundle
 
 # Verbatim from FinQA dev.json, example id "AAPL/2004/page_36.pdf-2"
 # (github.com/czyssrs/FinQA, dataset/dev.json). Real filing text, not

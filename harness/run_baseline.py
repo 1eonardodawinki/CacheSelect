@@ -7,13 +7,15 @@
 #
 # Requires a CUDA GPU -- this machine does not have one; run on a GPU host.
 #
-# Usage (two separate process runs, required since APC is fixed at engine
+# Usage (run as a module from the repo root, not as a bare script -- that
+# keeps the repo root on sys.path so `agents.*` and `harness.*` both resolve).
+# Two separate process runs are required since APC is fixed at engine
 # construction time -- the second run reloads the exact trace the first run
 # saved, guaranteeing both see byte-identical prompts):
 #
-#     python run_baseline.py --agent travel_planner --apc on  --tag run1 \
+#     python -m harness.run_baseline --agent travel_planner --apc on  --tag run1 \
 #         --save-trace results/trace_run1.json
-#     python run_baseline.py --agent travel_planner --apc off --tag run1 \
+#     python -m harness.run_baseline --agent travel_planner --apc off --tag run1 \
 #         --trace-file results/trace_run1.json
 
 import argparse
@@ -23,7 +25,7 @@ import json
 import os
 import statistics
 
-from trace_common import TraceBundle, load_trace, save_trace
+from harness.trace_common import TraceBundle, load_trace, save_trace
 
 # Cache of already-imported agent trace modules, so repeated calls to
 # _get_agent_module() during one run don't re-import needlessly.
