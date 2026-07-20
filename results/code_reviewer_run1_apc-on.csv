@@ -1,0 +1,35 @@
+activation_index,apc,prompt_token_count,num_cached_tokens,ttft_seconds,output_text,expect_flag,anomaly_entity,predicted_flagged_entities,correct
+0,on,2086,0,0.5068831443786621,"ALERT: src/auth.py - coverage dropped by 1.7% from the previous check
+ALERT: src/payment.py - coverage dropped by 1.7% from the previous check
+ALERT: src/api_routes.py - coverage dropped by 1.7% from the previous check",False,,"['src/auth.py', 'src/payment.py', 'src/api_routes.py']",False
+1,on,2089,224,0.4889352321624756,STATUS: nominal,False,,[],True
+2,on,2092,224,0.4800891876220703,"ALERT: src/auth.py - coverage dropped by 1.7%
+ALERT: src/payment.py - coverage dropped by 1.8%
+ALERT: src/api_routes.py - coverage dropped by 0.6%",False,,"['src/auth.py', 'src/payment.py', 'src/api_routes.py']",False
+3,on,2095,224,0.4880678653717041,STATUS: nominal,False,,[],True
+4,on,2098,224,0.4806203842163086,"ALERT: src/auth.py - coverage dropped by -0.9% from the previous check
+ALERT: src/payment.py - coverage dropped by -1.7% from the previous check
+ALERT: src/api_routes.py - coverage dropped by -0.6% from the previous check",False,,"['src/auth.py', 'src/payment.py', 'src/api_routes.py']",False
+5,on,2101,224,0.48320698738098145,STATUS: nominal,False,,[],True
+6,on,2104,224,0.4856874942779541,STATUS: nominal,False,,[],True
+7,on,2107,224,0.48234033584594727,STATUS: nominal,False,,[],True
+8,on,2110,224,0.4897313117980957,ALERT: src/auth.py - coverage dropped by 1.7% from the previous check.,False,,['src/auth.py'],False
+9,on,2113,224,0.48678064346313477,"ALERT: src/auth.py - coverage dropped by 1.7% from the previous check
+ALERT: src/payment.py - coverage dropped by 1.7% from the previous check
+ALERT: src/api_routes.py - coverage dropped by 1.7% from the previous check",False,,"['src/auth.py', 'src/payment.py', 'src/api_routes.py']",False
+10,on,2117,240,0.48430752754211426,"ALERT: src/auth.py - coverage dropped by 1.7% from the previous check
+ALERT: src/payment.py - coverage dropped by 40.0% from the previous check
+ALERT: src/api_routes.py - coverage dropped by 0.6% from the previous check",True,src/payment.py,"['src/auth.py', 'src/payment.py', 'src/api_routes.py']",False
+11,on,2117,240,0.4858400821685791,"ALERT: src/auth.py - coverage dropped by 1.7%
+ALERT: src/payment.py - coverage dropped by 0.8%
+ALERT: src/api_routes.py - coverage dropped by 0.2%",False,,"['src/auth.py', 'src/payment.py', 'src/api_routes.py']",False
+12,on,2117,240,0.4850006103515625,"ALERT: src/auth.py coverage dropped by -1.7% from the previous check
+ALERT: src/payment.py coverage dropped by -40.0% from the previous check
+ALERT: src/api_routes.py coverage dropped by -1.7% from the previous check",False,,"['src/auth.py', 'src/payment.py', 'src/api_routes.py']",False
+13,on,2117,240,0.4854111671447754,STATUS: nominal,False,,[],True
+14,on,2117,240,0.48783159255981445,STATUS: nominal,False,,[],True
+15,on,2118,240,0.48640894889831543,STATUS: nominal,False,,[],True
+16,on,2119,240,0.4877181053161621,STATUS: nominal,False,,[],True
+17,on,2120,240,0.48555707931518555,STATUS: nominal,False,,[],True
+18,on,2121,240,0.48751139640808105,STATUS: nominal,False,,[],True
+19,on,2122,240,0.48548269271850586,STATUS: nominal,False,,[],True

@@ -1,0 +1,2238 @@
+================================================================================
+Activation 0 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 0: coverage 90.5%
+  commit 1: coverage 88.7% [chg -2.1%]
+  commit 2: coverage 90.0% [chg +1.5%]
+  commit 3: coverage 91.7% [chg +1.9%]
+  commit 4: coverage 88.1% [chg -3.9%]
+  commit 5: coverage 85.8% [chg -2.6%]
+  commit 6: coverage 86.0% [chg +0.3%]
+  commit 7: coverage 85.5% [chg -0.6%]
+  commit 8: coverage 85.5% [chg -0.0%]
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+
+src/payment.py:
+  commit 0: coverage 87.4%
+  commit 1: coverage 88.6% [chg +1.4%]
+  commit 2: coverage 87.6% [chg -1.2%]
+  commit 3: coverage 86.0% [chg -1.8%]
+  commit 4: coverage 82.6% [chg -4.0%]
+  commit 5: coverage 84.2% [chg +1.9%]
+  commit 6: coverage 84.2% [chg +0.0%]
+  commit 7: coverage 84.5% [chg +0.4%]
+  commit 8: coverage 83.2% [chg -1.6%]
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+
+src/api_routes.py:
+  commit 0: coverage 86.4%
+  commit 1: coverage 86.6% [chg +0.2%]
+  commit 2: coverage 87.2% [chg +0.7%]
+  commit 3: coverage 89.2% [chg +2.3%]
+  commit 4: coverage 90.6% [chg +1.6%]
+  commit 5: coverage 91.7% [chg +1.2%]
+  commit 6: coverage 91.0% [chg -0.8%]
+  commit 7: coverage 89.1% [chg -2.0%]
+  commit 8: coverage 89.8% [chg +0.8%]
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 1.7% from the previous check
+ALERT: src/payment.py - coverage dropped by 1.7% from the previous check
+ALERT: src/api_routes.py - coverage dropped by 1.7% from the previous check
+
+================================================================================
+Activation 1 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 1: coverage 88.7%
+  commit 2: coverage 90.0% [chg +1.5%]
+  commit 3: coverage 91.7% [chg +1.9%]
+  commit 4: coverage 88.1% [chg -3.9%]
+  commit 5: coverage 85.8% [chg -2.6%]
+  commit 6: coverage 86.0% [chg +0.3%]
+  commit 7: coverage 85.5% [chg -0.6%]
+  commit 8: coverage 85.5% [chg -0.0%]
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+
+src/payment.py:
+  commit 1: coverage 88.6%
+  commit 2: coverage 87.6% [chg -1.2%]
+  commit 3: coverage 86.0% [chg -1.8%]
+  commit 4: coverage 82.6% [chg -4.0%]
+  commit 5: coverage 84.2% [chg +1.9%]
+  commit 6: coverage 84.2% [chg +0.0%]
+  commit 7: coverage 84.5% [chg +0.4%]
+  commit 8: coverage 83.2% [chg -1.6%]
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+
+src/api_routes.py:
+  commit 1: coverage 86.6%
+  commit 2: coverage 87.2% [chg +0.7%]
+  commit 3: coverage 89.2% [chg +2.3%]
+  commit 4: coverage 90.6% [chg +1.6%]
+  commit 5: coverage 91.7% [chg +1.2%]
+  commit 6: coverage 91.0% [chg -0.8%]
+  commit 7: coverage 89.1% [chg -2.0%]
+  commit 8: coverage 89.8% [chg +0.8%]
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by -3.9% from the previous check
+ALERT: src/payment.py - coverage dropped by -4.2% from the previous check
+ALERT: src/api_routes.py - coverage dropped by -3.4% from the previous check
+
+================================================================================
+Activation 2 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 2: coverage 90.0%
+  commit 3: coverage 91.7% [chg +1.9%]
+  commit 4: coverage 88.1% [chg -3.9%]
+  commit 5: coverage 85.8% [chg -2.6%]
+  commit 6: coverage 86.0% [chg +0.3%]
+  commit 7: coverage 85.5% [chg -0.6%]
+  commit 8: coverage 85.5% [chg -0.0%]
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+
+src/payment.py:
+  commit 2: coverage 87.6%
+  commit 3: coverage 86.0% [chg -1.8%]
+  commit 4: coverage 82.6% [chg -4.0%]
+  commit 5: coverage 84.2% [chg +1.9%]
+  commit 6: coverage 84.2% [chg +0.0%]
+  commit 7: coverage 84.5% [chg +0.4%]
+  commit 8: coverage 83.2% [chg -1.6%]
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+
+src/api_routes.py:
+  commit 2: coverage 87.2%
+  commit 3: coverage 89.2% [chg +2.3%]
+  commit 4: coverage 90.6% [chg +1.6%]
+  commit 5: coverage 91.7% [chg +1.2%]
+  commit 6: coverage 91.0% [chg -0.8%]
+  commit 7: coverage 89.1% [chg -2.0%]
+  commit 8: coverage 89.8% [chg +0.8%]
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 1.7%
+ALERT: src/payment.py - coverage dropped by 1.8%
+ALERT: src/api_routes.py - coverage dropped by 0.6%
+
+================================================================================
+Activation 3 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 3: coverage 91.7%
+  commit 4: coverage 88.1% [chg -3.9%]
+  commit 5: coverage 85.8% [chg -2.6%]
+  commit 6: coverage 86.0% [chg +0.3%]
+  commit 7: coverage 85.5% [chg -0.6%]
+  commit 8: coverage 85.5% [chg -0.0%]
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+
+src/payment.py:
+  commit 3: coverage 86.0%
+  commit 4: coverage 82.6% [chg -4.0%]
+  commit 5: coverage 84.2% [chg +1.9%]
+  commit 6: coverage 84.2% [chg +0.0%]
+  commit 7: coverage 84.5% [chg +0.4%]
+  commit 8: coverage 83.2% [chg -1.6%]
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+
+src/api_routes.py:
+  commit 3: coverage 89.2%
+  commit 4: coverage 90.6% [chg +1.6%]
+  commit 5: coverage 91.7% [chg +1.2%]
+  commit 6: coverage 91.0% [chg -0.8%]
+  commit 7: coverage 89.1% [chg -2.0%]
+  commit 8: coverage 89.8% [chg +0.8%]
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 1.7%
+ALERT: src/payment.py - coverage dropped by 1.7%
+ALERT: src/api_routes.py - coverage dropped by 0.2%
+
+================================================================================
+Activation 4 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 4: coverage 88.1%
+  commit 5: coverage 85.8% [chg -2.6%]
+  commit 6: coverage 86.0% [chg +0.3%]
+  commit 7: coverage 85.5% [chg -0.6%]
+  commit 8: coverage 85.5% [chg -0.0%]
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+
+src/payment.py:
+  commit 4: coverage 82.6%
+  commit 5: coverage 84.2% [chg +1.9%]
+  commit 6: coverage 84.2% [chg +0.0%]
+  commit 7: coverage 84.5% [chg +0.4%]
+  commit 8: coverage 83.2% [chg -1.6%]
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+
+src/api_routes.py:
+  commit 4: coverage 90.6%
+  commit 5: coverage 91.7% [chg +1.2%]
+  commit 6: coverage 91.0% [chg -0.8%]
+  commit 7: coverage 89.1% [chg -2.0%]
+  commit 8: coverage 89.8% [chg +0.8%]
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 0.9% from the previous check
+ALERT: src/payment.py - coverage dropped by 1.7% from the previous check
+ALERT: src/api_routes.py - coverage dropped by 0.6% from the previous check
+
+================================================================================
+Activation 5 | expect_flag=False | anomaly_entity=None | correct=True
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 5: coverage 85.8%
+  commit 6: coverage 86.0% [chg +0.3%]
+  commit 7: coverage 85.5% [chg -0.6%]
+  commit 8: coverage 85.5% [chg -0.0%]
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+
+src/payment.py:
+  commit 5: coverage 84.2%
+  commit 6: coverage 84.2% [chg +0.0%]
+  commit 7: coverage 84.5% [chg +0.4%]
+  commit 8: coverage 83.2% [chg -1.6%]
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+
+src/api_routes.py:
+  commit 5: coverage 91.7%
+  commit 6: coverage 91.0% [chg -0.8%]
+  commit 7: coverage 89.1% [chg -2.0%]
+  commit 8: coverage 89.8% [chg +0.8%]
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+STATUS: nominal
+
+================================================================================
+Activation 6 | expect_flag=False | anomaly_entity=None | correct=True
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 6: coverage 86.0%
+  commit 7: coverage 85.5% [chg -0.6%]
+  commit 8: coverage 85.5% [chg -0.0%]
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+
+src/payment.py:
+  commit 6: coverage 84.2%
+  commit 7: coverage 84.5% [chg +0.4%]
+  commit 8: coverage 83.2% [chg -1.6%]
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+
+src/api_routes.py:
+  commit 6: coverage 91.0%
+  commit 7: coverage 89.1% [chg -2.0%]
+  commit 8: coverage 89.8% [chg +0.8%]
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+STATUS: nominal
+
+================================================================================
+Activation 7 | expect_flag=False | anomaly_entity=None | correct=True
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 7: coverage 85.5%
+  commit 8: coverage 85.5% [chg -0.0%]
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+
+src/payment.py:
+  commit 7: coverage 84.5%
+  commit 8: coverage 83.2% [chg -1.6%]
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+
+src/api_routes.py:
+  commit 7: coverage 89.1%
+  commit 8: coverage 89.8% [chg +0.8%]
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+STATUS: nominal
+
+================================================================================
+Activation 8 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 8: coverage 85.5%
+  commit 9: coverage 84.0% [chg -1.7%]
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+
+src/payment.py:
+  commit 8: coverage 83.2%
+  commit 9: coverage 85.3% [chg +2.5%]
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+
+src/api_routes.py:
+  commit 8: coverage 89.8%
+  commit 9: coverage 88.9% [chg -1.0%]
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 1.7% from the previous check.
+
+================================================================================
+Activation 9 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 9: coverage 84.0%
+  commit 10: coverage 85.5% [chg +1.8%]
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+
+src/payment.py:
+  commit 9: coverage 85.3%
+  commit 10: coverage 86.9% [chg +1.9%]
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+
+src/api_routes.py:
+  commit 9: coverage 88.9%
+  commit 10: coverage 90.3% [chg +1.7%]
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 1.7% from the previous check.
+
+================================================================================
+Activation 10 | expect_flag=True | anomaly_entity=src/payment.py | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 10: coverage 85.5%
+  commit 11: coverage 86.8% [chg +1.6%]
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+
+src/payment.py:
+  commit 10: coverage 86.9%
+  commit 11: coverage 86.6% [chg -0.2%]
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+
+src/api_routes.py:
+  commit 10: coverage 90.3%
+  commit 11: coverage 90.7% [chg +0.4%]
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 1.7%
+ALERT: src/payment.py - coverage dropped by 40.0%
+ALERT: src/api_routes.py - coverage dropped by 0.6%
+
+================================================================================
+Activation 11 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 11: coverage 86.8%
+  commit 12: coverage 86.9% [chg +0.1%]
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+
+src/payment.py:
+  commit 11: coverage 86.6%
+  commit 12: coverage 85.7% [chg -1.1%]
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+
+src/api_routes.py:
+  commit 11: coverage 90.7%
+  commit 12: coverage 89.4% [chg -1.5%]
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 1.7%
+ALERT: src/payment.py - coverage dropped by 0.8%
+ALERT: src/api_routes.py - coverage dropped by 0.2%
+
+================================================================================
+Activation 12 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 12: coverage 86.9%
+  commit 13: coverage 88.9% [chg +2.3%]
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+  commit 41: coverage 94.7% [chg +1.1%]
+
+src/payment.py:
+  commit 12: coverage 85.7%
+  commit 13: coverage 85.1% [chg -0.7%]
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+  commit 41: coverage 42.8% [chg -1.6%]
+
+src/api_routes.py:
+  commit 12: coverage 89.4%
+  commit 13: coverage 89.9% [chg +0.5%]
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+  commit 41: coverage 97.9% [chg -1.7%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by 1.7%
+ALERT: src/payment.py - coverage dropped by 0.8%
+ALERT: src/api_routes.py - coverage dropped by 1.3%
+
+================================================================================
+Activation 13 | expect_flag=False | anomaly_entity=None | correct=True
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 13: coverage 88.9%
+  commit 14: coverage 89.7% [chg +0.9%]
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+  commit 41: coverage 94.7% [chg +1.1%]
+  commit 42: coverage 93.4% [chg -1.3%]
+
+src/payment.py:
+  commit 13: coverage 85.1%
+  commit 14: coverage 83.7% [chg -1.6%]
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+  commit 41: coverage 42.8% [chg -1.6%]
+  commit 42: coverage 43.5% [chg +1.7%]
+
+src/api_routes.py:
+  commit 13: coverage 89.9%
+  commit 14: coverage 91.1% [chg +1.4%]
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+  commit 41: coverage 97.9% [chg -1.7%]
+  commit 42: coverage 98.9% [chg +1.0%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+STATUS: nominal
+
+================================================================================
+Activation 14 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 14: coverage 89.7%
+  commit 15: coverage 88.2% [chg -1.7%]
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+  commit 41: coverage 94.7% [chg +1.1%]
+  commit 42: coverage 93.4% [chg -1.3%]
+  commit 43: coverage 93.9% [chg +0.5%]
+
+src/payment.py:
+  commit 14: coverage 83.7%
+  commit 15: coverage 83.8% [chg +0.1%]
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+  commit 41: coverage 42.8% [chg -1.6%]
+  commit 42: coverage 43.5% [chg +1.7%]
+  commit 43: coverage 42.7% [chg -1.8%]
+
+src/api_routes.py:
+  commit 14: coverage 91.1%
+  commit 15: coverage 91.5% [chg +0.4%]
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+  commit 41: coverage 97.9% [chg -1.7%]
+  commit 42: coverage 98.9% [chg +1.0%]
+  commit 43: coverage 99.0% [chg +0.1%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by -1.4%
+ALERT: src/payment.py - coverage dropped by -1.3%
+
+================================================================================
+Activation 15 | expect_flag=False | anomaly_entity=None | correct=True
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 15: coverage 88.2%
+  commit 16: coverage 88.8% [chg +0.7%]
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+  commit 41: coverage 94.7% [chg +1.1%]
+  commit 42: coverage 93.4% [chg -1.3%]
+  commit 43: coverage 93.9% [chg +0.5%]
+  commit 44: coverage 94.1% [chg +0.2%]
+
+src/payment.py:
+  commit 15: coverage 83.8%
+  commit 16: coverage 82.7% [chg -1.2%]
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+  commit 41: coverage 42.8% [chg -1.6%]
+  commit 42: coverage 43.5% [chg +1.7%]
+  commit 43: coverage 42.7% [chg -1.8%]
+  commit 44: coverage 41.7% [chg -2.4%]
+
+src/api_routes.py:
+  commit 15: coverage 91.5%
+  commit 16: coverage 90.0% [chg -1.6%]
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+  commit 41: coverage 97.9% [chg -1.7%]
+  commit 42: coverage 98.9% [chg +1.0%]
+  commit 43: coverage 99.0% [chg +0.1%]
+  commit 44: coverage 100.0% [chg +1.0%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+STATUS: nominal
+
+================================================================================
+Activation 16 | expect_flag=False | anomaly_entity=None | correct=True
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 16: coverage 88.8%
+  commit 17: coverage 87.1% [chg -1.9%]
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+  commit 41: coverage 94.7% [chg +1.1%]
+  commit 42: coverage 93.4% [chg -1.3%]
+  commit 43: coverage 93.9% [chg +0.5%]
+  commit 44: coverage 94.1% [chg +0.2%]
+  commit 45: coverage 94.5% [chg +0.4%]
+
+src/payment.py:
+  commit 16: coverage 82.7%
+  commit 17: coverage 83.7% [chg +1.2%]
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+  commit 41: coverage 42.8% [chg -1.6%]
+  commit 42: coverage 43.5% [chg +1.7%]
+  commit 43: coverage 42.7% [chg -1.8%]
+  commit 44: coverage 41.7% [chg -2.4%]
+  commit 45: coverage 42.9% [chg +2.8%]
+
+src/api_routes.py:
+  commit 16: coverage 90.0%
+  commit 17: coverage 90.5% [chg +0.5%]
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+  commit 41: coverage 97.9% [chg -1.7%]
+  commit 42: coverage 98.9% [chg +1.0%]
+  commit 43: coverage 99.0% [chg +0.1%]
+  commit 44: coverage 100.0% [chg +1.0%]
+  commit 45: coverage 100.0% [chg +0.0%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+STATUS: nominal
+
+================================================================================
+Activation 17 | expect_flag=False | anomaly_entity=None | correct=True
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 17: coverage 87.1%
+  commit 18: coverage 88.7% [chg +1.8%]
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+  commit 41: coverage 94.7% [chg +1.1%]
+  commit 42: coverage 93.4% [chg -1.3%]
+  commit 43: coverage 93.9% [chg +0.5%]
+  commit 44: coverage 94.1% [chg +0.2%]
+  commit 45: coverage 94.5% [chg +0.4%]
+  commit 46: coverage 96.1% [chg +1.7%]
+
+src/payment.py:
+  commit 17: coverage 83.7%
+  commit 18: coverage 83.1% [chg -0.7%]
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+  commit 41: coverage 42.8% [chg -1.6%]
+  commit 42: coverage 43.5% [chg +1.7%]
+  commit 43: coverage 42.7% [chg -1.8%]
+  commit 44: coverage 41.7% [chg -2.4%]
+  commit 45: coverage 42.9% [chg +2.8%]
+  commit 46: coverage 43.0% [chg +0.4%]
+
+src/api_routes.py:
+  commit 17: coverage 90.5%
+  commit 18: coverage 91.1% [chg +0.7%]
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+  commit 41: coverage 97.9% [chg -1.7%]
+  commit 42: coverage 98.9% [chg +1.0%]
+  commit 43: coverage 99.0% [chg +0.1%]
+  commit 44: coverage 100.0% [chg +1.0%]
+  commit 45: coverage 100.0% [chg +0.0%]
+  commit 46: coverage 100.0% [chg +0.0%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+STATUS: nominal
+
+================================================================================
+Activation 18 | expect_flag=False | anomaly_entity=None | correct=False
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 18: coverage 88.7%
+  commit 19: coverage 88.6% [chg -0.1%]
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+  commit 41: coverage 94.7% [chg +1.1%]
+  commit 42: coverage 93.4% [chg -1.3%]
+  commit 43: coverage 93.9% [chg +0.5%]
+  commit 44: coverage 94.1% [chg +0.2%]
+  commit 45: coverage 94.5% [chg +0.4%]
+  commit 46: coverage 96.1% [chg +1.7%]
+  commit 47: coverage 96.6% [chg +0.4%]
+
+src/payment.py:
+  commit 18: coverage 83.1%
+  commit 19: coverage 82.5% [chg -0.7%]
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+  commit 41: coverage 42.8% [chg -1.6%]
+  commit 42: coverage 43.5% [chg +1.7%]
+  commit 43: coverage 42.7% [chg -1.8%]
+  commit 44: coverage 41.7% [chg -2.4%]
+  commit 45: coverage 42.9% [chg +2.8%]
+  commit 46: coverage 43.0% [chg +0.4%]
+  commit 47: coverage 43.4% [chg +0.9%]
+
+src/api_routes.py:
+  commit 18: coverage 91.1%
+  commit 19: coverage 92.6% [chg +1.6%]
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+  commit 41: coverage 97.9% [chg -1.7%]
+  commit 42: coverage 98.9% [chg +1.0%]
+  commit 43: coverage 99.0% [chg +0.1%]
+  commit 44: coverage 100.0% [chg +1.0%]
+  commit 45: coverage 100.0% [chg +0.0%]
+  commit 46: coverage 100.0% [chg +0.0%]
+  commit 47: coverage 100.0% [chg +0.0%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+ALERT: src/auth.py - coverage dropped by -1.4%
+ALERT: src/payment.py - coverage dropped by -1.8%
+
+================================================================================
+Activation 19 | expect_flag=False | anomaly_entity=None | correct=True
+================================================================================
+
+--- SYSTEM PROMPT ---
+You are a code review agent. You track test coverage for a set of files (src/auth.py, src/payment.py, src/api_routes.py) and alert when a tracked file's coverage drops significantly, so a regression can be caught before it ships. Tools: analyze_code(file), run_tests(file), check_coverage(file), lint_code(file), review_pr(pr_id). Each line below shows a coverage check and, in brackets, 'chg' -- the percentage change from that check to the one immediately before it. The 'chg' value is already computed for you; do not recompute it, and do not compare coverage numbers to each other yourself. Look ONLY at the 'chg' value on each file's LAST (most recent) line -- ignore every other line and every other number in this prompt. If a file's latest 'chg' is more negative than -15% (i.e. coverage dropped by more than that amount), output exactly one line: ALERT: <FILE> <reason>. If no file's latest 'chg' qualifies, output exactly: STATUS: nominal.
+
+--- USER MESSAGE ---
+Latest coverage checks:
+
+src/auth.py:
+  commit 19: coverage 88.6%
+  commit 20: coverage 88.2% [chg -0.4%]
+  commit 21: coverage 87.0% [chg -1.4%]
+  commit 22: coverage 89.2% [chg +2.4%]
+  commit 23: coverage 88.9% [chg -0.3%]
+  commit 24: coverage 88.1% [chg -0.9%]
+  commit 25: coverage 87.5% [chg -0.7%]
+  commit 26: coverage 88.4% [chg +1.1%]
+  commit 27: coverage 89.1% [chg +0.7%]
+  commit 28: coverage 89.8% [chg +0.8%]
+  commit 29: coverage 90.6% [chg +0.9%]
+  commit 30: coverage 94.5% [chg +4.3%]
+  commit 31: coverage 93.7% [chg -0.8%]
+  commit 32: coverage 92.7% [chg -1.0%]
+  commit 33: coverage 91.2% [chg -1.6%]
+  commit 34: coverage 92.4% [chg +1.2%]
+  commit 35: coverage 94.4% [chg +2.3%]
+  commit 36: coverage 94.2% [chg -0.2%]
+  commit 37: coverage 92.6% [chg -1.7%]
+  commit 38: coverage 91.1% [chg -1.6%]
+  commit 39: coverage 92.3% [chg +1.3%]
+  commit 40: coverage 93.7% [chg +1.5%]
+  commit 41: coverage 94.7% [chg +1.1%]
+  commit 42: coverage 93.4% [chg -1.3%]
+  commit 43: coverage 93.9% [chg +0.5%]
+  commit 44: coverage 94.1% [chg +0.2%]
+  commit 45: coverage 94.5% [chg +0.4%]
+  commit 46: coverage 96.1% [chg +1.7%]
+  commit 47: coverage 96.6% [chg +0.4%]
+  commit 48: coverage 97.9% [chg +1.4%]
+
+src/payment.py:
+  commit 19: coverage 82.5%
+  commit 20: coverage 85.0% [chg +3.1%]
+  commit 21: coverage 83.8% [chg -1.5%]
+  commit 22: coverage 81.2% [chg -3.1%]
+  commit 23: coverage 81.8% [chg +0.7%]
+  commit 24: coverage 78.4% [chg -4.2%]
+  commit 25: coverage 78.8% [chg +0.5%]
+  commit 26: coverage 80.3% [chg +2.0%]
+  commit 27: coverage 80.5% [chg +0.1%]
+  commit 28: coverage 80.5% [chg +0.0%]
+  commit 29: coverage 77.2% [chg -4.1%]
+  commit 30: coverage 78.0% [chg +1.1%]
+  commit 31: coverage 78.6% [chg +0.8%]
+  commit 32: coverage 76.8% [chg -2.3%]
+  commit 33: coverage 79.7% [chg +3.8%]
+  commit 34: coverage 77.8% [chg -2.4%]
+  commit 35: coverage 75.2% [chg -3.4%]
+  commit 36: coverage 72.4% [chg -3.6%]
+  commit 37: coverage 72.5% [chg +0.1%]
+  commit 38: coverage 73.0% [chg +0.7%]
+  commit 39: coverage 43.8% [chg -40.0%]
+  commit 40: coverage 43.5% [chg -0.7%]
+  commit 41: coverage 42.8% [chg -1.6%]
+  commit 42: coverage 43.5% [chg +1.7%]
+  commit 43: coverage 42.7% [chg -1.8%]
+  commit 44: coverage 41.7% [chg -2.4%]
+  commit 45: coverage 42.9% [chg +2.8%]
+  commit 46: coverage 43.0% [chg +0.4%]
+  commit 47: coverage 43.4% [chg +0.9%]
+  commit 48: coverage 44.0% [chg +1.3%]
+
+src/api_routes.py:
+  commit 19: coverage 92.6%
+  commit 20: coverage 94.0% [chg +1.4%]
+  commit 21: coverage 92.3% [chg -1.8%]
+  commit 22: coverage 91.4% [chg -1.0%]
+  commit 23: coverage 92.5% [chg +1.2%]
+  commit 24: coverage 89.3% [chg -3.4%]
+  commit 25: coverage 90.7% [chg +1.6%]
+  commit 26: coverage 89.2% [chg -1.7%]
+  commit 27: coverage 88.4% [chg -0.8%]
+  commit 28: coverage 91.0% [chg +2.9%]
+  commit 29: coverage 90.9% [chg -0.1%]
+  commit 30: coverage 90.3% [chg -0.6%]
+  commit 31: coverage 90.8% [chg +0.6%]
+  commit 32: coverage 90.7% [chg -0.2%]
+  commit 33: coverage 89.5% [chg -1.3%]
+  commit 34: coverage 90.0% [chg +0.5%]
+  commit 35: coverage 93.8% [chg +4.3%]
+  commit 36: coverage 95.5% [chg +1.8%]
+  commit 37: coverage 96.4% [chg +0.9%]
+  commit 38: coverage 96.9% [chg +0.5%]
+  commit 39: coverage 98.4% [chg +1.6%]
+  commit 40: coverage 99.6% [chg +1.2%]
+  commit 41: coverage 97.9% [chg -1.7%]
+  commit 42: coverage 98.9% [chg +1.0%]
+  commit 43: coverage 99.0% [chg +0.1%]
+  commit 44: coverage 100.0% [chg +1.0%]
+  commit 45: coverage 100.0% [chg +0.0%]
+  commit 46: coverage 100.0% [chg +0.0%]
+  commit 47: coverage 100.0% [chg +0.0%]
+  commit 48: coverage 100.0% [chg +0.0%]
+
+Review the latest check for each file and report any threshold breaches.
+
+--- MODEL OUTPUT ---
+STATUS: nominal
+
