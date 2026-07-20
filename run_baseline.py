@@ -198,13 +198,14 @@ def run_sweep(llm, tokenizer, trace: TraceBundle, sampling_params, apc_label):
     return results
 
 
-def save_results(results, output_dir, apc_label, tag):
+def save_results(results, output_dir, agent, apc_label, tag):
     # Writes the results table to both CSV (easy to eyeball / open in a
     # spreadsheet) and JSON (easy to reload programmatically for plotting
-    # later) -- same data, two formats, filenames tagged by run name and APC
-    # setting so on/off runs never overwrite each other.
+    # later) -- same data, two formats, filenames tagged by agent, run name,
+    # and APC setting, so runs for different agents (or on/off pairs) never
+    # overwrite each other even if --tag is reused across agents.
     os.makedirs(output_dir, exist_ok=True)
-    base = f"{tag}_apc-{apc_label}"
+    base = f"{agent}_{tag}_apc-{apc_label}"
     csv_path = os.path.join(output_dir, base + ".csv")
     json_path = os.path.join(output_dir, base + ".json")
 
@@ -308,7 +309,7 @@ def main():
 
     tag = "smoke" if args.smoke_test else args.tag  # smoke-test results never
                                                        # overwrite real run results
-    csv_path, json_path = save_results(results, args.output_dir, args.apc, tag)
+    csv_path, json_path = save_results(results, args.output_dir, args.agent, args.apc, tag)
     print(f"Saved {csv_path} and {json_path}")
     print_summary(results)
 
