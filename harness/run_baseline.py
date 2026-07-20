@@ -24,6 +24,7 @@ import dataclasses
 import json
 import os
 import statistics
+import textwrap
 
 from harness.trace_common import TraceBundle, load_trace, save_trace
 
@@ -250,7 +251,11 @@ def save_transcript(trace: TraceBundle, results, output_dir, agent, apc_label, t
             )
             f.write("=" * 80 + "\n\n")
             f.write("--- SYSTEM PROMPT ---\n")
-            f.write(system_msg + "\n\n")
+            # build_system_prompt() returns one unbroken paragraph -- the
+            # actual model input, which must stay byte-identical for the
+            # caching measurement. Wrapping only here, for readability, never
+            # touches that string; it's applied purely on the way to disk.
+            f.write(textwrap.fill(system_msg, width=100) + "\n\n")
             f.write("--- USER MESSAGE ---\n")
             f.write(user_msg + "\n\n")
             f.write("--- MODEL OUTPUT ---\n")
