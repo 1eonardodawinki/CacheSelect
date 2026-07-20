@@ -45,16 +45,26 @@ def build_system_prompt(files, coverage_drop_threshold_pct=15.0):
     # arithmetic in Python and handing the model a single number to
     # threshold-check removes both failure modes at the source.
     #
-    # That fix alone still left accuracy low, for two further reasons:
-    # (1) the model was alerting on any chg at all,
-    # regardless of whether it actually crossed the threshold -- a concrete
-    # worked example (a value that qualifies vs. one that doesn't) was added
-    # to make the magnitude comparison explicit rather than implicit; (2) the
-    # model was sometimes reacting to a large chg value elsewhere in a file's
-    # window (e.g. an anomaly still visible from several activations ago,
-    # not yet aged out of the sliding window) rather than only the newest
-    # line -- format_coverage_window now tags that line "[LATEST]" so the
-    # correct line is unambiguous by position AND by an explicit marker.
+    # That fix alone still left accuracy low, for two further reasons: (1)
+    # the model was alerting on any chg at all, regardless of whether it
+    # actually crossed the threshold; (2) the model was sometimes reacting
+    # to a large chg value elsewhere in a file's window (e.g. an anomaly
+    # still visible from several activations ago, not yet aged out of the
+    # sliding window) rather than only the newest line.
+    #
+    # First attempt at fixing (1) added a worked example ("a chg of -6.0%
+    # does NOT qualify... a chg of -15.2% DOES qualify") directly in the
+    # instructions -- this made accuracy WORSE (dropped to 0%), because the
+    # model started echoing the example's own numbers back as if they were
+    # the observed reading (e.g. output literally saying "threshold
+    # breached by -6.0%" -- the exact number the example said should NOT
+    # qualify). Putting concrete numbers in a small model's instructions
+    # risks the model anchoring on those numbers as trigger patterns rather
+    # than generalizing the comparison rule -- removed entirely below.
+    #
+    # (2) is addressed by format_coverage_window tagging the newest line
+    # "[LATEST]" so the correct line is unambiguous by an explicit marker,
+    # not just position.
     files_str = ", ".join(files)
     return (
         "You are a code review agent. You track test coverage for a set of "
@@ -72,12 +82,9 @@ def build_system_prompt(files, coverage_drop_threshold_pct=15.0):
         "chg. An earlier large chg that has aged out of the latest check "
         "does not matter anymore. "
         f"A file qualifies for an alert ONLY if its LATEST chg is more "
-        f"negative than -{coverage_drop_threshold_pct:.0f}%. For example, if the threshold is "
-        f"-{coverage_drop_threshold_pct:.0f}%: a LATEST chg of -6.0% does NOT qualify (too small in "
-        f"magnitude, do not alert on it); a LATEST chg of -{coverage_drop_threshold_pct:.0f}.2% DOES qualify. "
-        "If any file's LATEST chg qualifies, output exactly one line: "
-        "ALERT: <FILE> <reason>. If no file's LATEST chg qualifies, output "
-        "exactly: STATUS: nominal."
+        f"negative than -{coverage_drop_threshold_pct:.0f}%. If any file's LATEST chg qualifies, "
+        "output exactly one line: ALERT: <FILE> <reason>. If no file's "
+        "LATEST chg qualifies, output exactly: STATUS: nominal."
     )
 
 
