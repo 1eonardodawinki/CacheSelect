@@ -95,6 +95,15 @@ def build_system_prompt(metrics, change_threshold_pct=15.0):
     # caching), plus the embedded real FinQA reference filing. Ends with a
     # strict, rigid output format ("ALERT: ..." / "STATUS: nominal") so
     # scoring in run_baseline.py can just check for an exact substring.
+    #
+    # Points the model at a precomputed "chg" figure (see format_metric_window)
+    # instead of asking it to subtract values itself, and explicitly tells it
+    # to ignore the FinQA reference numbers when deciding -- a 1.5B model was
+    # observed comparing the current metric value against unrelated
+    # historical percentages from the reference filing (e.g. "29.95% is below
+    # the 27.9% threshold", where 27.9% is FY2002's gross margin %, not a
+    # threshold at all) instead of computing the actual check-over-check
+    # change.
     metrics_str = ", ".join(metrics)
     return (
         "You are a financial data analyst monitoring Apple Inc.'s key "
@@ -103,12 +112,21 @@ def build_system_prompt(metrics, change_threshold_pct=15.0):
         "recomputes each metric from updated data feeds and alert when a "
         f"tracked metric moves sharply. {TOOLS_DESCRIPTION}\n\n"
         f"{FINQA_REFERENCE}\n\n"
-        "Assess risk using only the most recent pipeline check for each "
-        "metric, compared to the check before it -- do not consider older "
-        "history. "
-        f"If any metric's latest value has moved by more than {change_threshold_pct:.0f}% "
-        "since the prior check, output exactly one line: "
-        "ALERT: <METRIC> <reason>. If no metric qualifies, output exactly: STATUS: nominal."
+        "The filing above is background context only -- it has no bearing "
+        "on the alert decision. Never compare a pipeline check's value "
+        "against any number in the filing. "
+        "Each pipeline check below shows a value and, in brackets, 'chg' -- "
+        "the percentage change from that check to the one immediately "
+        "before it. The 'chg' value is already computed for you; do not "
+        "recompute it, and do not compare pipeline values to each other or "
+        "to the filing yourself. "
+        "Look ONLY at the 'chg' value on each metric's LAST (most recent) "
+        "line -- ignore every other line and every other number in this "
+        "prompt, including the filing. "
+        f"If a metric's latest 'chg' exceeds {change_threshold_pct:.0f}% in magnitude "
+        "(either direction), output exactly one line: "
+        "ALERT: <METRIC> <reason>. If no metric's latest 'chg' qualifies, "
+        "output exactly: STATUS: nominal."
     )
 
 
@@ -149,14 +167,26 @@ def generate_metric_series(metric, num_checks, start_value, seed,
 
 def format_metric_window(metric, values, window_start_idx):
     # Renders one metric's visible window of pipeline checks as plain text
-    # for the prompt, e.g. "net_sales:\n  check 5: 8,412.30$M". `window_start_idx`
-    # is added on so the check numbers shown reflect their true position in
-    # the full metric history, not just their position within this window.
+    # for the prompt, e.g. "net_sales:\n  check 5: 8,412.30$M [chg +1.2%]".
+    # `window_start_idx` is added on so the check numbers shown reflect their
+    # true position in the full metric history, not just their position
+    # within this window.
+    #
+    # 'chg' is the check-over-check percentage change, computed here rather
+    # than left for the model to derive -- see build_system_prompt for why.
+    # The first entry in a window has no visible predecessor to diff against,
+    # so it's shown without a chg tag (the model never needs it: only the
+    # LAST entry's chg matters for the alert decision).
     unit = "%" if metric == "gross_margin_pct" else "$M"
     lines = [f"{metric}:"]
     for offset, value in enumerate(values):
         check_idx = window_start_idx + offset
-        lines.append(f"  check {check_idx}: {value:,.2f}{unit}")
+        if offset == 0:
+            lines.append(f"  check {check_idx}: {value:,.2f}{unit}")
+        else:
+            prev = values[offset - 1]
+            chg_pct = (value - prev) / prev * 100.0
+            lines.append(f"  check {check_idx}: {value:,.2f}{unit} [chg {chg_pct:+.1f}%]")
     return "\n".join(lines)
 
 

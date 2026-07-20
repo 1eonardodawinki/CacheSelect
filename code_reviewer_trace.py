@@ -36,18 +36,32 @@ def build_system_prompt(files, coverage_drop_threshold_pct=15.0):
     # caching -- it never changes). Ends with a strict, rigid output format
     # ("ALERT: ..." / "STATUS: nominal") so scoring in run_baseline.py can
     # just check for an exact substring instead of parsing free-form prose.
+    #
+    # Points the model at a precomputed "chg" figure (see format_coverage_window)
+    # instead of asking it to subtract percentages itself -- a 1.5B model was
+    # observed alerting on any nonzero drop regardless of the threshold, and
+    # separately confusing the tracked coverage % with unrelated numbers,
+    # rather than computing the actual check-over-check change. Doing the
+    # arithmetic in Python and handing the model a single number to
+    # threshold-check removes both failure modes at the source.
     files_str = ", ".join(files)
     return (
         "You are a code review agent. You track test coverage for a set of "
         f"files ({files_str}) and alert when a tracked file's coverage "
         "drops significantly, so a regression can be caught before it "
         f"ships. {TOOLS_DESCRIPTION} "
-        "Assess risk using only the most recent coverage check for each "
-        "file, compared to the check before it -- do not consider older "
-        "history. "
-        f"If any file's latest coverage has dropped by more than {coverage_drop_threshold_pct:.0f}% "
-        "since the prior check, output exactly one line: "
-        "ALERT: <FILE> <reason>. If no file qualifies, output exactly: STATUS: nominal."
+        "Each line below shows a coverage check and, in brackets, 'chg' -- "
+        "the percentage change from that check to the one immediately "
+        "before it. The 'chg' value is already computed for you; do not "
+        "recompute it, and do not compare coverage numbers to each other "
+        "yourself. "
+        "Look ONLY at the 'chg' value on each file's LAST (most recent) "
+        "line -- ignore every other line and every other number in this "
+        "prompt. "
+        f"If a file's latest 'chg' is more negative than -{coverage_drop_threshold_pct:.0f}% "
+        "(i.e. coverage dropped by more than that amount), output exactly "
+        "one line: ALERT: <FILE> <reason>. If no file's latest 'chg' "
+        "qualifies, output exactly: STATUS: nominal."
     )
 
 
@@ -86,14 +100,25 @@ def generate_coverage_series(file, num_checks, start_coverage, seed,
 
 def format_coverage_window(file, coverage_values, window_start_idx):
     # Renders one file's visible window of coverage checks as plain text for
-    # the prompt, e.g. "src/auth.py:\n  commit 5: coverage 87.3%".
+    # the prompt, e.g. "src/auth.py:\n  commit 5: coverage 87.3% [chg -1.8%]".
     # `window_start_idx` is added on so the commit numbers shown reflect
     # their true position in the full coverage history, not just their
     # position within this particular window.
+    #
+    # 'chg' is the check-over-check percentage change, computed here rather
+    # than left for the model to derive -- see build_system_prompt for why.
+    # The first entry in a window has no visible predecessor to diff against,
+    # so it's shown without a chg tag (the model never needs it: only the
+    # LAST entry's chg matters for the alert decision).
     lines = [f"{file}:"]
     for offset, cov in enumerate(coverage_values):
         check_idx = window_start_idx + offset
-        lines.append(f"  commit {check_idx}: coverage {cov:.1f}%")
+        if offset == 0:
+            lines.append(f"  commit {check_idx}: coverage {cov:.1f}%")
+        else:
+            prev = coverage_values[offset - 1]
+            chg_pct = (cov - prev) / prev * 100.0
+            lines.append(f"  commit {check_idx}: coverage {cov:.1f}% [chg {chg_pct:+.1f}%]")
     return "\n".join(lines)
 
 
