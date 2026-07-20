@@ -1,0 +1,21 @@
+activation_index,apc,prompt_token_count,num_cached_tokens,ttft_seconds,output_text,expect_flag,anomaly_entity,predicted_flagged_entities,correct
+0,on,1423,0,0.3584585189819336,STATUS: nominal,False,,[],True
+1,on,1426,176,0.31743645668029785,STATUS: nominal,False,,[],True
+2,on,1429,176,0.3308219909667969,STATUS: nominal,False,,[],True
+3,on,1432,176,0.3182237148284912,STATUS: nominal,False,,[],True
+4,on,1435,176,0.32268571853637695,STATUS: nominal,False,,[],True
+5,on,1438,176,0.31987547874450684,STATUS: nominal,False,,[],True
+6,on,1441,176,0.3189208507537842,STATUS: nominal,False,,[],True
+7,on,1444,176,0.34063172340393066,STATUS: nominal,False,,[],True
+8,on,1447,176,0.3341233730316162,STATUS: nominal,False,,[],True
+9,on,1450,176,0.34029579162597656,STATUS: nominal,False,,[],True
+10,on,1453,176,0.33699512481689453,STATUS: nominal,True,LHR-SFO,[],False
+11,on,1453,176,0.3367729187011719,STATUS: nominal,False,,[],True
+12,on,1453,176,0.3405125141143799,STATUS: nominal,False,,[],True
+13,on,1453,176,0.33614420890808105,STATUS: nominal,False,,[],True
+14,on,1453,176,0.34076571464538574,STATUS: nominal,False,,[],True
+15,on,1453,176,0.33796238899230957,STATUS: nominal,False,,[],True
+16,on,1453,176,0.3378260135650635,STATUS: nominal,False,,[],True
+17,on,1453,176,0.339540958404541,STATUS: nominal,False,,[],True
+18,on,1453,176,0.3367171287536621,STATUS: nominal,False,,[],True
+19,on,1453,176,0.3382377624511719,STATUS: nominal,False,,[],True
