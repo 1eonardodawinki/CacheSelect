@@ -1,5 +1,5 @@
 # Shared trace data structures, used by every agent-specific trace generator
-# (travel_planner_trace.py, and later code_reviewer_trace.py / data_analyst_trace.py).
+# in agents/ (travel_planner_trace.py, code_reviewer_trace.py, data_analyst_trace.py).
 #
 # Keeping this common lets run_baseline.py stay agent-agnostic: it only needs
 # to know about TraceBundle/Activation/ActivationGroundTruth, not about

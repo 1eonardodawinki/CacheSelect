@@ -37,11 +37,11 @@ def _get_agent_module(agent_name):
     # TraceBundle/Activation shapes from trace_common.py.
     if agent_name not in AGENT_MODULES:
         if agent_name == "travel_planner":
-            import travel_planner_trace as mod
+            import agents.travel_planner_trace as mod
         elif agent_name == "code_reviewer":
-            import code_reviewer_trace as mod
+            import agents.code_reviewer_trace as mod
         elif agent_name == "data_analyst":
-            import data_analyst_trace as mod
+            import agents.data_analyst_trace as mod
         else:
             raise ValueError(f"Unknown agent '{agent_name}'.")
         AGENT_MODULES[agent_name] = mod
