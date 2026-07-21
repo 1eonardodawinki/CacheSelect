@@ -1,2 +1,4 @@
 numpy
 vllm
+transformers
+torch
