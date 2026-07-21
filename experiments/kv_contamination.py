@@ -153,7 +153,8 @@ def main():
 
     print(f"Loading {MODEL_NAME} (tokenizer + weights) ...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, torch_dtype=torch.float16)
+    # bf16, not fp16 -- matches the real GPU baseline run's precision.
+    model = AutoModelForCausalLM.from_pretrained(MODEL_NAME, dtype=torch.bfloat16)
     model.to(device)
     model.eval()
     num_layers = model.config.num_hidden_layers
