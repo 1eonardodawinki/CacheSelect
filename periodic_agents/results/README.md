@@ -1,6 +1,6 @@
 # What's in this folder
 
-Output from running `harness/run_baseline.py` for each of the three agents, once with
+Output from running `periodic_agents/harness/run_baseline.py` for each of the three agents, once with
 vLLM's prefix caching on and once off, so the two can be compared. Every filename
 starts with `{agent}_{tag}` (currently `run1` for all three) so results for different
 agents or runs never overwrite each other.
