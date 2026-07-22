@@ -27,7 +27,7 @@
 #
 # Runs entirely locally via plain transformers (CPU/MPS), no vLLM or GPU
 # cluster. Usage (from the repo root):
-#     python -m experiments.kv_splice_generation
+#     python -m periodic_agents.experiments.kv_splice_generation
 
 import csv
 import os
@@ -35,15 +35,15 @@ import os
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from agents.travel_planner_trace import DEFAULT_ROUTES, generate_trace
-from experiments.kv_contamination import (
+from periodic_agents.agents.travel_planner_trace import DEFAULT_ROUTES, generate_trace
+from periodic_agents.experiments.kv_contamination import (
     char_span_to_token_indices,
     extract_layer_kv,
     find_check_spans,
     find_route_block,
     pick_device,
 )
-from harness.run_baseline import score_response
+from periodic_agents.harness.run_baseline import score_response
 
 MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 FOCUS_ROUTE = DEFAULT_ROUTES[0]  # same route as Experiment 1; also given the anomaly here
