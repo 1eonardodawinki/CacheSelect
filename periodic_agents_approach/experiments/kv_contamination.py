@@ -27,7 +27,7 @@
 # sanity check that the measurement is working as intended.
 #
 # Usage (from the repo root):
-#     python -m periodic_agents.experiments.kv_contamination
+#     python -m periodic_agents_approach.experiments.kv_contamination
 
 import csv
 import os
@@ -36,7 +36,7 @@ import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from periodic_agents.agents.travel_planner_trace import DEFAULT_ROUTES, generate_trace
+from periodic_agents_approach.agents.travel_planner_trace import DEFAULT_ROUTES, generate_trace
 
 MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 FOCUS_ROUTE = DEFAULT_ROUTES[0]  # keep the first pass to one route -- simplest

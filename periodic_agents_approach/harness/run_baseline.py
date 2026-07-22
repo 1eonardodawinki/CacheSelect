@@ -13,9 +13,9 @@
 # construction time -- the second run reloads the exact trace the first run
 # saved, guaranteeing both see byte-identical prompts):
 #
-#     python -m periodic_agents.harness.run_baseline --agent travel_planner --apc on  --tag run1 \
+#     python -m periodic_agents_approach.harness.run_baseline --agent travel_planner --apc on  --tag run1 \
 #         --save-trace results/trace_run1.json
-#     python -m periodic_agents.harness.run_baseline --agent travel_planner --apc off --tag run1 \
+#     python -m periodic_agents_approach.harness.run_baseline --agent travel_planner --apc off --tag run1 \
 #         --trace-file results/trace_run1.json
 
 import argparse
@@ -26,7 +26,7 @@ import os
 import statistics
 import textwrap
 
-from periodic_agents.harness.trace_common import TraceBundle, load_trace, save_trace
+from periodic_agents_approach.harness.trace_common import TraceBundle, load_trace, save_trace
 
 # Cache of already-imported agent trace modules, so repeated calls to
 # _get_agent_module() during one run don't re-import needlessly.
@@ -40,11 +40,11 @@ def _get_agent_module(agent_name):
     # TraceBundle/Activation shapes from trace_common.py.
     if agent_name not in AGENT_MODULES:
         if agent_name == "travel_planner":
-            import periodic_agents.agents.travel_planner_trace as mod
+            import periodic_agents_approach.agents.travel_planner_trace as mod
         elif agent_name == "code_reviewer":
-            import periodic_agents.agents.code_reviewer_trace as mod
+            import periodic_agents_approach.agents.code_reviewer_trace as mod
         elif agent_name == "data_analyst":
-            import periodic_agents.agents.data_analyst_trace as mod
+            import periodic_agents_approach.agents.data_analyst_trace as mod
         else:
             raise ValueError(f"Unknown agent '{agent_name}'.")
         AGENT_MODULES[agent_name] = mod
@@ -323,7 +323,7 @@ def build_arg_parser():
                                                                  # lengths this benchmark never uses
     p.add_argument("--dtype", default="auto")
     p.add_argument("--enforce-eager", action="store_true")
-    p.add_argument("--output-dir", default="periodic_agents/results")
+    p.add_argument("--output-dir", default="periodic_agents_approach/results")
     p.add_argument("--tag", default="baseline")
     p.add_argument("--smoke-test", action="store_true", help="Run only 2 activations, print raw output, then exit.")
     return p

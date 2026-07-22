@@ -28,7 +28,7 @@ import dataclasses
 
 import numpy as np
 
-from periodic_agents.harness.trace_common import Activation, ActivationGroundTruth, TraceBundle
+from periodic_agents_approach.harness.trace_common import Activation, ActivationGroundTruth, TraceBundle
 
 # The three routes we pretend the user is watching. Arbitrary but realistic-looking.
 DEFAULT_ROUTES = ["LHR-JFK", "LHR-SFO", "LHR-NRT"]

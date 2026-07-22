@@ -19,7 +19,7 @@
 # the trailing instruction change.
 #
 # Usage (from the repo root):
-#     python -m periodic_agents.experiments.kv_splice_retrieval
+#     python -m periodic_agents_approach.experiments.kv_splice_retrieval
 
 import csv
 import os
@@ -28,9 +28,9 @@ import re
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from periodic_agents.agents.travel_planner_trace import DEFAULT_ROUTES, TOOLS_DESCRIPTION, generate_trace
-from periodic_agents.experiments.kv_contamination import find_route_block, pick_device
-from periodic_agents.experiments.kv_splice_generation import get_check_token_spans, run_generation, run_spliced_generation
+from periodic_agents_approach.agents.travel_planner_trace import DEFAULT_ROUTES, TOOLS_DESCRIPTION, generate_trace
+from periodic_agents_approach.experiments.kv_contamination import find_route_block, pick_device
+from periodic_agents_approach.experiments.kv_splice_generation import get_check_token_spans, run_generation, run_spliced_generation
 
 MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 FOCUS_ROUTE = DEFAULT_ROUTES[0]

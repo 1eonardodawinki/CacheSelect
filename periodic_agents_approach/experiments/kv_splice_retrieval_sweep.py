@@ -26,7 +26,7 @@
 #
 # Same local, no-vLLM, no-GPU-cluster setup as Experiments 1/2/2b.
 # Usage (from the repo root):
-#     python -m periodic_agents.experiments.kv_splice_retrieval_sweep
+#     python -m periodic_agents_approach.experiments.kv_splice_retrieval_sweep
 
 import csv
 import os
@@ -36,10 +36,10 @@ from collections import defaultdict
 import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
-from periodic_agents.agents.travel_planner_trace import DEFAULT_ROUTES, generate_trace
-from periodic_agents.experiments.kv_contamination import find_route_block, pick_device
-from periodic_agents.experiments.kv_splice_generation import get_check_token_spans, run_generation, run_spliced_generation
-from periodic_agents.experiments.kv_splice_retrieval import build_retrieval_messages
+from periodic_agents_approach.agents.travel_planner_trace import DEFAULT_ROUTES, generate_trace
+from periodic_agents_approach.experiments.kv_contamination import find_route_block, pick_device
+from periodic_agents_approach.experiments.kv_splice_generation import get_check_token_spans, run_generation, run_spliced_generation
+from periodic_agents_approach.experiments.kv_splice_retrieval import build_retrieval_messages
 
 MODEL_NAME = "Qwen/Qwen2.5-1.5B-Instruct"
 FOCUS_ROUTE = DEFAULT_ROUTES[0]
