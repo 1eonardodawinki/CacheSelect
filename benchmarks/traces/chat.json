@@ -1,0 +1,427 @@
+{
+  "trace_id": "chat-controlled-v2",
+  "workload": "chat",
+  "description": "Fixed chat replay with append controls and an early edit.",
+  "requests": [
+    {
+      "request_id": "chat-00",
+      "workload": "chat",
+      "sequence_index": 0,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Maintain the user's current trip constraints. When asked for a summary, state every active constraint concisely."
+        },
+        {
+          "role": "user",
+          "content": "Plan a two-day Edinburgh visit. I am vegetarian. Summarise my constraints."
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "system",
+          "role": "system",
+          "kind": "instruction",
+          "version": 1,
+          "content": "Maintain the user's current trip constraints. When asked for a summary, state every active constraint concisely."
+        },
+        {
+          "segment_id": "turn_00",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "Plan a two-day Edinburgh visit. I am vegetarian. Summarise my constraints."
+        }
+      ],
+      "ground_truth": {
+        "expected_answer": "Two days; vegetarian.",
+        "requirements": [
+          {
+            "requirement_id": "duration",
+            "accepted_phrases": [
+              "two-day",
+              "two day",
+              "2-day",
+              "2 day"
+            ]
+          },
+          {
+            "requirement_id": "diet",
+            "accepted_phrases": [
+              "vegetarian"
+            ]
+          }
+        ],
+        "notes": ""
+      },
+      "extra_body": {}
+    },
+    {
+      "request_id": "chat-01",
+      "workload": "chat",
+      "sequence_index": 1,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Maintain the user's current trip constraints. When asked for a summary, state every active constraint concisely."
+        },
+        {
+          "role": "user",
+          "content": "Plan a two-day Edinburgh visit. I am vegetarian. Summarise my constraints."
+        },
+        {
+          "role": "assistant",
+          "content": "Your trip is two days and all food must be vegetarian."
+        },
+        {
+          "role": "user",
+          "content": "I arrive at Waverley at 10:00 on Saturday. Summarise all constraints."
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "system",
+          "role": "system",
+          "kind": "instruction",
+          "version": 1,
+          "content": "Maintain the user's current trip constraints. When asked for a summary, state every active constraint concisely."
+        },
+        {
+          "segment_id": "turn_00",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "Plan a two-day Edinburgh visit. I am vegetarian. Summarise my constraints."
+        },
+        {
+          "segment_id": "turn_01",
+          "role": "assistant",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "Your trip is two days and all food must be vegetarian."
+        },
+        {
+          "segment_id": "turn_02",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "I arrive at Waverley at 10:00 on Saturday. Summarise all constraints."
+        }
+      ],
+      "ground_truth": {
+        "expected_answer": "Two days; vegetarian; Waverley at 10:00 Saturday.",
+        "requirements": [
+          {
+            "requirement_id": "duration",
+            "accepted_phrases": [
+              "two-day",
+              "two day",
+              "2-day",
+              "2 day"
+            ]
+          },
+          {
+            "requirement_id": "diet",
+            "accepted_phrases": [
+              "vegetarian"
+            ]
+          },
+          {
+            "requirement_id": "arrival_place",
+            "accepted_phrases": [
+              "waverley"
+            ]
+          },
+          {
+            "requirement_id": "arrival_time",
+            "accepted_phrases": [
+              "10:00",
+              "10 am",
+              "10am"
+            ]
+          }
+        ],
+        "notes": ""
+      },
+      "extra_body": {}
+    },
+    {
+      "request_id": "chat-02",
+      "workload": "chat",
+      "sequence_index": 2,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Maintain the user's current trip constraints. When asked for a summary, state every active constraint concisely."
+        },
+        {
+          "role": "user",
+          "content": "Plan a two-day Edinburgh visit. I am vegetarian. Summarise my constraints."
+        },
+        {
+          "role": "assistant",
+          "content": "Your trip is two days and all food must be vegetarian."
+        },
+        {
+          "role": "user",
+          "content": "I arrive at Waverley at 10:00 on Saturday. Summarise all constraints."
+        },
+        {
+          "role": "assistant",
+          "content": "The trip is two days, food is vegetarian, and it starts at Waverley at 10:00 on Saturday."
+        },
+        {
+          "role": "user",
+          "content": "Include the National Museum as an indoor option. Summarise all constraints."
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "system",
+          "role": "system",
+          "kind": "instruction",
+          "version": 1,
+          "content": "Maintain the user's current trip constraints. When asked for a summary, state every active constraint concisely."
+        },
+        {
+          "segment_id": "turn_00",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "Plan a two-day Edinburgh visit. I am vegetarian. Summarise my constraints."
+        },
+        {
+          "segment_id": "turn_01",
+          "role": "assistant",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "Your trip is two days and all food must be vegetarian."
+        },
+        {
+          "segment_id": "turn_02",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "I arrive at Waverley at 10:00 on Saturday. Summarise all constraints."
+        },
+        {
+          "segment_id": "turn_03",
+          "role": "assistant",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "The trip is two days, food is vegetarian, and it starts at Waverley at 10:00 on Saturday."
+        },
+        {
+          "segment_id": "turn_04",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "Include the National Museum as an indoor option. Summarise all constraints."
+        }
+      ],
+      "ground_truth": {
+        "expected_answer": "Two days; vegetarian; Waverley 10:00 Saturday; National Museum.",
+        "requirements": [
+          {
+            "requirement_id": "duration",
+            "accepted_phrases": [
+              "two-day",
+              "two day",
+              "2-day",
+              "2 day"
+            ]
+          },
+          {
+            "requirement_id": "diet",
+            "accepted_phrases": [
+              "vegetarian"
+            ]
+          },
+          {
+            "requirement_id": "arrival_place",
+            "accepted_phrases": [
+              "waverley"
+            ]
+          },
+          {
+            "requirement_id": "arrival_time",
+            "accepted_phrases": [
+              "10:00",
+              "10 am",
+              "10am"
+            ]
+          },
+          {
+            "requirement_id": "indoor_option",
+            "accepted_phrases": [
+              "national museum"
+            ]
+          }
+        ],
+        "notes": ""
+      },
+      "extra_body": {}
+    },
+    {
+      "request_id": "chat-03",
+      "workload": "chat",
+      "sequence_index": 3,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Maintain the user's current trip constraints. When asked for a summary, state every active constraint concisely."
+        },
+        {
+          "role": "user",
+          "content": "Plan a two-day Edinburgh visit. I am vegan. Summarise my constraints."
+        },
+        {
+          "role": "assistant",
+          "content": "Your trip is two days and all food must be vegan."
+        },
+        {
+          "role": "user",
+          "content": "I arrive at Waverley at 10:00 on Saturday. Summarise all constraints."
+        },
+        {
+          "role": "assistant",
+          "content": "The trip is two days, food is vegetarian, and it starts at Waverley at 10:00 on Saturday."
+        },
+        {
+          "role": "user",
+          "content": "Include the National Museum as an indoor option. Summarise all constraints."
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "system",
+          "role": "system",
+          "kind": "instruction",
+          "version": 1,
+          "content": "Maintain the user's current trip constraints. When asked for a summary, state every active constraint concisely."
+        },
+        {
+          "segment_id": "turn_00",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 2,
+          "content": "Plan a two-day Edinburgh visit. I am vegan. Summarise my constraints."
+        },
+        {
+          "segment_id": "turn_01",
+          "role": "assistant",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "Your trip is two days and all food must be vegan."
+        },
+        {
+          "segment_id": "turn_02",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "I arrive at Waverley at 10:00 on Saturday. Summarise all constraints."
+        },
+        {
+          "segment_id": "turn_03",
+          "role": "assistant",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "The trip is two days, food is vegetarian, and it starts at Waverley at 10:00 on Saturday."
+        },
+        {
+          "segment_id": "turn_04",
+          "role": "user",
+          "kind": "conversation_turn",
+          "version": 1,
+          "content": "Include the National Museum as an indoor option. Summarise all constraints."
+        }
+      ],
+      "ground_truth": {
+        "expected_answer": "Two days; vegan; Waverley 10:00 Saturday; National Museum.",
+        "requirements": [
+          {
+            "requirement_id": "duration",
+            "accepted_phrases": [
+              "two-day",
+              "two day",
+              "2-day",
+              "2 day"
+            ]
+          },
+          {
+            "requirement_id": "diet",
+            "accepted_phrases": [
+              "vegan"
+            ]
+          },
+          {
+            "requirement_id": "arrival_place",
+            "accepted_phrases": [
+              "waverley"
+            ]
+          },
+          {
+            "requirement_id": "arrival_time",
+            "accepted_phrases": [
+              "10:00",
+              "10 am",
+              "10am"
+            ]
+          },
+          {
+            "requirement_id": "indoor_option",
+            "accepted_phrases": [
+              "national museum"
+            ]
+          }
+        ],
+        "notes": ""
+      },
+      "extra_body": {}
+    }
+  ],
+  "transitions": [
+    {
+      "transition_id": "chat-00-to-01",
+      "previous_request_id": "chat-00",
+      "current_request_id": "chat-01",
+      "ground_truth": {
+        "change_type": "append_turn",
+        "changed_segment_ids": [
+          "turn_01",
+          "turn_02"
+        ],
+        "expected_native_behavior": "exact_prefix_reuse",
+        "notes": "Native vLLM prefix caching should already handle this."
+      }
+    },
+    {
+      "transition_id": "chat-01-to-02",
+      "previous_request_id": "chat-01",
+      "current_request_id": "chat-02",
+      "ground_truth": {
+        "change_type": "append_turn",
+        "changed_segment_ids": [
+          "turn_03",
+          "turn_04"
+        ],
+        "expected_native_behavior": "exact_prefix_reuse",
+        "notes": "A second positive control for native prefix caching."
+      }
+    },
+    {
+      "transition_id": "chat-02-to-03",
+      "previous_request_id": "chat-02",
+      "current_request_id": "chat-03",
+      "ground_truth": {
+        "change_type": "edit_history",
+        "changed_segment_ids": [
+          "turn_00",
+          "turn_01"
+        ],
+        "expected_native_behavior": "prefix_hit_until_edited_turn",
+        "notes": "The early diet edit must propagate to the final answer."
+      }
+    }
+  ]
+}

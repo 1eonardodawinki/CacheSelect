@@ -1,0 +1,338 @@
+{
+  "trace_id": "rag-controlled-v2",
+  "workload": "rag",
+  "description": "Controlled RAG document replacement, reorder and query edit.",
+  "requests": [
+    {
+      "request_id": "rag-00",
+      "workload": "rag",
+      "sequence_index": 0,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Answer using only the retrieved documents. Give the answer followed by the supporting document ID in square brackets. If the answer is absent, say INSUFFICIENT."
+        },
+        {
+          "role": "user",
+          "content": "Retrieved documents:\n\n[doc_solar] Northfield's solar array produced 18.4 GWh in 2024. Maintenance is normally scheduled in February.\n\n[doc_battery_2024] The 6 MW / 24 MWh battery was commissioned in June 2024. Acceptance testing measured 88 percent round-trip efficiency.\n\n[doc_grid] The eastern substation has a contracted export limit of 15 MW. Eleven curtailment events occurred during 2024.\n\nQuestion: What round-trip efficiency did battery testing report?"
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "system",
+          "role": "system",
+          "kind": "instruction",
+          "version": 1,
+          "content": "Answer using only the retrieved documents. Give the answer followed by the supporting document ID in square brackets. If the answer is absent, say INSUFFICIENT."
+        },
+        {
+          "segment_id": "doc_solar",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_solar] Northfield's solar array produced 18.4 GWh in 2024. Maintenance is normally scheduled in February."
+        },
+        {
+          "segment_id": "doc_battery_2024",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_battery_2024] The 6 MW / 24 MWh battery was commissioned in June 2024. Acceptance testing measured 88 percent round-trip efficiency."
+        },
+        {
+          "segment_id": "doc_grid",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_grid] The eastern substation has a contracted export limit of 15 MW. Eleven curtailment events occurred during 2024."
+        },
+        {
+          "segment_id": "query",
+          "role": "user",
+          "kind": "query",
+          "version": 1,
+          "content": "What round-trip efficiency did battery testing report?"
+        }
+      ],
+      "ground_truth": {
+        "expected_answer": "88 percent [doc_battery_2024]",
+        "requirements": [
+          {
+            "requirement_id": "efficiency",
+            "accepted_phrases": [
+              "88 percent",
+              "88%"
+            ]
+          },
+          {
+            "requirement_id": "citation",
+            "accepted_phrases": [
+              "doc_battery_2024"
+            ]
+          }
+        ],
+        "notes": ""
+      },
+      "extra_body": {}
+    },
+    {
+      "request_id": "rag-01",
+      "workload": "rag",
+      "sequence_index": 1,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Answer using only the retrieved documents. Give the answer followed by the supporting document ID in square brackets. If the answer is absent, say INSUFFICIENT."
+        },
+        {
+          "role": "user",
+          "content": "Retrieved documents:\n\n[doc_solar] Northfield's solar array produced 18.4 GWh in 2024. Maintenance is normally scheduled in February.\n\n[doc_battery_2025] A January 2025 firmware update changed the battery operating range. Follow-up testing measured 90 percent round-trip efficiency; its 6 MW / 24 MWh rating did not change.\n\n[doc_grid] The eastern substation has a contracted export limit of 15 MW. Eleven curtailment events occurred during 2024.\n\nQuestion: What round-trip efficiency did battery testing report?"
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "system",
+          "role": "system",
+          "kind": "instruction",
+          "version": 1,
+          "content": "Answer using only the retrieved documents. Give the answer followed by the supporting document ID in square brackets. If the answer is absent, say INSUFFICIENT."
+        },
+        {
+          "segment_id": "doc_solar",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_solar] Northfield's solar array produced 18.4 GWh in 2024. Maintenance is normally scheduled in February."
+        },
+        {
+          "segment_id": "doc_battery_2025",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_battery_2025] A January 2025 firmware update changed the battery operating range. Follow-up testing measured 90 percent round-trip efficiency; its 6 MW / 24 MWh rating did not change."
+        },
+        {
+          "segment_id": "doc_grid",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_grid] The eastern substation has a contracted export limit of 15 MW. Eleven curtailment events occurred during 2024."
+        },
+        {
+          "segment_id": "query",
+          "role": "user",
+          "kind": "query",
+          "version": 1,
+          "content": "What round-trip efficiency did battery testing report?"
+        }
+      ],
+      "ground_truth": {
+        "expected_answer": "90 percent [doc_battery_2025]",
+        "requirements": [
+          {
+            "requirement_id": "efficiency",
+            "accepted_phrases": [
+              "90 percent",
+              "90%"
+            ]
+          },
+          {
+            "requirement_id": "citation",
+            "accepted_phrases": [
+              "doc_battery_2025"
+            ]
+          }
+        ],
+        "notes": ""
+      },
+      "extra_body": {}
+    },
+    {
+      "request_id": "rag-02",
+      "workload": "rag",
+      "sequence_index": 2,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Answer using only the retrieved documents. Give the answer followed by the supporting document ID in square brackets. If the answer is absent, say INSUFFICIENT."
+        },
+        {
+          "role": "user",
+          "content": "Retrieved documents:\n\n[doc_grid] The eastern substation has a contracted export limit of 15 MW. Eleven curtailment events occurred during 2024.\n\n[doc_solar] Northfield's solar array produced 18.4 GWh in 2024. Maintenance is normally scheduled in February.\n\n[doc_battery_2025] A January 2025 firmware update changed the battery operating range. Follow-up testing measured 90 percent round-trip efficiency; its 6 MW / 24 MWh rating did not change.\n\nQuestion: What round-trip efficiency did battery testing report?"
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "system",
+          "role": "system",
+          "kind": "instruction",
+          "version": 1,
+          "content": "Answer using only the retrieved documents. Give the answer followed by the supporting document ID in square brackets. If the answer is absent, say INSUFFICIENT."
+        },
+        {
+          "segment_id": "doc_grid",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_grid] The eastern substation has a contracted export limit of 15 MW. Eleven curtailment events occurred during 2024."
+        },
+        {
+          "segment_id": "doc_solar",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_solar] Northfield's solar array produced 18.4 GWh in 2024. Maintenance is normally scheduled in February."
+        },
+        {
+          "segment_id": "doc_battery_2025",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_battery_2025] A January 2025 firmware update changed the battery operating range. Follow-up testing measured 90 percent round-trip efficiency; its 6 MW / 24 MWh rating did not change."
+        },
+        {
+          "segment_id": "query",
+          "role": "user",
+          "kind": "query",
+          "version": 1,
+          "content": "What round-trip efficiency did battery testing report?"
+        }
+      ],
+      "ground_truth": {
+        "expected_answer": "90 percent [doc_battery_2025]",
+        "requirements": [
+          {
+            "requirement_id": "efficiency",
+            "accepted_phrases": [
+              "90 percent",
+              "90%"
+            ]
+          },
+          {
+            "requirement_id": "citation",
+            "accepted_phrases": [
+              "doc_battery_2025"
+            ]
+          }
+        ],
+        "notes": ""
+      },
+      "extra_body": {}
+    },
+    {
+      "request_id": "rag-03",
+      "workload": "rag",
+      "sequence_index": 3,
+      "messages": [
+        {
+          "role": "system",
+          "content": "Answer using only the retrieved documents. Give the answer followed by the supporting document ID in square brackets. If the answer is absent, say INSUFFICIENT."
+        },
+        {
+          "role": "user",
+          "content": "Retrieved documents:\n\n[doc_grid] The eastern substation has a contracted export limit of 15 MW. Eleven curtailment events occurred during 2024.\n\n[doc_solar] Northfield's solar array produced 18.4 GWh in 2024. Maintenance is normally scheduled in February.\n\n[doc_battery_2025] A January 2025 firmware update changed the battery operating range. Follow-up testing measured 90 percent round-trip efficiency; its 6 MW / 24 MWh rating did not change.\n\nQuestion: What is the eastern substation's contracted export limit?"
+        }
+      ],
+      "segments": [
+        {
+          "segment_id": "system",
+          "role": "system",
+          "kind": "instruction",
+          "version": 1,
+          "content": "Answer using only the retrieved documents. Give the answer followed by the supporting document ID in square brackets. If the answer is absent, say INSUFFICIENT."
+        },
+        {
+          "segment_id": "doc_grid",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_grid] The eastern substation has a contracted export limit of 15 MW. Eleven curtailment events occurred during 2024."
+        },
+        {
+          "segment_id": "doc_solar",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_solar] Northfield's solar array produced 18.4 GWh in 2024. Maintenance is normally scheduled in February."
+        },
+        {
+          "segment_id": "doc_battery_2025",
+          "role": "user",
+          "kind": "retrieved_document",
+          "version": 1,
+          "content": "[doc_battery_2025] A January 2025 firmware update changed the battery operating range. Follow-up testing measured 90 percent round-trip efficiency; its 6 MW / 24 MWh rating did not change."
+        },
+        {
+          "segment_id": "query",
+          "role": "user",
+          "kind": "query",
+          "version": 2,
+          "content": "What is the eastern substation's contracted export limit?"
+        }
+      ],
+      "ground_truth": {
+        "expected_answer": "15 MW [doc_grid]",
+        "requirements": [
+          {
+            "requirement_id": "export_limit",
+            "accepted_phrases": [
+              "15 mw"
+            ]
+          },
+          {
+            "requirement_id": "citation",
+            "accepted_phrases": [
+              "doc_grid"
+            ]
+          }
+        ],
+        "notes": ""
+      },
+      "extra_body": {}
+    }
+  ],
+  "transitions": [
+    {
+      "transition_id": "rag-00-to-01",
+      "previous_request_id": "rag-00",
+      "current_request_id": "rag-01",
+      "ground_truth": {
+        "change_type": "document_replacement",
+        "changed_segment_ids": [
+          "doc_battery_2024",
+          "doc_battery_2025"
+        ],
+        "expected_native_behavior": "prefix_hit_until_replaced_document",
+        "notes": "The answer changes because the retrieved battery report changes."
+      }
+    },
+    {
+      "transition_id": "rag-01-to-02",
+      "previous_request_id": "rag-01",
+      "current_request_id": "rag-02",
+      "ground_truth": {
+        "change_type": "document_reorder",
+        "changed_segment_ids": [
+          "doc_grid",
+          "doc_solar",
+          "doc_battery_2025"
+        ],
+        "expected_native_behavior": "prefix_miss_at_first_reordered_document",
+        "notes": "Document contents are identical but their positions change."
+      }
+    },
+    {
+      "transition_id": "rag-02-to-03",
+      "previous_request_id": "rag-02",
+      "current_request_id": "rag-03",
+      "ground_truth": {
+        "change_type": "query_replacement",
+        "changed_segment_ids": [
+          "query"
+        ],
+        "expected_native_behavior": "prefix_hit_through_all_documents",
+        "notes": "Only the final query changes."
+      }
+    }
+  ]
+}
