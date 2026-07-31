@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 #SBATCH --job-name=cacheselect-baseline
-#SBATCH --array=0-17%3
+#SBATCH --array=0-2%3
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=8G
-#SBATCH --time=01:00:00
+#SBATCH --time=02:00:00
 #SBATCH --output=/vol/bitbucket/%u/cacheselect-server-logs/baseline-%A_%a.out
 
 set -Eeuo pipefail
@@ -18,29 +18,19 @@ MODEL="${CACHESELECT_BASELINE_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 TASK_ID="${SLURM_ARRAY_TASK_ID:?Run this file as a Slurm array job}"
 MATRIX_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
 
+# Imperial limits the number of submitted jobs per user. Each of these three
+# tasks owns one workload and runs its six conditions sequentially, while the
+# three tasks can use three GPUs concurrently.
 WORKLOADS=(rag periodic_agent chat)
 APC_LABELS=(off on)
 APC_FLAGS=(--no-enable-prefix-caching --enable-prefix-caching)
-
-# Six conditions per workload: APC off/on, with three repetitions each.
-WORKLOAD_INDEX=$((TASK_ID / 6))
-WITHIN_WORKLOAD=$((TASK_ID % 6))
-APC_INDEX=$((WITHIN_WORKLOAD / 3))
-REPETITION=$((WITHIN_WORKLOAD % 3 + 1))
-
-WORKLOAD="${WORKLOADS[$WORKLOAD_INDEX]}"
-APC_LABEL="${APC_LABELS[$APC_INDEX]}"
-APC_FLAG="${APC_FLAGS[$APC_INDEX]}"
-RUN_KEY="${WORKLOAD}-apc-${APC_LABEL}-rep-${REPETITION}"
+WORKLOAD="${WORKLOADS[$TASK_ID]}"
 
 # Array tasks can share a physical host, so they must not share a TCP port.
 PORT=$((18000 + (MATRIX_ID % 1000) * 20 + TASK_ID))
 RESULT_DIR="$STORAGE_ROOT/cacheselect-results/baseline-$MATRIX_ID"
 REQUEST_LOG_DIR="$STORAGE_ROOT/cacheselect-request-logs/baseline-$MATRIX_ID"
 SERVER_LOG_DIR="$STORAGE_ROOT/cacheselect-server-logs/baseline-$MATRIX_ID"
-RESULT_PATH="$RESULT_DIR/$RUN_KEY.json"
-MANIFEST_PATH="$RESULT_DIR/$RUN_KEY.manifest.json"
-SERVER_LOG="$SERVER_LOG_DIR/$RUN_KEY.vllm.log"
 TMP_ROOT="$STORAGE_ROOT/tmp"
 
 mkdir -p \
@@ -69,33 +59,8 @@ PROJECT_COMMIT="$(git rev-parse HEAD)"
 VLLM_VERSION="$(vllm --version)"
 GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version --format=csv,noheader)"
 
-python - "$MANIFEST_PATH" <<PY
-import json
-import os
-import socket
-import sys
-
-manifest = {
-    "matrix_job_id": "$MATRIX_ID",
-    "array_task_id": $TASK_ID,
-    "slurm_job_id": os.environ.get("SLURM_JOB_ID"),
-    "host": socket.gethostname(),
-    "project_commit": "$PROJECT_COMMIT",
-    "model": "$MODEL",
-    "vllm_version": "$VLLM_VERSION",
-    "gpu": """$GPU_DESCRIPTION""",
-    "workload": "$WORKLOAD",
-    "apc": "$APC_LABEL",
-    "repetition": $REPETITION,
-    "port": $PORT,
-}
-with open(sys.argv[1], "w", encoding="utf-8") as handle:
-    json.dump(manifest, handle, indent=2)
-    handle.write("\n")
-PY
-
-echo "CacheSelect baseline condition"
-echo "matrix_id=$MATRIX_ID task_id=$TASK_ID run_key=$RUN_KEY"
+echo "CacheSelect baseline workload task"
+echo "matrix_id=$MATRIX_ID task_id=$TASK_ID workload=$WORKLOAD"
 echo "host=$(hostname) port=$PORT"
 echo "project_commit=$PROJECT_COMMIT"
 echo "model=$MODEL vllm_version=$VLLM_VERSION"
@@ -131,51 +96,121 @@ stop_server() {
 
 trap stop_server EXIT INT TERM
 
-setsid vllm serve "$MODEL" \
-  --host 127.0.0.1 \
-  --port "$PORT" \
-  --max-model-len 4096 \
-  --gpu-memory-utilization 0.90 \
-  --enable-prompt-tokens-details \
-  --enable-per-request-metrics \
-  "$APC_FLAG" \
-  >"$SERVER_LOG" 2>&1 &
-SERVER_PID=$!
+wait_for_server() {
+  local server_log="$1"
+  for _ in {1..600}; do
+    if ! kill -0 "$SERVER_PID" 2>/dev/null; then
+      echo "vLLM exited before becoming healthy" >&2
+      tail -n 200 "$server_log" >&2 || true
+      return 1
+    fi
+    if curl --fail --silent --show-error \
+      "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 2
+  done
 
-for _ in {1..600}; do
-  if ! kill -0 "$SERVER_PID" 2>/dev/null; then
-    echo "vLLM exited before becoming healthy" >&2
-    tail -n 200 "$SERVER_LOG" >&2 || true
-    exit 1
-  fi
-  if curl --fail --silent --show-error \
-    "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
-    break
-  fi
-  sleep 2
-done
-
-if ! curl --fail --silent --show-error \
-  "http://127.0.0.1:$PORT/health" >/dev/null 2>&1; then
   echo "Timed out waiting for vLLM health endpoint" >&2
-  tail -n 200 "$SERVER_LOG" >&2 || true
-  exit 1
-fi
+  tail -n 200 "$server_log" >&2 || true
+  return 1
+}
 
-echo "vLLM is healthy pid=$SERVER_PID"
+write_manifest() {
+  local manifest_path="$1"
+  local apc_label="$2"
+  local repetition="$3"
 
-python -m benchmarks.run_vllm_baseline \
-  --trace "benchmarks/traces/$WORKLOAD.json" \
-  --model "$MODEL" \
-  --base-url "http://127.0.0.1:$PORT" \
-  --apc-label "$APC_LABEL" \
-  --run-id "baseline-$MATRIX_ID-$RUN_KEY" \
-  --request-log-dir "$REQUEST_LOG_DIR" \
-  --output "$RESULT_PATH"
+  python - \
+    "$manifest_path" \
+    "$MATRIX_ID" \
+    "$TASK_ID" \
+    "${SLURM_JOB_ID:-}" \
+    "$PROJECT_COMMIT" \
+    "$MODEL" \
+    "$VLLM_VERSION" \
+    "$GPU_DESCRIPTION" \
+    "$WORKLOAD" \
+    "$apc_label" \
+    "$repetition" \
+    "$PORT" <<'PY'
+import json
+import socket
+import sys
 
-stop_server
+(
+    manifest_path,
+    matrix_job_id,
+    array_task_id,
+    slurm_job_id,
+    project_commit,
+    model,
+    vllm_version,
+    gpu,
+    workload,
+    apc,
+    repetition,
+    port,
+) = sys.argv[1:]
+manifest = {
+    "matrix_job_id": matrix_job_id,
+    "array_task_id": int(array_task_id),
+    "slurm_job_id": slurm_job_id,
+    "host": socket.gethostname(),
+    "project_commit": project_commit,
+    "model": model,
+    "vllm_version": vllm_version,
+    "gpu": gpu,
+    "workload": workload,
+    "apc": apc,
+    "repetition": int(repetition),
+    "port": int(port),
+}
+with open(manifest_path, "w", encoding="utf-8") as handle:
+    json.dump(manifest, handle, indent=2)
+    handle.write("\n")
+PY
+}
 
-python - "$RESULT_PATH" <<'PY'
+run_condition() {
+  local apc_label="$1"
+  local apc_flag="$2"
+  local repetition="$3"
+  local run_key="${WORKLOAD}-apc-${apc_label}-rep-${repetition}"
+  local result_path="$RESULT_DIR/$run_key.json"
+  local manifest_path="$RESULT_DIR/$run_key.manifest.json"
+  local server_log="$SERVER_LOG_DIR/$run_key.vllm.log"
+
+  write_manifest "$manifest_path" "$apc_label" "$repetition"
+
+  echo "Starting condition: $run_key"
+  setsid vllm serve "$MODEL" \
+    --host 127.0.0.1 \
+    --port "$PORT" \
+    --max-model-len 4096 \
+    --gpu-memory-utilization 0.90 \
+    --enable-prompt-tokens-details \
+    --enable-per-request-metrics \
+    "$apc_flag" \
+    >"$server_log" 2>&1 &
+  SERVER_PID=$!
+
+  wait_for_server "$server_log"
+  echo "vLLM is healthy pid=$SERVER_PID"
+
+  python -m benchmarks.run_vllm_baseline \
+    --trace "benchmarks/traces/$WORKLOAD.json" \
+    --model "$MODEL" \
+    --base-url "http://127.0.0.1:$PORT" \
+    --apc-label "$apc_label" \
+    --run-id "baseline-$MATRIX_ID-$run_key" \
+    --request-log-dir "$REQUEST_LOG_DIR" \
+    --output "$result_path"
+
+  stop_server
+  sleep 2
+
+  python - "$result_path" <<'PY'
 import json
 import sys
 from pathlib import Path
@@ -199,8 +234,22 @@ print(f"ttft_ms={ttft}")
 print(f"quality_passed={quality}")
 PY
 
-echo "Baseline condition completed successfully: $RUN_KEY"
-echo "result=$RESULT_PATH"
-echo "manifest=$MANIFEST_PATH"
+  echo "Baseline condition completed successfully: $run_key"
+  echo "result=$result_path"
+  echo "manifest=$manifest_path"
+  echo "server_log=$server_log"
+}
+
+for apc_index in 0 1; do
+  for repetition in 1 2 3; do
+    run_condition \
+      "${APC_LABELS[$apc_index]}" \
+      "${APC_FLAGS[$apc_index]}" \
+      "$repetition"
+  done
+done
+
+echo "Baseline workload task completed successfully: $WORKLOAD"
+echo "results=$RESULT_DIR"
 echo "request_logs=$REQUEST_LOG_DIR"
-echo "server_log=$SERVER_LOG"
+echo "server_logs=$SERVER_LOG_DIR"

@@ -79,17 +79,18 @@ MATRIX_JOB_ID=$(sbatch --parsable benchmarks/run_baseline_matrix.slurm)
 echo "$MATRIX_JOB_ID"
 ```
 
-The array contains 18 isolated tasks: three workloads (`rag`,
-`periodic_agent`, and `chat`) times two APC modes times three repetitions. Its
-`%3` array limit uses at most three GPUs concurrently. Every task starts with a
-fresh vLLM process and writes a result JSON, a hardware/run manifest, a complete
-request ledger, a vLLM log, and a top-level Slurm log.
+The array contains three submitted tasks to stay below Imperial's per-user job
+submission quota. Each task owns one workload (`rag`, `periodic_agent`, or
+`chat`) and sequentially runs two APC modes times three repetitions. The tasks
+use at most three GPUs concurrently, while every one of the 18 measured
+conditions still starts with a fresh vLLM process and writes a result JSON, a
+hardware/run manifest, a complete request ledger, and a vLLM log.
 
 Check progress without attaching to a live log:
 
 ```bash
 squeue -j "$MATRIX_JOB_ID"
-grep -l "Baseline condition completed successfully" \
+grep -h "Baseline condition completed successfully" \
   /vol/bitbucket/$USER/cacheselect-server-logs/baseline-"$MATRIX_JOB_ID"_*.out \
   2>/dev/null | wc -l
 ```
