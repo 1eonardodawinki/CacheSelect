@@ -37,6 +37,37 @@ python -m benchmarks.generate_traces
 
 This writes `benchmarks/traces/{rag,periodic_agent,chat}.json`.
 
+## GPU smoke experiment
+
+Before launching the full baseline matrix, run the four-request RAG trace once
+with APC disabled and once with APC enabled. The Slurm job starts a fresh vLLM
+server for each condition, waits for its health endpoint, records the complete
+requests and responses, and shuts the server down before changing cache mode.
+
+The default smoke model is `Qwen/Qwen2.5-1.5B-Instruct`, which fits an Imperial
+A16. From the Imperial submission host:
+
+```bash
+mkdir -p /vol/bitbucket/$USER/cacheselect-server-logs
+cd ~/DeltaCache
+sbatch benchmarks/run_rag_smoke.slurm
+```
+
+The job prints the result, request-ledger and vLLM server-log directories when
+it finishes. Find and follow its top-level log with:
+
+```bash
+squeue -u "$USER"
+ls -lt /vol/bitbucket/$USER/cacheselect-server-logs/rag-smoke-*.out
+tail -f /vol/bitbucket/$USER/cacheselect-server-logs/rag-smoke-<job-id>.out
+```
+
+`tail -f` only follows the log; stopping it does not stop the Slurm job. The
+smoke run is successful when both conditions save four observations, both
+request ledgers report four completed requests, APC-off reports zero cached
+tokens, and the final summary prints `RAG smoke experiment completed
+successfully`.
+
 ## 2. Start vLLM with APC enabled
 
 Use the vLLM checkout in this repository. The two observability flags are
