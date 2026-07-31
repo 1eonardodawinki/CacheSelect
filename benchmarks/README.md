@@ -100,6 +100,24 @@ The successful-run count reaches 18 when the matrix finishes. Results are under
 corresponding request and server logs under their `cacheselect-request-logs`
 and `cacheselect-server-logs` roots.
 
+The matrix sets completion limits explicitly: 96 tokens for RAG and the
+periodic agent, and 48 for chat. The earlier `268672` baseline used the old
+48-token default for all workloads. To preserve that dataset while correcting
+only the affected RAG and periodic-agent quality runs, submit array tasks 0 and
+1 as a new experiment:
+
+```bash
+cd ~/DeltaCache
+CORRECTION_JOB_ID=$(sbatch --parsable --array=0-1%2 \
+  benchmarks/run_baseline_matrix.slurm)
+echo "$CORRECTION_JOB_ID"
+```
+
+This runs 12 conditions: two affected workloads, two APC modes, and three
+repetitions. Chat does not need correction because all of its recorded
+responses finished naturally below 48 tokens. Keep the old and corrected
+artifact directories separate.
+
 After downloading those three directories under one local artifact root, build
 the validated tables, Markdown summary, and report-ready PNG/PDF plots:
 
@@ -113,6 +131,48 @@ The analysis is written to `<input-root>/analysis`. It validates that all 18
 matrix conditions and full request ledgers are present, pairs APC-off and APC-on
 requests, and reports cold-start controls separately from requests eligible for
 reuse.
+
+## Prompt-length calibration
+
+The initial traces are deliberately small infrastructure tests. Before building
+the new reuse policy, run a one-repetition native-vLLM calibration at
+approximately 256, 1,024, and 4,096 rendered prompt tokens:
+
+```bash
+cd ~/DeltaCache
+CALIBRATION_JOB_ID=$(sbatch --parsable \
+  benchmarks/run_length_calibration.slurm)
+echo "$CALIBRATION_JOB_ID"
+```
+
+The three array tasks each own one target length. For that length, the task
+generates tokenizer-aware traces and runs early, middle, and late document edits
+with APC off and on. Every condition starts a fresh vLLM server and contains a
+cold donor request followed by one edited request. This produces 18 conditions
+in total while using at most three GPUs concurrently.
+
+Check progress with:
+
+```bash
+squeue -j "$CALIBRATION_JOB_ID"
+grep -h "Length calibration condition completed successfully" \
+  /vol/bitbucket/$USER/cacheselect-server-logs/length-calibration-"$CALIBRATION_JOB_ID"_*.out \
+  2>/dev/null | wc -l
+```
+
+The count reaches 18 when all conditions finish. The job rejects prompts more
+than 16 tokens from their target, truncated outputs, incomplete request ledgers,
+APC-off cache hits, missing APC-on warm hits, and failed answer checks. Artifacts
+are stored under:
+
+- `cacheselect-results/length-calibration-<job-id>`
+- `cacheselect-request-logs/length-calibration-<job-id>`
+- `cacheselect-server-logs/length-calibration-<job-id>`
+- `cacheselect-generated-traces/length-calibration-<job-id>`
+
+This calibration is not the final evaluation. It checks that prompt-length and
+edit-position scaling work before the implementation determines the definitive
+lengths, repetitions, policy order, and workload matrix.
 
 ## 2. Start vLLM with APC enabled
 
