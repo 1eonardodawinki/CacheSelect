@@ -496,6 +496,43 @@ def _write_summary(
     commits = ", ".join(value[:12] for value in provenance["project_commits"])
     vllm_versions = ", ".join(provenance["vllm_versions"])
 
+    truncated_workloads = [
+        workload
+        for workload in WORKLOADS
+        if max(
+            by_scope[(workload, "all")]["length_finish_rate_off"],
+            by_scope[(workload, "all")]["length_finish_rate_on"],
+        )
+        > 0
+    ]
+    if truncated_workloads:
+        truncation_qualification = (
+            "Absolute quality needs qualification for workloads with at least "
+            "one length-limited response: "
+            + ", ".join(truncated_workloads)
+            + ". Their completion limits should be increased before treating "
+            "absolute pass rates as final quality results."
+        )
+    else:
+        truncation_qualification = (
+            "No response ended because of the configured completion-token "
+            "limit, so truncation does not qualify these quality scores."
+        )
+
+    chat_all = by_scope[("chat", "all")]
+    chat_qualification = ""
+    if (
+        min(
+            chat_all["quality_pass_rate_off"],
+            chat_all["quality_pass_rate_on"],
+        )
+        < 1
+    ):
+        chat_qualification = (
+            " The chat failures are missing required constraints and should be "
+            "inspected separately from truncation."
+        )
+
     content = f"""# CacheSelect baseline matrix {matrix_ids}
 
 ## Validation
@@ -531,13 +568,9 @@ server configurations.
 
 {"No paired request changed its recorded quality score between APC off and on." if no_quality_delta else "At least one paired request changed its recorded quality score; inspect `paired_request_comparison.csv`."}
 
-Absolute quality needs qualification: every periodic-agent answer hit the
-48-token generation cap and was truncated, with some values also incorrect.
-The chat failures are genuine missing constraints, including failure to
-propagate the vegetarian-to-vegan history edit. These weaknesses occur
-identically in both APC modes, so they are model/workload limitations rather
-than observed APC regressions. The periodic generation cap should be corrected
-before treating absolute pass rate as a final quality result.
+{truncation_qualification}{chat_qualification} Failures that occur identically
+in both APC modes are model, workload, or evaluation-configuration limitations
+rather than observed APC regressions.
 
 ## Interpretation and limitations
 

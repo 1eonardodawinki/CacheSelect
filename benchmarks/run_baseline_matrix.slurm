@@ -22,9 +22,11 @@ MATRIX_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
 # tasks owns one workload and runs its six conditions sequentially, while the
 # three tasks can use three GPUs concurrently.
 WORKLOADS=(rag periodic_agent chat)
+MAX_COMPLETION_TOKENS=(96 96 48)
 APC_LABELS=(off on)
 APC_FLAGS=(--no-enable-prefix-caching --enable-prefix-caching)
 WORKLOAD="${WORKLOADS[$TASK_ID]}"
+COMPLETION_LIMIT="${MAX_COMPLETION_TOKENS[$TASK_ID]}"
 
 # Array tasks can share a physical host, so they must not share a TCP port.
 PORT=$((18000 + (MATRIX_ID % 1000) * 20 + TASK_ID))
@@ -61,6 +63,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
 
 echo "CacheSelect baseline workload task"
 echo "matrix_id=$MATRIX_ID task_id=$TASK_ID workload=$WORKLOAD"
+echo "max_completion_tokens=$COMPLETION_LIMIT"
 echo "host=$(hostname) port=$PORT"
 echo "project_commit=$PROJECT_COMMIT"
 echo "model=$MODEL vllm_version=$VLLM_VERSION"
@@ -131,6 +134,7 @@ write_manifest() {
     "$VLLM_VERSION" \
     "$GPU_DESCRIPTION" \
     "$WORKLOAD" \
+    "$COMPLETION_LIMIT" \
     "$apc_label" \
     "$repetition" \
     "$PORT" <<'PY'
@@ -148,6 +152,7 @@ import sys
     vllm_version,
     gpu,
     workload,
+    max_completion_tokens,
     apc,
     repetition,
     port,
@@ -162,6 +167,7 @@ manifest = {
     "vllm_version": vllm_version,
     "gpu": gpu,
     "workload": workload,
+    "max_completion_tokens": int(max_completion_tokens),
     "apc": apc,
     "repetition": int(repetition),
     "port": int(port),
@@ -203,6 +209,7 @@ run_condition() {
     --model "$MODEL" \
     --base-url "http://127.0.0.1:$PORT" \
     --apc-label "$apc_label" \
+    --max-completion-tokens "$COMPLETION_LIMIT" \
     --run-id "baseline-$MATRIX_ID-$run_key" \
     --request-log-dir "$REQUEST_LOG_DIR" \
     --output "$result_path"

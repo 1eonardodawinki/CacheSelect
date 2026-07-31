@@ -104,9 +104,7 @@ def _observe_request(
             },
             sampling={
                 "temperature": payload.get("temperature"),
-                "max_completion_tokens": payload.get(
-                    "max_completion_tokens"
-                ),
+                "max_completion_tokens": payload.get("max_completion_tokens"),
                 "stream": payload.get("stream"),
             },
             metadata={
@@ -118,9 +116,7 @@ def _observe_request(
             evaluation={
                 # These controlled labels describe the benchmark request but
                 # are not sent to vLLM or exposed to a future planner.
-                "prompt_segments": [
-                    asdict(segment) for segment in request.segments
-                ],
+                "prompt_segments": [asdict(segment) for segment in request.segments],
                 "ground_truth": asdict(request.ground_truth),
             },
         )
@@ -207,9 +203,7 @@ def _transition_results(
                 "current_cached_tokens": current["cached_tokens"],
                 "current_prompt_token_count": current["prompt_token_count"],
                 "current_ttft_ms": (
-                    (current["server_metrics"] or {}).get(
-                        "time_to_first_token_ms"
-                    )
+                    (current["server_metrics"] or {}).get("time_to_first_token_ms")
                 ),
             }
         )
@@ -226,7 +220,7 @@ def main() -> None:
     )
     parser.add_argument("--api-key", default=None)
     parser.add_argument("--apc-label", choices=["on", "off"], required=True)
-    parser.add_argument("--max-completion-tokens", type=int, default=48)
+    parser.add_argument("--max-completion-tokens", type=int, default=96)
     parser.add_argument("--timeout-seconds", type=float, default=300.0)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
