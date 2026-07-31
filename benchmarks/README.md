@@ -68,6 +68,37 @@ request ledgers report four completed requests, APC-off reports zero cached
 tokens, and the final summary prints `RAG smoke experiment completed
 successfully`.
 
+## Full baseline matrix
+
+After the smoke experiment passes, submit the complete controlled baseline as
+one Slurm array:
+
+```bash
+cd ~/DeltaCache
+MATRIX_JOB_ID=$(sbatch --parsable benchmarks/run_baseline_matrix.slurm)
+echo "$MATRIX_JOB_ID"
+```
+
+The array contains 18 isolated tasks: three workloads (`rag`,
+`periodic_agent`, and `chat`) times two APC modes times three repetitions. Its
+`%3` array limit uses at most three GPUs concurrently. Every task starts with a
+fresh vLLM process and writes a result JSON, a hardware/run manifest, a complete
+request ledger, a vLLM log, and a top-level Slurm log.
+
+Check progress without attaching to a live log:
+
+```bash
+squeue -j "$MATRIX_JOB_ID"
+grep -l "Baseline condition completed successfully" \
+  /vol/bitbucket/$USER/cacheselect-server-logs/baseline-"$MATRIX_JOB_ID"_*.out \
+  2>/dev/null | wc -l
+```
+
+The successful-run count reaches 18 when the matrix finishes. Results are under
+`/vol/bitbucket/$USER/cacheselect-results/baseline-$MATRIX_JOB_ID`, with
+corresponding request and server logs under their `cacheselect-request-logs`
+and `cacheselect-server-logs` roots.
+
 ## 2. Start vLLM with APC enabled
 
 Use the vLLM checkout in this repository. The two observability flags are
