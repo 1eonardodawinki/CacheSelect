@@ -1,0 +1,100 @@
+CacheSelect baseline workload task
+matrix_id=268672 task_id=2 workload=chat
+host=gpuvm36.doc.ic.ac.uk port=31442
+project_commit=137d7f1ee0a870999921d92f09058946dbe8ab10
+model=Qwen/Qwen2.5-1.5B-Instruct vllm_version=0.0.0+d6dbdb9b0
+gpu=NVIDIA A16, GPU-ffb799d1-a66c-eaf8-71c9-f37e8653cff1, 15356 MiB, 595.71.05
+Starting condition: chat-apc-off-rep-1
+vLLM is healthy pid=3556466
+Running chat-00...
+Running chat-01...
+Running chat-02...
+Running chat-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-268672/baseline-268672-chat-apc-off-rep-1.jsonl
+cached_tokens=[0, 0, 0, 0]
+ttft_ms=[29.113968834280968, 36.33799310773611, 55.79668562859297, 50.12241844087839]
+quality_passed=[True, False, True, False]
+Baseline condition completed successfully: chat-apc-off-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-268672/chat-apc-off-rep-1.vllm.log
+Starting condition: chat-apc-off-rep-2
+vLLM is healthy pid=3556886
+Running chat-00...
+Running chat-01...
+Running chat-02...
+Running chat-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-2.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-268672/baseline-268672-chat-apc-off-rep-2.jsonl
+cached_tokens=[0, 0, 0, 0]
+ttft_ms=[29.22269981354475, 36.86461225152016, 56.43336474895477, 49.83592964708805]
+quality_passed=[True, False, True, False]
+Baseline condition completed successfully: chat-apc-off-rep-2
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-2.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-2.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-268672/chat-apc-off-rep-2.vllm.log
+Starting condition: chat-apc-off-rep-3
+vLLM is healthy pid=3557308
+Running chat-00...
+Running chat-01...
+Running chat-02...
+Running chat-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-3.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-268672/baseline-268672-chat-apc-off-rep-3.jsonl
+cached_tokens=[0, 0, 0, 0]
+ttft_ms=[29.040660709142685, 37.03016974031925, 57.33184237033129, 49.898299388587475]
+quality_passed=[True, False, True, False]
+Baseline condition completed successfully: chat-apc-off-rep-3
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-3.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-off-rep-3.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-268672/chat-apc-off-rep-3.vllm.log
+Starting condition: chat-apc-on-rep-1
+vLLM is healthy pid=3557717
+Running chat-00...
+Running chat-01...
+Running chat-02...
+Running chat-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-268672/baseline-268672-chat-apc-on-rep-1.jsonl
+cached_tokens=[0, 48, 96, 32]
+ttft_ms=[29.17568851262331, 29.59453873336315, 31.54944349080324, 38.120598532259464]
+quality_passed=[True, False, True, False]
+Baseline condition completed successfully: chat-apc-on-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-268672/chat-apc-on-rep-1.vllm.log
+Starting condition: chat-apc-on-rep-2
+vLLM is healthy pid=3558160
+Running chat-00...
+Running chat-01...
+Running chat-02...
+Running chat-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-2.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-268672/baseline-268672-chat-apc-on-rep-2.jsonl
+cached_tokens=[0, 48, 96, 32]
+ttft_ms=[29.14413996040821, 29.47435900568962, 31.54734428972006, 37.84858901053667]
+quality_passed=[True, False, True, False]
+Baseline condition completed successfully: chat-apc-on-rep-2
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-2.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-2.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-268672/chat-apc-on-rep-2.vllm.log
+Starting condition: chat-apc-on-rep-3
+vLLM is healthy pid=3559049
+Running chat-00...
+Running chat-01...
+Running chat-02...
+Running chat-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-3.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-268672/baseline-268672-chat-apc-on-rep-3.jsonl
+cached_tokens=[0, 48, 96, 32]
+ttft_ms=[29.00958899408579, 29.235119000077248, 30.87979555130005, 37.17178013175726]
+quality_passed=[True, False, True, False]
+Baseline condition completed successfully: chat-apc-on-rep-3
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-3.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672/chat-apc-on-rep-3.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-268672/chat-apc-on-rep-3.vllm.log
+Baseline workload task completed successfully: chat
+results=/vol/bitbucket/lmw25/cacheselect-results/baseline-268672
+request_logs=/vol/bitbucket/lmw25/cacheselect-request-logs/baseline-268672
+server_logs=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-268672

@@ -1,0 +1,27 @@
+{
+  "matrix_job_ids": [
+    "268672"
+  ],
+  "models": [
+    "Qwen/Qwen2.5-1.5B-Instruct"
+  ],
+  "project_commits": [
+    "137d7f1ee0a870999921d92f09058946dbe8ab10"
+  ],
+  "vllm_versions": [
+    "0.0.0+d6dbdb9b0"
+  ],
+  "gpus": [
+    "NVIDIA A16, GPU-993d30e0-3321-0df4-43f1-2911291e7797, 15356 MiB, 595.71.05",
+    "NVIDIA A16, GPU-bc415fef-78b5-5ac0-d9f0-006c7bb17678, 15356 MiB, 595.71.05",
+    "NVIDIA A16, GPU-ffb799d1-a66c-eaf8-71c9-f37e8653cff1, 15356 MiB, 595.71.05"
+  ],
+  "hosts": [
+    "gpuvm36.doc.ic.ac.uk",
+    "parrot.doc.ic.ac.uk"
+  ],
+  "result_count": 18,
+  "request_count": 84,
+  "ledger_count": 18,
+  "paired_request_count": 42
+}
