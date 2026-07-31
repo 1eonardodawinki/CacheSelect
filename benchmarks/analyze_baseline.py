@@ -531,12 +531,13 @@ server configurations.
 
 {"No paired request changed its recorded quality score between APC off and on." if no_quality_delta else "At least one paired request changed its recorded quality score; inspect `paired_request_comparison.csv`."}
 
-Absolute quality needs qualification: the periodic-agent answers hit the
-48-token generation cap and were truncated, while the chat scorer requires
-every accepted phrase and can mark semantically close answers as failures.
-These are workload/evaluator limitations shared by both APC modes, not observed
-APC regressions. They should be corrected before treating absolute pass rate as
-a final quality result.
+Absolute quality needs qualification: every periodic-agent answer hit the
+48-token generation cap and was truncated, with some values also incorrect.
+The chat failures are genuine missing constraints, including failure to
+propagate the vegetarian-to-vegan history edit. These weaknesses occur
+identically in both APC modes, so they are model/workload limitations rather
+than observed APC regressions. The periodic generation cap should be corrected
+before treating absolute pass rate as a final quality result.
 
 ## Interpretation and limitations
 
