@@ -9,6 +9,11 @@ from benchmarks.run_vllm_baseline import (
     _validate_observability,
 )
 from benchmarks.evaluation import score_response
+from benchmarks.generate_length_calibration import _rendered_token_count
+from benchmarks.length_calibration import (
+    EDIT_POSITIONS,
+    build_length_calibration_trace,
+)
 from benchmarks.schema import load_trace, save_trace
 from benchmarks.workloads import (
     build_chat_trace,
@@ -80,6 +85,54 @@ class WorkloadTests(TestCase):
         self.assertNotIn("expected_answer", serialised)
         self.assertNotIn("ground_truth", serialised)
 
+    def test_length_calibration_controls_target_and_edit_position(self):
+        def count_words(messages):
+            return 5 + sum(len(message["content"].split()) for message in messages)
+
+        for edit_position in EDIT_POSITIONS:
+            trace = build_length_calibration_trace(
+                target_prompt_tokens=256,
+                edit_position=edit_position,
+                token_counter=count_words,
+                tokenizer_name="word-counter-test",
+            )
+            counts = [count_words(request.messages) for request in trace.requests]
+            self.assertTrue(all(abs(count - 256) <= 16 for count in counts))
+            self.assertEqual(len(trace.requests), 2)
+            self.assertEqual(
+                trace.transitions[0].ground_truth.changed_segment_ids,
+                [f"{edit_position}_marker"],
+            )
+            base_segments = {
+                segment.segment_id: segment for segment in trace.requests[0].segments
+            }
+            edited_segments = {
+                segment.segment_id: segment for segment in trace.requests[1].segments
+            }
+            self.assertEqual(base_segments[f"{edit_position}_marker"].version, 1)
+            self.assertEqual(edited_segments[f"{edit_position}_marker"].version, 2)
+
+    def test_calibration_token_counter_accepts_transformers_return_shapes(self):
+        class FakeTokenizer:
+            def __init__(self, encoded):
+                self.encoded = encoded
+
+            def apply_chat_template(self, *args, **kwargs):
+                return self.encoded
+
+        messages = [{"role": "user", "content": "test"}]
+        self.assertEqual(
+            _rendered_token_count(FakeTokenizer([1, 2, 3]), messages),
+            3,
+        )
+        self.assertEqual(
+            _rendered_token_count(
+                FakeTokenizer({"input_ids": [1, 2, 3, 4]}),
+                messages,
+            ),
+            4,
+        )
+
 
 class EvaluationTests(TestCase):
     def test_all_required_facts_must_be_present(self):
@@ -113,11 +166,7 @@ class BaselineRunnerTests(TestCase):
     def test_observation_keeps_request_rendering_tokens_and_metrics(self):
         response = {
             "id": "chatcmpl-test",
-            "choices": [
-                {
-                    "message": {"role": "assistant", "content": "test output"}
-                }
-            ],
+            "choices": [{"message": {"role": "assistant", "content": "test output"}}],
             "usage": {
                 "prompt_tokens": 3,
                 "completion_tokens": 2,
@@ -174,9 +223,7 @@ class BaselineRunnerTests(TestCase):
 
     def test_observation_is_written_to_full_request_ledger(self):
         response = {
-            "choices": [
-                {"message": {"role": "assistant", "content": "full output"}}
-            ],
+            "choices": [{"message": {"role": "assistant", "content": "full output"}}],
             "usage": {
                 "prompt_tokens": 3,
                 "prompt_tokens_details": {"cached_tokens": 0},
@@ -226,7 +273,9 @@ class BaselineRunnerTests(TestCase):
             summary = validate_ledger(recorder.path)
 
         self.assertTrue(summary.is_complete)
-        self.assertEqual(events[0]["model_input"]["payload"]["messages"], request.messages)
+        self.assertEqual(
+            events[0]["model_input"]["payload"]["messages"], request.messages
+        )
         self.assertEqual(events[1]["output"]["text"], "full output")
         self.assertEqual(
             events[0]["evaluation"]["prompt_segments"][0]["segment_id"],
@@ -236,9 +285,7 @@ class BaselineRunnerTests(TestCase):
 
     def test_every_request_in_the_three_workloads_is_recorded(self):
         response = {
-            "choices": [
-                {"message": {"role": "assistant", "content": "test output"}}
-            ],
+            "choices": [{"message": {"role": "assistant", "content": "test output"}}],
             "usage": {
                 "prompt_tokens": 3,
                 "prompt_tokens_details": {"cached_tokens": 0},
