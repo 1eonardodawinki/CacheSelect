@@ -100,6 +100,20 @@ The successful-run count reaches 18 when the matrix finishes. Results are under
 corresponding request and server logs under their `cacheselect-request-logs`
 and `cacheselect-server-logs` roots.
 
+After downloading those three directories under one local artifact root, build
+the validated tables, Markdown summary, and report-ready PNG/PDF plots:
+
+```bash
+python -m pip install -r benchmarks/requirements-analysis.txt
+python -m benchmarks.analyze_baseline \
+  --input-root ../baseline-results-268672
+```
+
+The analysis is written to `<input-root>/analysis`. It validates that all 18
+matrix conditions and full request ledgers are present, pairs APC-off and APC-on
+requests, and reports cold-start controls separately from requests eligible for
+reuse.
+
 ## 2. Start vLLM with APC enabled
 
 Use the vLLM checkout in this repository. The two observability flags are
