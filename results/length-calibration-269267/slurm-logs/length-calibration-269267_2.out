@@ -1,0 +1,105 @@
+CacheSelect native-vLLM prompt-length calibration
+calibration_id=269267 task_id=2 target_prompt_tokens=4096
+host=gpuvm36.doc.ic.ac.uk port=25342
+project_commit=ba133f5819712e27ec05ffea92f878afbe9925c3
+model=Qwen/Qwen2.5-1.5B-Instruct vllm_version=0.0.0+d6dbdb9b0
+gpu=NVIDIA A16, GPU-17e19f52-cd93-db24-f6f9-1fe6e0ff7159, 15356 MiB, 595.71.05
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/length-calibration-269267/tokens-4096-early.json: rendered_prompt_tokens=[4096, 4096]
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/length-calibration-269267/tokens-4096-middle.json: rendered_prompt_tokens=[4096, 4096]
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/length-calibration-269267/tokens-4096-late.json: rendered_prompt_tokens=[4096, 4096]
+Starting condition: tokens-4096-early-apc-off-rep-1
+vLLM is healthy pid=2299067
+Running calibration-early-base...
+Running calibration-early-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-early-apc-off-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/length-calibration-269267/length-calibration-269267-tokens-4096-early-apc-off-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 0]
+ttft_ms=[967.755377292633, 972.5415660068393]
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Length calibration condition completed successfully: tokens-4096-early-apc-off-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-early-apc-off-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-early-apc-off-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/length-calibration-269267/tokens-4096-early-apc-off-rep-1.vllm.log
+Starting condition: tokens-4096-early-apc-on-rep-1
+vLLM is healthy pid=2299713
+Running calibration-early-base...
+Running calibration-early-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-early-apc-on-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/length-calibration-269267/length-calibration-269267-tokens-4096-early-apc-on-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 32]
+ttft_ms=[967.2199003398418, 972.7178551256657]
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Length calibration condition completed successfully: tokens-4096-early-apc-on-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-early-apc-on-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-early-apc-on-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/length-calibration-269267/tokens-4096-early-apc-on-rep-1.vllm.log
+Starting condition: tokens-4096-middle-apc-on-rep-1
+vLLM is healthy pid=2300167
+Running calibration-middle-base...
+Running calibration-middle-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-middle-apc-on-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/length-calibration-269267/length-calibration-269267-tokens-4096-middle-apc-on-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 1376]
+ttft_ms=[966.8424976989627, 688.4742304682732]
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Length calibration condition completed successfully: tokens-4096-middle-apc-on-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-middle-apc-on-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-middle-apc-on-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/length-calibration-269267/tokens-4096-middle-apc-on-rep-1.vllm.log
+Starting condition: tokens-4096-middle-apc-off-rep-1
+vLLM is healthy pid=2300681
+Running calibration-middle-base...
+Running calibration-middle-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-middle-apc-off-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/length-calibration-269267/length-calibration-269267-tokens-4096-middle-apc-off-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 0]
+ttft_ms=[967.2353127971292, 971.0387326776981]
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Length calibration condition completed successfully: tokens-4096-middle-apc-off-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-middle-apc-off-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-middle-apc-off-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/length-calibration-269267/tokens-4096-middle-apc-off-rep-1.vllm.log
+Starting condition: tokens-4096-late-apc-off-rep-1
+vLLM is healthy pid=2301159
+Running calibration-late-base...
+Running calibration-late-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-late-apc-off-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/length-calibration-269267/length-calibration-269267-tokens-4096-late-apc-off-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 0]
+ttft_ms=[965.812411159277, 971.3511560112238]
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Length calibration condition completed successfully: tokens-4096-late-apc-off-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-late-apc-off-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-late-apc-off-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/length-calibration-269267/tokens-4096-late-apc-off-rep-1.vllm.log
+Starting condition: tokens-4096-late-apc-on-rep-1
+vLLM is healthy pid=2301597
+Running calibration-late-base...
+Running calibration-late-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-late-apc-on-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/length-calibration-269267/length-calibration-269267-tokens-4096-late-apc-on-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 2720]
+ttft_ms=[966.5747275575995, 355.1476215943694]
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Length calibration condition completed successfully: tokens-4096-late-apc-on-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-late-apc-on-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267/tokens-4096-late-apc-on-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/length-calibration-269267/tokens-4096-late-apc-on-rep-1.vllm.log
+Prompt-length calibration task completed successfully: target=4096
+results=/vol/bitbucket/lmw25/cacheselect-results/length-calibration-269267
+request_logs=/vol/bitbucket/lmw25/cacheselect-request-logs/length-calibration-269267
+server_logs=/vol/bitbucket/lmw25/cacheselect-server-logs/length-calibration-269267
+generated_traces=/vol/bitbucket/lmw25/cacheselect-generated-traces/length-calibration-269267

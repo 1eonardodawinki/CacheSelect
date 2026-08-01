@@ -1,0 +1,17 @@
+{
+  "experiment": "native_vllm_length_calibration",
+  "calibration_job_id": "269267",
+  "array_task_id": 2,
+  "slurm_job_id": "269267",
+  "host": "gpuvm36.doc.ic.ac.uk",
+  "project_commit": "ba133f5819712e27ec05ffea92f878afbe9925c3",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "vllm_version": "0.0.0+d6dbdb9b0",
+  "gpu": "NVIDIA A16, GPU-17e19f52-cd93-db24-f6f9-1fe6e0ff7159, 15356 MiB, 595.71.05",
+  "target_prompt_tokens": 4096,
+  "edit_position": "early",
+  "apc": "on",
+  "repetition": 1,
+  "max_completion_tokens": 96,
+  "port": 25342
+}
