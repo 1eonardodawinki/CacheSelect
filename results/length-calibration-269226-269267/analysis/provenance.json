@@ -1,0 +1,46 @@
+{
+  "calibration_job_ids": [
+    "269226",
+    "269267"
+  ],
+  "models": [
+    "Qwen/Qwen2.5-1.5B-Instruct"
+  ],
+  "project_commits": [
+    "2c034ff380d3f4ba27fa094441c8a5d81d89e781",
+    "ba133f5819712e27ec05ffea92f878afbe9925c3"
+  ],
+  "vllm_versions": [
+    "0.0.0+d6dbdb9b0"
+  ],
+  "gpus": [
+    "NVIDIA A16, GPU-17e19f52-cd93-db24-f6f9-1fe6e0ff7159, 15356 MiB, 595.71.05",
+    "NVIDIA A16, GPU-714ddbfa-e2f7-b374-49a0-806f1ad5214c, 15356 MiB, 595.71.05",
+    "NVIDIA A16, GPU-85bd0ec3-bfda-f59c-663f-48f7f0ab16da, 15356 MiB, 595.71.05"
+  ],
+  "hosts": [
+    "gpuvm36.doc.ic.ac.uk",
+    "parrot.doc.ic.ac.uk"
+  ],
+  "input_roots": [
+    "length-calibration-269226",
+    "length-calibration-269267"
+  ],
+  "superseded_conditions": [
+    {
+      "condition": {
+        "target_prompt_tokens": 4096,
+        "edit_position": "early",
+        "apc": "off"
+      },
+      "superseded_root": "length-calibration-269226",
+      "superseded_result": "tokens-4096-early-apc-off-rep-1.json",
+      "selected_root": "length-calibration-269267",
+      "selected_result": "tokens-4096-early-apc-off-rep-1.json"
+    }
+  ],
+  "raw_result_count": 19,
+  "selected_result_count": 18,
+  "request_count": 36,
+  "ledger_count": 18
+}
