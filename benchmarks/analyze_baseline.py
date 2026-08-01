@@ -83,40 +83,70 @@ def _validate_ledger(path: Path, expected_requests: int) -> None:
 
 
 def _load_matrix(
-    input_root: Path,
+    input_roots: list[Path],
 ) -> tuple[
     list[dict[str, Any]],
     list[dict[str, Any]],
     dict[str, Any],
 ]:
-    result_dir = input_root / "results"
-    ledger_dir = input_root / "request-logs"
-    result_paths = sorted(
-        path
-        for path in result_dir.glob("*.json")
-        if not path.name.endswith(".manifest.json")
-    )
     expected = {
         (workload, apc, repetition)
         for workload in WORKLOADS
         for apc in APC_LABELS
         for repetition in REPETITIONS
     }
-    discovered: set[tuple[str, str, int]] = set()
+    selected: dict[tuple[str, str, int], tuple[Path, Path]] = {}
+    superseded: list[dict[str, str]] = []
+    raw_result_count = 0
+    for input_root in input_roots:
+        result_paths = sorted(
+            path
+            for path in (input_root / "results").glob("*.json")
+            if not path.name.endswith(".manifest.json")
+        )
+        raw_result_count += len(result_paths)
+        for path in result_paths:
+            match = RESULT_NAME.fullmatch(path.name)
+            if not match:
+                raise ValueError(f"unexpected result filename: {path.name}")
+            workload, apc, repetition_text = match.groups()
+            key = (workload, apc, int(repetition_text))
+            if key in selected:
+                previous_root, previous_path = selected[key]
+                superseded.append(
+                    {
+                        "condition": "/".join(map(str, key)),
+                        "superseded_root": previous_root.name,
+                        "superseded_result": previous_path.name,
+                        "selected_root": input_root.name,
+                        "selected_result": path.name,
+                    }
+                )
+            selected[key] = (input_root, path)
+
+    discovered = set(selected)
+    if discovered != expected:
+        missing = sorted(expected - discovered)
+        extra = sorted(discovered - expected)
+        raise ValueError(f"matrix is incomplete: missing={missing}, extra={extra}")
+
     request_rows: list[dict[str, Any]] = []
     run_rows: list[dict[str, Any]] = []
     manifests: list[dict[str, Any]] = []
 
-    for path in result_paths:
-        match = RESULT_NAME.fullmatch(path.name)
-        if not match:
-            raise ValueError(f"unexpected result filename: {path.name}")
-        workload, apc, repetition_text = match.groups()
-        repetition = int(repetition_text)
-        key = (workload, apc, repetition)
-        if key in discovered:
-            raise ValueError(f"duplicate matrix condition: {key}")
-        discovered.add(key)
+    workload_order = {name: index for index, name in enumerate(WORKLOADS)}
+    selected_items = sorted(
+        selected.items(),
+        key=lambda item: (
+            workload_order[item[0][0]],
+            item[0][1],
+            item[0][2],
+        ),
+    )
+    for key, (input_root, path) in selected_items:
+        workload, apc, repetition = key
+        result_dir = input_root / "results"
+        ledger_dir = input_root / "request-logs"
 
         result = json.loads(path.read_text(encoding="utf-8"))
         observations = result.get("observations") or []
@@ -197,6 +227,7 @@ def _load_matrix(
                     else None,
                     "result_file": path.name,
                     "ledger_file": ledger_path.name,
+                    "source_root": input_root.name,
                 }
             )
 
@@ -226,13 +257,9 @@ def _load_matrix(
                 ),
                 "result_file": path.name,
                 "ledger_file": ledger_path.name,
+                "source_root": input_root.name,
             }
         )
-
-    if discovered != expected:
-        missing = sorted(expected - discovered)
-        extra = sorted(discovered - expected)
-        raise ValueError(f"matrix is incomplete: missing={missing}, extra={extra}")
 
     if any(row["cached_tokens"] != 0 for row in request_rows if row["apc"] == "off"):
         raise ValueError("APC-off result contains non-zero cached tokens")
@@ -250,9 +277,12 @@ def _load_matrix(
         "vllm_versions": sorted({item["vllm_version"] for item in manifests}),
         "gpus": sorted({item["gpu"] for item in manifests}),
         "hosts": sorted({item["host"] for item in manifests}),
-        "result_count": len(result_paths),
+        "input_roots": [root.name for root in input_roots],
+        "superseded_conditions": superseded,
+        "raw_result_count": raw_result_count,
+        "result_count": len(selected),
         "request_count": len(request_rows),
-        "ledger_count": len(list(ledger_dir.glob("*.jsonl"))),
+        "ledger_count": len(selected),
     }
     return request_rows, run_rows, provenance
 
@@ -737,8 +767,13 @@ def main() -> None:
     parser.add_argument(
         "--input-root",
         type=Path,
+        action="append",
         required=True,
-        help="Downloaded artifact directory containing results/ and request-logs/.",
+        help=(
+            "Downloaded artifact directory containing results/ and "
+            "request-logs/. Repeat to combine runs; later roots replace "
+            "duplicate workload/APC/repetition conditions."
+        ),
     )
     parser.add_argument(
         "--output-dir",
@@ -753,11 +788,13 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    input_root = args.input_root.resolve()
-    output_dir = (args.output_dir or input_root / "analysis").resolve()
+    input_roots = [root.resolve() for root in args.input_root]
+    if len(input_roots) > 1 and args.output_dir is None:
+        parser.error("--output-dir is required with multiple --input-root values")
+    output_dir = (args.output_dir or input_roots[0] / "analysis").resolve()
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    request_rows, run_rows, provenance = _load_matrix(input_root)
+    request_rows, run_rows, provenance = _load_matrix(input_roots)
     paired_rows = _paired_requests(request_rows)
     provenance["paired_request_count"] = len(paired_rows)
     workload_rows = _workload_summaries(request_rows)

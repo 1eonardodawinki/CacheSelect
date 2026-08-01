@@ -10,6 +10,7 @@ from benchmarks.run_vllm_baseline import (
 )
 from benchmarks.evaluation import score_response
 from benchmarks.generate_length_calibration import _rendered_token_count
+from benchmarks.analyze_length_calibration import _selected_results
 from benchmarks.length_calibration import (
     EDIT_POSITIONS,
     build_length_calibration_trace,
@@ -149,6 +150,28 @@ class WorkloadTests(TestCase):
         )
         self.assertTrue(score["passed"])
         self.assertEqual(score["requirements_total"], 1)
+
+    def test_later_calibration_root_supersedes_duplicate_condition(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            first = root / "first"
+            second = root / "second"
+            (first / "results").mkdir(parents=True)
+            (second / "results").mkdir(parents=True)
+            for target in (256, 1024, 4096):
+                for position in ("early", "middle", "late"):
+                    for apc in ("off", "on"):
+                        name = f"tokens-{target}-{position}-apc-{apc}-rep-1.json"
+                        (first / "results" / name).write_text("{}")
+            replacement = second / "results" / "tokens-4096-early-apc-off-rep-1.json"
+            replacement.write_text("{}")
+
+            selected, superseded, raw_count = _selected_results([first, second])
+
+        self.assertEqual(raw_count, 19)
+        self.assertEqual(len(selected), 18)
+        self.assertEqual(selected[(4096, "early", "off")][1], replacement)
+        self.assertEqual(len(superseded), 1)
 
 
 class EvaluationTests(TestCase):

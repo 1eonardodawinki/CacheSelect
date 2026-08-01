@@ -118,19 +118,24 @@ repetitions. Chat does not need correction because all of its recorded
 responses finished naturally below 48 tokens. Keep the old and corrected
 artifact directories separate.
 
-After downloading those three directories under one local artifact root, build
-the validated tables, Markdown summary, and report-ready PNG/PDF plots:
+After downloading the artifact directories, build the validated tables,
+Markdown summary, and report-ready PNG/PDF plots. A corrected partial run can
+be layered over the original matrix by repeating `--input-root`; later roots
+replace duplicate workload/APC/repetition conditions:
 
 ```bash
 python -m pip install -r benchmarks/requirements-analysis.txt
 python -m benchmarks.analyze_baseline \
-  --input-root ../baseline-results-268672
+  --input-root results/baseline-268672 \
+  --input-root results/baseline-269138 \
+  --output-dir results/baseline-268672-269138/analysis
 ```
 
-The analysis is written to `<input-root>/analysis`. It validates that all 18
-matrix conditions and full request ledgers are present, pairs APC-off and APC-on
-requests, and reports cold-start controls separately from requests eligible for
-reuse.
+For a single root, `--output-dir` defaults to `<input-root>/analysis`; it is
+required when combining roots. The analyzer validates that all 18 selected
+matrix conditions and full request ledgers are present, pairs APC-off and
+APC-on requests, and reports cold-start controls separately from requests
+eligible for reuse.
 
 ## Prompt-length calibration
 
@@ -173,6 +178,20 @@ are stored under:
 This calibration is not the final evaluation. It checks that prompt-length and
 edit-position scaling work before the implementation determines the definitive
 lengths, repetitions, policy order, and workload matrix.
+
+Analyse one complete run, or combine an interrupted initial run with a later
+continuation in the same way:
+
+```bash
+python -m benchmarks.analyze_length_calibration \
+  --input-root results/length-calibration-269226 \
+  --input-root results/length-calibration-269267 \
+  --output-dir results/length-calibration-269226-269267/analysis
+```
+
+The analyzer selects the later copy of duplicate conditions and validates the
+complete 18-condition matrix, exact rendered prompt lengths, full request
+ledgers, cache invariants, natural completions, and semantic answer quality.
 
 ## 2. Start vLLM with APC enabled
 
