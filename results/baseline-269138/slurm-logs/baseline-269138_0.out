@@ -1,0 +1,101 @@
+CacheSelect baseline workload task
+matrix_id=269138 task_id=0 workload=rag
+max_completion_tokens=96
+host=gpuvm36.doc.ic.ac.uk port=20760
+project_commit=2c034ff380d3f4ba27fa094441c8a5d81d89e781
+model=Qwen/Qwen2.5-1.5B-Instruct vllm_version=0.0.0+d6dbdb9b0
+gpu=NVIDIA A16, GPU-714ddbfa-e2f7-b374-49a0-806f1ad5214c, 15356 MiB, 595.71.05
+Starting condition: rag-apc-off-rep-1
+vLLM is healthy pid=2266324
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-269138/baseline-269138-rag-apc-off-rep-1.jsonl
+cached_tokens=[0, 0, 0, 0]
+ttft_ms=[49.52432494610548, 52.74874810129404, 51.350561901926994, 50.998092629015446]
+quality_passed=[True, True, True, True]
+Baseline condition completed successfully: rag-apc-off-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-269138/rag-apc-off-rep-1.vllm.log
+Starting condition: rag-apc-off-rep-2
+vLLM is healthy pid=2267199
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-2.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-269138/baseline-269138-rag-apc-off-rep-2.jsonl
+cached_tokens=[0, 0, 0, 0]
+ttft_ms=[49.37783721834421, 52.55702789872885, 52.66614817082882, 51.276241429150105]
+quality_passed=[True, True, True, True]
+Baseline condition completed successfully: rag-apc-off-rep-2
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-2.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-2.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-269138/rag-apc-off-rep-2.vllm.log
+Starting condition: rag-apc-off-rep-3
+vLLM is healthy pid=2268013
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-3.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-269138/baseline-269138-rag-apc-off-rep-3.jsonl
+cached_tokens=[0, 0, 0, 0]
+ttft_ms=[49.56003651022911, 51.44952330738306, 51.70656181871891, 51.689052022993565]
+quality_passed=[True, True, True, True]
+Baseline condition completed successfully: rag-apc-off-rep-3
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-3.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-off-rep-3.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-269138/rag-apc-off-rep-3.vllm.log
+Starting condition: rag-apc-on-rep-1
+vLLM is healthy pid=2268490
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-269138/baseline-269138-rag-apc-on-rep-1.jsonl
+cached_tokens=[0, 80, 32, 160]
+ttft_ms=[49.4231004267931, 37.259140983223915, 49.35512971132994, 25.396334007382393]
+quality_passed=[True, True, True, True]
+Baseline condition completed successfully: rag-apc-on-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-269138/rag-apc-on-rep-1.vllm.log
+Starting condition: rag-apc-on-rep-2
+vLLM is healthy pid=2268969
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-2.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-269138/baseline-269138-rag-apc-on-rep-2.jsonl
+cached_tokens=[0, 80, 32, 160]
+ttft_ms=[49.42359309643507, 37.54646424204111, 49.47533179074526, 25.89105349034071]
+quality_passed=[True, True, True, True]
+Baseline condition completed successfully: rag-apc-on-rep-2
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-2.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-2.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-269138/rag-apc-on-rep-2.vllm.log
+Starting condition: rag-apc-on-rep-3
+vLLM is healthy pid=2269444
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-3.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/baseline-269138/baseline-269138-rag-apc-on-rep-3.jsonl
+cached_tokens=[0, 80, 32, 160]
+ttft_ms=[49.71316270530224, 37.02399507164955, 49.78854302316904, 25.63890442252159]
+quality_passed=[True, True, True, True]
+Baseline condition completed successfully: rag-apc-on-rep-3
+result=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-3.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138/rag-apc-on-rep-3.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-269138/rag-apc-on-rep-3.vllm.log
+Baseline workload task completed successfully: rag
+results=/vol/bitbucket/lmw25/cacheselect-results/baseline-269138
+request_logs=/vol/bitbucket/lmw25/cacheselect-request-logs/baseline-269138
+server_logs=/vol/bitbucket/lmw25/cacheselect-server-logs/baseline-269138
