@@ -1,0 +1,17 @@
+CacheSelect native-vLLM prompt-length calibration
+calibration_id=269226 task_id=2 target_prompt_tokens=4096
+host=parrot.doc.ic.ac.uk port=24522
+project_commit=2c034ff380d3f4ba27fa094441c8a5d81d89e781
+model=Qwen/Qwen2.5-1.5B-Instruct vllm_version=0.0.0+d6dbdb9b0
+gpu=NVIDIA A16, GPU-018b5bf7-06ea-2b23-bdee-eae4c0f6cfa3, 15356 MiB, 595.71.05
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/length-calibration-269226/tokens-4096-early.json: rendered_prompt_tokens=[4096, 4096]
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/length-calibration-269226/tokens-4096-middle.json: rendered_prompt_tokens=[4096, 4096]
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/length-calibration-269226/tokens-4096-late.json: rendered_prompt_tokens=[4096, 4096]
+Starting condition: tokens-4096-early-apc-off-rep-1
+vLLM is healthy pid=2523521
+Running calibration-early-base...
+Running calibration-early-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/length-calibration-269226/tokens-4096-early-apc-off-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/length-calibration-269226/length-calibration-269226-tokens-4096-early-apc-off-rep-1.jsonl
+calibration quality failed: [False, False]
