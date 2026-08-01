@@ -142,12 +142,15 @@ def _request(
             ),
         ],
         ground_truth=RequestGroundTruth(
-            expected_answer="NORTH-731 [calibration_record]",
+            expected_answer="NORTH-731",
             requirements=[
                 AnswerRequirement("project_code", ["north-731"]),
-                AnswerRequirement("citation", ["calibration_record"]),
             ],
-            notes="The revision marker is deliberately irrelevant to the answer.",
+            notes=(
+                "The revision marker is deliberately irrelevant to the answer. "
+                "The calibration quality gate checks semantic fact retrieval, "
+                "not citation-format compliance."
+            ),
         ),
     )
 

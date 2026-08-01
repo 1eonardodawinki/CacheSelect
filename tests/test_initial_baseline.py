@@ -133,6 +133,23 @@ class WorkloadTests(TestCase):
             4,
         )
 
+    def test_calibration_quality_checks_fact_not_citation_format(self):
+        def count_words(messages):
+            return 5 + sum(len(message["content"].split()) for message in messages)
+
+        trace = build_length_calibration_trace(
+            target_prompt_tokens=256,
+            edit_position="early",
+            token_counter=count_words,
+            tokenizer_name="word-counter-test",
+        )
+        score = score_response(
+            "The verified project code is NORTH-731.",
+            trace.requests[0].ground_truth,
+        )
+        self.assertTrue(score["passed"])
+        self.assertEqual(score["requirements_total"], 1)
+
 
 class EvaluationTests(TestCase):
     def test_all_required_facts_must_be_present(self):
