@@ -1,0 +1,120 @@
+{
+  "matrix_job_ids": [
+    "268672",
+    "269138"
+  ],
+  "models": [
+    "Qwen/Qwen2.5-1.5B-Instruct"
+  ],
+  "project_commits": [
+    "137d7f1ee0a870999921d92f09058946dbe8ab10",
+    "2c034ff380d3f4ba27fa094441c8a5d81d89e781"
+  ],
+  "vllm_versions": [
+    "0.0.0+d6dbdb9b0"
+  ],
+  "gpus": [
+    "NVIDIA A16, GPU-018b5bf7-06ea-2b23-bdee-eae4c0f6cfa3, 15356 MiB, 595.71.05",
+    "NVIDIA A16, GPU-714ddbfa-e2f7-b374-49a0-806f1ad5214c, 15356 MiB, 595.71.05",
+    "NVIDIA A16, GPU-ffb799d1-a66c-eaf8-71c9-f37e8653cff1, 15356 MiB, 595.71.05"
+  ],
+  "hosts": [
+    "gpuvm36.doc.ic.ac.uk",
+    "parrot.doc.ic.ac.uk"
+  ],
+  "input_roots": [
+    "baseline-268672",
+    "baseline-269138"
+  ],
+  "superseded_conditions": [
+    {
+      "condition": "periodic_agent/off/1",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "periodic_agent-apc-off-rep-1.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "periodic_agent-apc-off-rep-1.json"
+    },
+    {
+      "condition": "periodic_agent/off/2",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "periodic_agent-apc-off-rep-2.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "periodic_agent-apc-off-rep-2.json"
+    },
+    {
+      "condition": "periodic_agent/off/3",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "periodic_agent-apc-off-rep-3.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "periodic_agent-apc-off-rep-3.json"
+    },
+    {
+      "condition": "periodic_agent/on/1",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "periodic_agent-apc-on-rep-1.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "periodic_agent-apc-on-rep-1.json"
+    },
+    {
+      "condition": "periodic_agent/on/2",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "periodic_agent-apc-on-rep-2.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "periodic_agent-apc-on-rep-2.json"
+    },
+    {
+      "condition": "periodic_agent/on/3",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "periodic_agent-apc-on-rep-3.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "periodic_agent-apc-on-rep-3.json"
+    },
+    {
+      "condition": "rag/off/1",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "rag-apc-off-rep-1.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "rag-apc-off-rep-1.json"
+    },
+    {
+      "condition": "rag/off/2",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "rag-apc-off-rep-2.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "rag-apc-off-rep-2.json"
+    },
+    {
+      "condition": "rag/off/3",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "rag-apc-off-rep-3.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "rag-apc-off-rep-3.json"
+    },
+    {
+      "condition": "rag/on/1",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "rag-apc-on-rep-1.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "rag-apc-on-rep-1.json"
+    },
+    {
+      "condition": "rag/on/2",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "rag-apc-on-rep-2.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "rag-apc-on-rep-2.json"
+    },
+    {
+      "condition": "rag/on/3",
+      "superseded_root": "baseline-268672",
+      "superseded_result": "rag-apc-on-rep-3.json",
+      "selected_root": "baseline-269138",
+      "selected_result": "rag-apc-on-rep-3.json"
+    }
+  ],
+  "raw_result_count": 30,
+  "result_count": 18,
+  "request_count": 84,
+  "ledger_count": 18,
+  "paired_request_count": 42
+}
