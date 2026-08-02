@@ -71,6 +71,32 @@ vLLM's prompt tokens, the expected recommendations are recorded, APC-off
 reports zero cached tokens, and the final summary prints `RAG smoke experiment
 completed successfully`.
 
+## Native CacheSelect smoke experiment
+
+After the baseline smoke passes, test the planner that now executes inside
+vLLM. This job compares a fresh native-APC server with a fresh
+CacheSelect-enabled server:
+
+```bash
+mkdir -p /vol/bitbucket/$USER/cacheselect-server-logs
+cd ~/DeltaCache
+git pull --ff-only
+sbatch benchmarks/run_cacheselect_smoke.slurm
+```
+
+The default threshold is 64 tokens. Override it at submission time with, for
+example:
+
+```bash
+CACHESELECT_NATIVE_PREFIX_MIN_TOKENS=128 \
+  sbatch benchmarks/run_cacheselect_smoke.slurm
+```
+
+The job checks that every request records a runtime decision, accepted hits
+become actual cached tokens, rejected hits force zero cached tokens, at least
+one non-zero candidate is rejected, all ledgers complete, and answer quality
+still passes.
+
 ## Full baseline matrix
 
 After the smoke experiment passes, submit the complete controlled baseline as
@@ -234,8 +260,22 @@ python -m benchmarks.run_vllm_baseline \
 Shadow mode tokenizes every request before execution, records the planner's
 recommendation separately from the policy actually executed, and fails if the
 local token IDs differ from vLLM's rendered prompt. It does not yet switch the
-backend policy. See `cacheselect/README.md` for the runtime boundary and next
-implementation milestone.
+backend policy.
+
+To execute the threshold planner inside vLLM instead, start this repository's
+vLLM checkout with:
+
+```bash
+vllm serve Qwen/Qwen2.5-7B-Instruct \
+  --enable-prefix-caching \
+  --cacheselect-minimum-native-prefix-tokens 64 \
+  --enable-prompt-tokens-details \
+  --enable-per-request-metrics
+```
+
+Then run the trace with `--planner-mode vllm`. The runner requires the server's
+per-request CacheSelect fields and records them as `runtime_policy`. See
+`cacheselect/README.md` for current limitations.
 
 Repeat the runner for `periodic_agent.json` and `chat.json`.
 
