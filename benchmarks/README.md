@@ -39,10 +39,12 @@ This writes `benchmarks/traces/{rag,periodic_agent,chat}.json`.
 
 ## GPU smoke experiment
 
-Before launching the full baseline matrix, run the four-request RAG trace once
-with APC disabled and once with APC enabled. The Slurm job starts a fresh vLLM
+Before launching a full experiment, run the four-request RAG trace once with
+APC disabled and once with APC enabled. The Slurm job starts a fresh vLLM
 server for each condition, waits for its health endpoint, records the complete
 requests and responses, and shuts the server down before changing cache mode.
+It also runs the CacheSelect planner in shadow mode and checks its four expected
+recommendations without applying them to either forced baseline condition.
 
 The default smoke model is `Qwen/Qwen2.5-1.5B-Instruct`, which fits an Imperial
 A16. From the Imperial submission host:
@@ -64,9 +66,10 @@ tail -f /vol/bitbucket/$USER/cacheselect-server-logs/rag-smoke-<job-id>.out
 
 `tail -f` only follows the log; stopping it does not stop the Slurm job. The
 smoke run is successful when both conditions save four observations, both
-request ledgers report four completed requests, APC-off reports zero cached
-tokens, and the final summary prints `RAG smoke experiment completed
-successfully`.
+request ledgers report four completed requests, the planner preflight matches
+vLLM's prompt tokens, the expected recommendations are recorded, APC-off
+reports zero cached tokens, and the final summary prints `RAG smoke experiment
+completed successfully`.
 
 ## Full baseline matrix
 

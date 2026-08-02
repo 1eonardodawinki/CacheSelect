@@ -14,6 +14,7 @@ STORAGE_ROOT="${CACHESELECT_STORAGE_ROOT:-/vol/bitbucket/$USER}"
 CUDA_SETUP="${CACHESELECT_CUDA_SETUP:-/vol/cuda/13.0.0/setup.sh}"
 MODEL="${CACHESELECT_SMOKE_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 PORT="${CACHESELECT_SMOKE_PORT:-8000}"
+MINIMUM_NATIVE_PREFIX_TOKENS="${CACHESELECT_NATIVE_PREFIX_MIN_TOKENS:-64}"
 JOB_TAG="${SLURM_JOB_ID:-manual-$(date -u +%Y%m%dT%H%M%SZ)}"
 
 RESULT_DIR="$STORAGE_ROOT/cacheselect-results/rag-smoke-$JOB_TAG"
@@ -49,6 +50,7 @@ echo "host=$(hostname)"
 echo "project_root=$PROJECT_ROOT"
 echo "project_commit=$(git rev-parse HEAD)"
 echo "model=$MODEL"
+echo "planner_mode=shadow minimum_native_prefix_tokens=$MINIMUM_NATIVE_PREFIX_TOKENS"
 echo "vllm=$(command -v vllm)"
 echo "vllm_version=$(vllm --version)"
 nvidia-smi --query-gpu=name,uuid,memory.total,driver_version \
@@ -130,6 +132,8 @@ run_condition() {
     --trace benchmarks/traces/rag.json \
     --model "$MODEL" \
     --apc-label "$apc_label" \
+    --planner-mode shadow \
+    --minimum-native-prefix-tokens "$MINIMUM_NATIVE_PREFIX_TOKENS" \
     --run-id "$run_id" \
     --request-log-dir "$REQUEST_LOG_DIR" \
     --output "$result_path"
@@ -158,14 +162,30 @@ for result_name in sys.argv[1:]:
         for item in observations
     ]
     quality = [item["quality"]["passed"] for item in observations]
+    decisions = [
+        item["policy_metadata"]["planner_decision"]["policy"]
+        for item in observations
+    ]
     ledger = result["request_ledger_summary"]
     if len(observations) != 4:
         raise SystemExit(f"{path}: expected 4 observations, got {len(observations)}")
     if ledger != {"started": 4, "completed": 4, "failed": 0}:
         raise SystemExit(f"{path}: unexpected ledger summary {ledger}")
+    if result.get("planner", {}).get("mode") != "shadow":
+        raise SystemExit(f"{path}: shadow planner metadata is missing")
+    expected_decisions = [
+        "FULL_RECOMPUTE",
+        "VLLM_NATIVE_APC",
+        "FULL_RECOMPUTE",
+        "VLLM_NATIVE_APC",
+    ]
+    if decisions != expected_decisions:
+        raise SystemExit(
+            f"{path}: expected planner decisions {expected_decisions}, got {decisions}"
+        )
     print(
         f"{path.name}: cached_tokens={cached} ttft_ms={ttft} "
-        f"quality_passed={quality}"
+        f"quality_passed={quality} planner_decisions={decisions}"
     )
 PY
 
