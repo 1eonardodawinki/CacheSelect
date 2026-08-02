@@ -3,3 +3,7 @@ __pycache__/
 .DS_Store
 request_logs/
 results/**/.matplotlib/
+
+# Local compliance-scanner configuration
+.complyscan.yml
+.complyscan.yml.backup
