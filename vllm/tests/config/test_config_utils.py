@@ -218,3 +218,11 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
         CacheConfig(cacheselect_minimum_native_prefix_tokens=64).compute_hash()
         == base_hash
     )
+
+
+def test_cacheselect_requires_prefix_caching():
+    with pytest.raises(ValueError, match="requires prefix caching"):
+        CacheConfig(
+            enable_prefix_caching=False,
+            cacheselect_minimum_native_prefix_tokens=64,
+        )

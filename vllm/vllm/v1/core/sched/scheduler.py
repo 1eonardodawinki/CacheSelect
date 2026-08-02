@@ -276,6 +276,9 @@ class Scheduler(SchedulerInterface):
             hash_block_size=hash_block_size,
             metrics_collector=self.kv_metrics_collector,
             watermark=self.scheduler_config.watermark,
+            cacheselect_minimum_native_prefix_tokens=(
+                self.cache_config.cacheselect_minimum_native_prefix_tokens
+            ),
         )
         # Bind GPU block pool to the KV connector. This must happen after
         # kv_cache_manager is constructed so block_pool is available.

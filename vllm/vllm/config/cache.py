@@ -264,6 +264,15 @@ class CacheConfig:
             self.user_specified_mamba_block_size = True
         return self
 
+    @model_validator(mode="after")
+    def _validate_cacheselect_requires_prefix_caching(self) -> "CacheConfig":
+        if (
+            self.cacheselect_minimum_native_prefix_tokens is not None
+            and not self.enable_prefix_caching
+        ):
+            raise ValueError("CacheSelect requires prefix caching to be enabled")
+        return self
+
     @field_validator("calculate_kv_scales", mode="after")
     @classmethod
     def _warn_deprecated_calculate_kv_scales(cls, calculate_kv_scales: bool) -> bool:

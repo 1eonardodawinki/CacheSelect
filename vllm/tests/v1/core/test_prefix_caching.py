@@ -39,6 +39,7 @@ from vllm.v1.core.kv_cache_utils import (
     init_none_hash,
     make_block_hash_with_group_id,
 )
+from vllm.v1.core.kv_reuse_planner import KVReusePolicy
 from vllm.v1.core.sched.scheduler import Scheduler
 from vllm.v1.kv_cache_interface import (
     FullAttentionSpec,
@@ -347,6 +348,57 @@ def test_prefill(hash_fn):
         free_block_queue.fake_free_list_tail.prev_free_block
         is free_block_queue.fake_free_list_head
     )
+
+
+@pytest.mark.parametrize(
+    ("minimum_native_prefix_tokens", "expected_cached_tokens", "expected_policy"),
+    [
+        (48, 48, KVReusePolicy.VLLM_NATIVE_APC),
+        (49, 0, KVReusePolicy.FULL_RECOMPUTE),
+    ],
+)
+def test_cacheselect_controls_native_prefix_reuse(
+    minimum_native_prefix_tokens,
+    expected_cached_tokens,
+    expected_policy,
+):
+    block_size = 16
+    manager = make_kv_cache_manager(
+        make_kv_cache_config(block_size, 11),
+        max_model_len=8192,
+        enable_caching=True,
+        hash_block_size=block_size,
+        cacheselect_minimum_native_prefix_tokens=minimum_native_prefix_tokens,
+    )
+
+    common_token_ids = [i for i in range(3) for _ in range(block_size)]
+    req0 = make_request(
+        "source",
+        common_token_ids + [3] * 7,
+        block_size,
+        sha256,
+    )
+    computed_blocks, _, _ = manager.get_computed_blocks(req0)
+    blocks = manager.allocate_slots(
+        req0,
+        num_new_tokens=req0.num_tokens,
+        num_new_computed_tokens=0,
+        new_computed_blocks=computed_blocks,
+    )
+    assert blocks is not None
+
+    req1 = make_request(
+        "target",
+        common_token_ids + [4] * 5,
+        block_size,
+        sha256,
+    )
+    _, num_computed_tokens, _ = manager.get_computed_blocks(req1)
+
+    assert num_computed_tokens == expected_cached_tokens
+    assert req1.kv_reuse_decision is not None
+    assert req1.kv_reuse_decision.native_cached_tokens == 48
+    assert req1.kv_reuse_decision.policy == expected_policy
 
 
 def test_prefill_hybrid_model():
