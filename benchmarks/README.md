@@ -84,18 +84,10 @@ git pull --ff-only
 sbatch benchmarks/run_cacheselect_smoke.slurm
 ```
 
-The default threshold is 64 tokens. Override it at submission time with, for
-example:
-
-```bash
-CACHESELECT_NATIVE_PREFIX_MIN_TOKENS=128 \
-  sbatch benchmarks/run_cacheselect_smoke.slurm
-```
-
-The job checks that every request records a runtime decision, accepted hits
-become actual cached tokens, rejected hits force zero cached tokens, at least
-one non-zero candidate is rejected, all ledgers complete, and answer quality
-still passes.
+The job checks that every request records a runtime decision, every non-zero
+native hit is preserved, CacheSelect and native APC report identical cache-hit
+counts, all ledgers complete, and answer quality still passes. This is a
+correctness and observability smoke test, not an expected speedup.
 
 ## Full baseline matrix
 
@@ -253,7 +245,6 @@ python -m benchmarks.run_vllm_baseline \
   --model Qwen/Qwen2.5-7B-Instruct \
   --apc-label on \
   --planner-mode shadow \
-  --minimum-native-prefix-tokens 64 \
   --output benchmarks/results/rag_apc-on-shadow.json
 ```
 
@@ -262,13 +253,13 @@ recommendation separately from the policy actually executed, and fails if the
 local token IDs differ from vLLM's rendered prompt. It does not yet switch the
 backend policy.
 
-To execute the threshold planner inside vLLM instead, start this repository's
-vLLM checkout with:
+To record the safe fallback inside vLLM, start this repository's vLLM checkout
+with:
 
 ```bash
 vllm serve Qwen/Qwen2.5-7B-Instruct \
   --enable-prefix-caching \
-  --cacheselect-minimum-native-prefix-tokens 64 \
+  --enable-cacheselect \
   --enable-prompt-tokens-details \
   --enable-per-request-metrics
 ```

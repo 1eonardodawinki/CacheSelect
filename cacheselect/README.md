@@ -13,11 +13,10 @@ tokenized the prompt and looked up its real native prefix-cache hit.
   state. This action is part of the stable interface but has no backend
   implementation yet.
 
-`PrefixHeuristicPlanner` is the first transparent planner. Cold requests use
-full recomputation, exact matches and append-only requests use native APC, and
-non-prefix edits use native APC only when their exact reusable prefix reaches a
-configurable threshold. Its default 64-token threshold is an initial rule
-informed by the A16 calibration, not a trained classifier or final result.
+`NativeAPCFallbackPlanner` defines the safe baseline. Cold requests and prompts
+without a common prefix require full recomputation. Every non-empty exact
+prefix is preserved with native APC. A future partial-reuse policy may improve
+on this baseline, but it must fall back to APC rather than discard safe work.
 
 ## Current execution boundary
 
@@ -36,18 +35,17 @@ configured for the whole vLLM server. Keeping `planner_decision` separate from
 executed optimization.
 
 The runner also supports `--planner-mode vllm`. Start the server with
-`--cacheselect-minimum-native-prefix-tokens N`; vLLM then records its candidate
-native hit and applies one of the following policies to each request:
+`--enable-cacheselect`; vLLM then records its candidate native hit and the safe
+fallback policy for each request:
 
-- hits below `N`: `FULL_RECOMPUTE`;
-- hits of at least `N`: `VLLM_NATIVE_APC`.
+- no native hit: `FULL_RECOMPUTE`;
+- any non-zero native hit: `VLLM_NATIVE_APC`.
 
-The OpenAI-compatible response reports the applied policy, reason, candidate
-hit and threshold in its `metrics` object. The benchmark copies these into
+The OpenAI-compatible response reports the applied policy, reason, and
+candidate hit in its `metrics` object. The benchmark copies these into
 `runtime_policy`, alongside the complete request and response ledger.
 
-This threshold policy is an execution and measurement scaffold, not the final
-research contribution. Exact native reuse is safe, so deliberately rejecting a
-small exact hit is principally useful for verifying per-request control and
-collecting controlled comparisons. `PARTIAL_KV_REUSE`, semantic prompt
-segments, and a cost- or quality-aware selector are not implemented yet.
+This fallback is an execution and measurement scaffold, not the final research
+contribution: its cache behavior intentionally matches native APC.
+`PARTIAL_KV_REUSE`, semantic prompt segments, and the cost- or quality-aware
+choice between partial reuse and native APC are not implemented yet.
