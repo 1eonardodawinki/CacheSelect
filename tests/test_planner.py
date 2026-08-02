@@ -7,6 +7,7 @@ from cacheselect.planner import (
     PrefixHeuristicPlanner,
     ReusePolicy,
 )
+from cacheselect.tokenization import rendered_chat_token_ids
 
 
 class PrefixHeuristicPlannerTests(TestCase):
@@ -71,3 +72,44 @@ class PrefixHeuristicPlannerTests(TestCase):
     def test_empty_current_prompt_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "must not be empty"):
             self.planner.decide([1], [])
+
+
+class TokenizationTests(TestCase):
+    class FakeTokenizer:
+        def __init__(self, encoded):
+            self.encoded = encoded
+
+        def apply_chat_template(self, *args, **kwargs):
+            return self.encoded
+
+    def test_accepts_direct_and_mapping_tokenizer_outputs(self):
+        messages = [{"role": "user", "content": "test"}]
+
+        self.assertEqual(
+            rendered_chat_token_ids(self.FakeTokenizer([1, 2, 3]), messages),
+            [1, 2, 3],
+        )
+        self.assertEqual(
+            rendered_chat_token_ids(
+                self.FakeTokenizer({"input_ids": [4, 5, 6]}),
+                messages,
+            ),
+            [4, 5, 6],
+        )
+
+    def test_accepts_single_item_batched_output(self):
+        messages = [{"role": "user", "content": "test"}]
+
+        self.assertEqual(
+            rendered_chat_token_ids(self.FakeTokenizer([[1, 2, 3]]), messages),
+            [1, 2, 3],
+        )
+
+    def test_rejects_multiple_rendered_prompts(self):
+        messages = [{"role": "user", "content": "test"}]
+
+        with self.assertRaisesRegex(ValueError, "received a batch"):
+            rendered_chat_token_ids(
+                self.FakeTokenizer([[1, 2], [3, 4]]),
+                messages,
+            )

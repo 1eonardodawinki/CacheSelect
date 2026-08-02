@@ -10,18 +10,11 @@ from benchmarks.length_calibration import (
     build_length_calibration_trace,
 )
 from benchmarks.schema import save_trace
+from cacheselect.tokenization import rendered_chat_token_ids
 
 
 def _rendered_token_count(tokenizer, messages: list[dict[str, str]]) -> int:
-    encoded = tokenizer.apply_chat_template(
-        messages,
-        tokenize=True,
-        add_generation_prompt=True,
-    )
-    # Transformers versions return either the input-ID list directly or a
-    # BatchEncoding/dict containing it.
-    token_ids = encoded["input_ids"] if hasattr(encoded, "keys") else encoded
-    return len(token_ids)
+    return len(rendered_chat_token_ids(tokenizer, messages))
 
 
 def main() -> None:
