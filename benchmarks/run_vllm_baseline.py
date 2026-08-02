@@ -19,6 +19,13 @@ from cacheselect.features import (
 from benchmarks.evaluation import score_response
 from benchmarks.schema import RequestSpec, load_trace
 from observability.request_recorder import RequestRecorder, validate_ledger
+from cacheselect.planner import (
+    PolicyDecision,
+    PrefixHeuristicPlanner,
+    ReusePlanner,
+    ReusePolicy,
+)
+from cacheselect.tokenization import rendered_chat_token_ids
 
 
 def _post_json(
@@ -92,6 +99,7 @@ def _observe_request(
     timeout_seconds: float,
     recorder: RequestRecorder | None = None,
     policy_metadata: dict[str, Any] | None = None,
+    expected_prompt_token_ids: list[int] | None = None,
 ) -> dict[str, Any]:
     payload = request.api_payload(model, max_completion_tokens)
     pending = None
@@ -131,6 +139,14 @@ def _observe_request(
         )
         wall_seconds = time.perf_counter() - started
         _validate_observability(response)
+        if (
+            expected_prompt_token_ids is not None
+            and response["prompt_token_ids"] != expected_prompt_token_ids
+        ):
+            raise RuntimeError(
+                "Planner tokenization does not match vLLM's rendered prompt. "
+                "Use the same tokenizer and chat template as the serving model."
+            )
     except BaseException as error:
         if pending is not None:
             pending.fail(
@@ -158,6 +174,7 @@ def _observe_request(
         "usage": response.get("usage"),
         "output_text": output_text,
         "quality": quality,
+        "policy_metadata": policy_metadata or {},
         "response_field_names": sorted(response),
         "raw_response": response,
     }
@@ -178,6 +195,23 @@ def _observe_request(
             metadata={"benchmark_request_id": request.request_id},
         )
     return observation
+
+
+def _shadow_plan_requests(
+    requests: list[RequestSpec],
+    *,
+    tokenizer,
+    planner: ReusePlanner,
+) -> dict[str, tuple[list[int], PolicyDecision]]:
+    """Plan an ordered trace without applying decisions to the backend."""
+    planned: dict[str, tuple[list[int], PolicyDecision]] = {}
+    previous_tokens: list[int] | None = None
+    for request in requests:
+        current_tokens = rendered_chat_token_ids(tokenizer, request.messages)
+        decision = planner.decide(previous_tokens, current_tokens)
+        planned[request.request_id] = (current_tokens, decision)
+        previous_tokens = current_tokens
+    return planned
 
 
 def _transition_results(
@@ -202,6 +236,8 @@ def _transition_results(
                 "measured_features": features,
                 "current_cached_tokens": current["cached_tokens"],
                 "current_prompt_token_count": current["prompt_token_count"],
+                "execution_policy": current["policy_metadata"].get("execution_policy"),
+                "planner_decision": current["policy_metadata"].get("planner_decision"),
                 "current_ttft_ms": (
                     (current["server_metrics"] or {}).get("time_to_first_token_ms")
                 ),
@@ -224,6 +260,26 @@ def main() -> None:
     parser.add_argument("--timeout-seconds", type=float, default=300.0)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
+        "--planner-mode",
+        choices=["off", "shadow"],
+        default="off",
+        help=(
+            "In shadow mode, record CacheSelect recommendations without "
+            "changing the forced APC baseline policy."
+        ),
+    )
+    parser.add_argument(
+        "--planner-tokenizer",
+        default=None,
+        help="Tokenizer used for planner preflight (defaults to --model).",
+    )
+    parser.add_argument(
+        "--minimum-native-prefix-tokens",
+        type=int,
+        default=64,
+        help="Exact-prefix threshold for the initial shadow planner.",
+    )
+    parser.add_argument(
         "--run-id",
         default=None,
         help="Request-ledger run ID (defaults to a unique trace/APC ID).",
@@ -238,6 +294,23 @@ def main() -> None:
 
     trace = load_trace(args.trace)
     endpoint = args.base_url.rstrip("/") + "/v1/chat/completions"
+    planner_name = None
+    planner_tokenizer_name = None
+    planned_requests: dict[str, tuple[list[int], PolicyDecision]] = {}
+    if args.planner_mode == "shadow":
+        from transformers import AutoTokenizer
+
+        planner_tokenizer_name = args.planner_tokenizer or args.model
+        tokenizer = AutoTokenizer.from_pretrained(planner_tokenizer_name)
+        planner = PrefixHeuristicPlanner(
+            minimum_native_prefix_tokens=args.minimum_native_prefix_tokens
+        )
+        planner_name = "prefix-heuristic-v1"
+        planned_requests = _shadow_plan_requests(
+            trace.requests,
+            tokenizer=tokenizer,
+            planner=planner,
+        )
     run_id = args.run_id or (
         f"{trace.trace_id}-apc-{args.apc_label}-"
         f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -256,8 +329,32 @@ def main() -> None:
         },
     )
     observations = []
+    execution_policy = (
+        ReusePolicy.VLLM_NATIVE_APC
+        if args.apc_label == "on"
+        else ReusePolicy.FULL_RECOMPUTE
+    )
     for request in trace.requests:
         print(f"Running {request.request_id}...")
+        expected_prompt_tokens = None
+        planner_decision = None
+        if request.request_id in planned_requests:
+            expected_prompt_tokens, planner_decision = planned_requests[
+                request.request_id
+            ]
+        policy_metadata = {
+            # `policy` is retained for compatibility with existing ledgers.
+            "policy": execution_policy.value,
+            "execution_policy": execution_policy.value,
+            "apc": args.apc_label,
+        }
+        if planner_decision is not None:
+            policy_metadata.update(
+                {
+                    "planner_mode": "shadow",
+                    "planner_decision": planner_decision.to_dict(),
+                }
+            )
         observations.append(
             _observe_request(
                 request,
@@ -267,14 +364,8 @@ def main() -> None:
                 api_key=args.api_key,
                 timeout_seconds=args.timeout_seconds,
                 recorder=recorder,
-                policy_metadata={
-                    "policy": (
-                        "VLLM_NATIVE_APC"
-                        if args.apc_label == "on"
-                        else "FULL_RECOMPUTE"
-                    ),
-                    "apc": args.apc_label,
-                },
+                policy_metadata=policy_metadata,
+                expected_prompt_token_ids=expected_prompt_tokens,
             )
         )
 
@@ -304,6 +395,16 @@ def main() -> None:
         "model": args.model,
         "base_url": args.base_url,
         "apc": args.apc_label,
+        "planner": {
+            "mode": args.planner_mode,
+            "name": planner_name,
+            "tokenizer": planner_tokenizer_name,
+            "minimum_native_prefix_tokens": (
+                args.minimum_native_prefix_tokens
+                if args.planner_mode == "shadow"
+                else None
+            ),
+        },
         "run_id": run_id,
         "request_ledger": str(recorder.path),
         "request_ledger_summary": {

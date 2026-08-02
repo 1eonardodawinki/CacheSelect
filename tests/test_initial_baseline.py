@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from benchmarks.run_vllm_baseline import (
     _observe_request,
+    _shadow_plan_requests,
     _validate_observability,
 )
 from benchmarks.evaluation import score_response
@@ -22,6 +23,7 @@ from benchmarks.workloads import (
     build_rag_trace,
 )
 from cacheselect.features import token_transition_features
+from cacheselect.planner import PrefixHeuristicPlanner
 from observability.request_recorder import RequestRecorder, validate_ledger
 
 
@@ -203,6 +205,34 @@ class FeatureTests(TestCase):
 
 
 class BaselineRunnerTests(TestCase):
+    def test_shadow_planner_compares_adjacent_rendered_prompts(self):
+        class SequentialTokenizer:
+            def __init__(self):
+                self.outputs = iter(([1, 2], [1, 2, 3], [1, 9, 3]))
+
+            def apply_chat_template(self, *args, **kwargs):
+                return next(self.outputs)
+
+        requests = build_chat_trace().requests[:3]
+        planned = _shadow_plan_requests(
+            requests,
+            tokenizer=SequentialTokenizer(),
+            planner=PrefixHeuristicPlanner(minimum_native_prefix_tokens=2),
+        )
+
+        self.assertEqual(
+            planned[requests[0].request_id][1].policy.value,
+            "FULL_RECOMPUTE",
+        )
+        self.assertEqual(
+            planned[requests[1].request_id][1].policy.value,
+            "VLLM_NATIVE_APC",
+        )
+        self.assertEqual(
+            planned[requests[2].request_id][1].policy.value,
+            "FULL_RECOMPUTE",
+        )
+
     def test_observation_keeps_request_rendering_tokens_and_metrics(self):
         response = {
             "id": "chatcmpl-test",
@@ -260,6 +290,55 @@ class BaselineRunnerTests(TestCase):
             "enable-prompt-tokens-details",
         ):
             _validate_observability({"usage": {}})
+
+    def test_planner_token_mismatch_fails_the_recorded_request(self):
+        response = {
+            "choices": [{"message": {"role": "assistant", "content": "output"}}],
+            "usage": {
+                "prompt_tokens": 3,
+                "prompt_tokens_details": {"cached_tokens": 0},
+            },
+            "prompt_text": "rendered prompt",
+            "prompt_token_ids": [1, 2, 3],
+            "metrics": {"time_to_first_token_ms": 4.5},
+        }
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+            def read(self):
+                return json.dumps(response).encode()
+
+        with TemporaryDirectory() as directory:
+            recorder = RequestRecorder(
+                run_id="planner-token-mismatch",
+                model="test-model",
+                backend="vllm-test",
+                log_dir=directory,
+            )
+            with patch(
+                "urllib.request.urlopen",
+                return_value=FakeResponse(),
+            ):
+                with self.assertRaisesRegex(RuntimeError, "does not match"):
+                    _observe_request(
+                        build_rag_trace().requests[0],
+                        url="http://vllm.test/v1/chat/completions",
+                        model="test-model",
+                        max_completion_tokens=8,
+                        api_key=None,
+                        timeout_seconds=2.0,
+                        recorder=recorder,
+                        expected_prompt_token_ids=[1, 2, 9],
+                    )
+            summary = validate_ledger(recorder.path)
+
+        self.assertTrue(summary.is_complete)
+        self.assertEqual(summary.failed, 1)
 
     def test_observation_is_written_to_full_request_ledger(self):
         response = {
