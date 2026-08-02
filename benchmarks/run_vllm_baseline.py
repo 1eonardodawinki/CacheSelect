@@ -71,7 +71,11 @@ def _cached_tokens(response: dict[str, Any]) -> int | None:
     return details.get("cached_tokens")
 
 
-def _validate_observability(response: dict[str, Any]) -> None:
+def _validate_observability(
+    response: dict[str, Any],
+    *,
+    require_cacheselect_metrics: bool = False,
+) -> None:
     required = {
         "prompt_text": response.get("prompt_text"),
         "prompt_token_ids": response.get("prompt_token_ids"),
@@ -87,6 +91,23 @@ def _validate_observability(response: dict[str, Any]) -> None:
             f"{missing}. Use this repository's vLLM checkout and start it with "
             "--enable-prompt-tokens-details and --enable-per-request-metrics."
         )
+    if require_cacheselect_metrics:
+        metrics = response["metrics"]
+        required_cacheselect = (
+            "cacheselect_policy",
+            "cacheselect_reason",
+            "cacheselect_native_cached_tokens",
+            "cacheselect_minimum_native_prefix_tokens",
+        )
+        missing_cacheselect = [
+            name for name in required_cacheselect if metrics.get(name) is None
+        ]
+        if missing_cacheselect:
+            raise RuntimeError(
+                "vLLM omitted required CacheSelect metrics "
+                f"{missing_cacheselect}. Start this repository's vLLM checkout "
+                "with --cacheselect-minimum-native-prefix-tokens."
+            )
 
 
 def _observe_request(
@@ -100,6 +121,7 @@ def _observe_request(
     recorder: RequestRecorder | None = None,
     policy_metadata: dict[str, Any] | None = None,
     expected_prompt_token_ids: list[int] | None = None,
+    require_cacheselect_metrics: bool = False,
 ) -> dict[str, Any]:
     payload = request.api_payload(model, max_completion_tokens)
     pending = None
@@ -138,7 +160,10 @@ def _observe_request(
             timeout_seconds=timeout_seconds,
         )
         wall_seconds = time.perf_counter() - started
-        _validate_observability(response)
+        _validate_observability(
+            response,
+            require_cacheselect_metrics=require_cacheselect_metrics,
+        )
         if (
             expected_prompt_token_ids is not None
             and response["prompt_token_ids"] != expected_prompt_token_ids
@@ -160,6 +185,20 @@ def _observe_request(
 
     output_text = _output_text(response)
     quality = score_response(output_text, request.ground_truth)
+    server_metrics = response.get("metrics") or {}
+    runtime_policy = None
+    if server_metrics.get("cacheselect_policy") is not None:
+        runtime_policy = {
+            "policy": server_metrics["cacheselect_policy"],
+            "reason": server_metrics.get("cacheselect_reason"),
+            "native_cached_tokens": server_metrics.get(
+                "cacheselect_native_cached_tokens"
+            ),
+            "minimum_native_prefix_tokens": server_metrics.get(
+                "cacheselect_minimum_native_prefix_tokens"
+            ),
+        }
+
     observation = {
         "request_id": request.request_id,
         "sequence_index": request.sequence_index,
@@ -175,6 +214,7 @@ def _observe_request(
         "output_text": output_text,
         "quality": quality,
         "policy_metadata": policy_metadata or {},
+        "runtime_policy": runtime_policy,
         "response_field_names": sorted(response),
         "raw_response": response,
     }
@@ -236,7 +276,11 @@ def _transition_results(
                 "measured_features": features,
                 "current_cached_tokens": current["cached_tokens"],
                 "current_prompt_token_count": current["prompt_token_count"],
-                "execution_policy": current["policy_metadata"].get("execution_policy"),
+                "execution_policy": (
+                    (current.get("runtime_policy") or {}).get("policy")
+                    or current["policy_metadata"].get("execution_policy")
+                ),
+                "runtime_policy": current.get("runtime_policy"),
                 "planner_decision": current["policy_metadata"].get("planner_decision"),
                 "current_ttft_ms": (
                     (current["server_metrics"] or {}).get("time_to_first_token_ms")
@@ -261,11 +305,12 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--planner-mode",
-        choices=["off", "shadow"],
+        choices=["off", "shadow", "vllm"],
         default="off",
         help=(
-            "In shadow mode, record CacheSelect recommendations without "
-            "changing the forced APC baseline policy."
+            "In shadow mode, record recommendations without changing the "
+            "baseline. In vllm mode, require and record decisions applied by "
+            "the CacheSelect-enabled vLLM server."
         ),
     )
     parser.add_argument(
@@ -292,6 +337,9 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.planner_mode == "vllm" and args.apc_label != "on":
+        parser.error("--planner-mode vllm requires --apc-label on")
+
     trace = load_trace(args.trace)
     endpoint = args.base_url.rstrip("/") + "/v1/chat/completions"
     planner_name = None
@@ -311,6 +359,8 @@ def main() -> None:
             tokenizer=tokenizer,
             planner=planner,
         )
+    elif args.planner_mode == "vllm":
+        planner_name = "native-prefix-threshold-v1"
     run_id = args.run_id or (
         f"{trace.trace_id}-apc-{args.apc_label}-"
         f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -348,6 +398,10 @@ def main() -> None:
             "execution_policy": execution_policy.value,
             "apc": args.apc_label,
         }
+        if args.planner_mode == "vllm":
+            policy_metadata["policy"] = "SERVER_SELECTED"
+            policy_metadata["execution_policy"] = "SERVER_SELECTED"
+            policy_metadata["planner_mode"] = "vllm"
         if planner_decision is not None:
             policy_metadata.update(
                 {
@@ -366,6 +420,7 @@ def main() -> None:
                 recorder=recorder,
                 policy_metadata=policy_metadata,
                 expected_prompt_token_ids=expected_prompt_tokens,
+                require_cacheselect_metrics=args.planner_mode == "vllm",
             )
         )
 
@@ -401,7 +456,7 @@ def main() -> None:
             "tokenizer": planner_tokenizer_name,
             "minimum_native_prefix_tokens": (
                 args.minimum_native_prefix_tokens
-                if args.planner_mode == "shadow"
+                if args.planner_mode in {"shadow", "vllm"}
                 else None
             ),
         },

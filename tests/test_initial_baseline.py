@@ -291,6 +291,67 @@ class BaselineRunnerTests(TestCase):
         ):
             _validate_observability({"usage": {}})
 
+    def test_vllm_planner_metrics_are_recorded_as_runtime_policy(self):
+        response = {
+            "choices": [{"message": {"role": "assistant", "content": "output"}}],
+            "usage": {
+                "prompt_tokens": 80,
+                "prompt_tokens_details": {"cached_tokens": 0},
+            },
+            "prompt_text": "rendered prompt",
+            "prompt_token_ids": [1, 2, 3],
+            "metrics": {
+                "time_to_first_token_ms": 4.5,
+                "cacheselect_policy": "FULL_RECOMPUTE",
+                "cacheselect_reason": "native_prefix_too_small",
+                "cacheselect_native_cached_tokens": 48,
+                "cacheselect_minimum_native_prefix_tokens": 64,
+            },
+        }
+
+        class FakeResponse:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *args):
+                return None
+
+            def read(self):
+                return json.dumps(response).encode()
+
+        with patch("urllib.request.urlopen", return_value=FakeResponse()):
+            observation = _observe_request(
+                build_rag_trace().requests[0],
+                url="http://vllm.test/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=8,
+                api_key=None,
+                timeout_seconds=2.0,
+                require_cacheselect_metrics=True,
+            )
+
+        self.assertEqual(
+            observation["runtime_policy"],
+            {
+                "policy": "FULL_RECOMPUTE",
+                "reason": "native_prefix_too_small",
+                "native_cached_tokens": 48,
+                "minimum_native_prefix_tokens": 64,
+            },
+        )
+
+    def test_missing_vllm_planner_metrics_fails_clearly(self):
+        with self.assertRaisesRegex(RuntimeError, "CacheSelect metrics"):
+            _validate_observability(
+                {
+                    "usage": {"prompt_tokens_details": {}},
+                    "prompt_text": "prompt",
+                    "prompt_token_ids": [1],
+                    "metrics": {"time_to_first_token_ms": 1.0},
+                },
+                require_cacheselect_metrics=True,
+            )
+
     def test_planner_token_mismatch_fails_the_recorded_request(self):
         response = {
             "choices": [{"message": {"role": "assistant", "content": "output"}}],
