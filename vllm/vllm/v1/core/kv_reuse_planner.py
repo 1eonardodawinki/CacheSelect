@@ -19,7 +19,6 @@ class KVReuseDecisionReason(str, Enum):
     """Stable explanation for a runtime policy decision."""
 
     NO_NATIVE_PREFIX = "no_native_prefix"
-    NATIVE_PREFIX_TOO_SMALL = "native_prefix_too_small"
     REUSABLE_NATIVE_PREFIX = "reusable_native_prefix"
 
 
@@ -31,16 +30,15 @@ class KVReuseDecision:
     reason: KVReuseDecisionReason
     prompt_tokens: int
     native_cached_tokens: int
-    minimum_native_prefix_tokens: int
 
 
-class NativePrefixThresholdPlanner:
-    """Select native APC only when its exact-prefix hit is large enough."""
+class NativeAPCFallbackPlanner:
+    """Preserve every exact prefix that vLLM can safely reuse.
 
-    def __init__(self, minimum_native_prefix_tokens: int) -> None:
-        if minimum_native_prefix_tokens < 1:
-            raise ValueError("minimum_native_prefix_tokens must be positive")
-        self.minimum_native_prefix_tokens = minimum_native_prefix_tokens
+    This planner defines the correctness-preserving fallback for future partial
+    reuse policies. Until partial reuse is implemented, its selected execution
+    is intentionally identical to native vLLM APC.
+    """
 
     def decide(
         self,
@@ -58,9 +56,6 @@ class NativePrefixThresholdPlanner:
         if native_cached_tokens == 0:
             policy = KVReusePolicy.FULL_RECOMPUTE
             reason = KVReuseDecisionReason.NO_NATIVE_PREFIX
-        elif native_cached_tokens < self.minimum_native_prefix_tokens:
-            policy = KVReusePolicy.FULL_RECOMPUTE
-            reason = KVReuseDecisionReason.NATIVE_PREFIX_TOO_SMALL
         else:
             policy = KVReusePolicy.VLLM_NATIVE_APC
             reason = KVReuseDecisionReason.REUSABLE_NATIVE_PREFIX
@@ -70,5 +65,4 @@ class NativePrefixThresholdPlanner:
             reason=reason,
             prompt_tokens=prompt_tokens,
             native_cached_tokens=native_cached_tokens,
-            minimum_native_prefix_tokens=self.minimum_native_prefix_tokens,
         )
