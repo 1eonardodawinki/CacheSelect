@@ -24,7 +24,7 @@ class DecisionReason(str, Enum):
     EXACT_MATCH = "exact_match"
     APPEND_ONLY = "append_only"
     REUSABLE_NATIVE_PREFIX = "reusable_native_prefix"
-    PREFIX_TOO_SMALL = "prefix_too_small"
+    NO_COMMON_PREFIX = "no_common_prefix"
 
 
 @dataclass(frozen=True)
@@ -36,7 +36,7 @@ class PolicyDecision:
     features: dict[str, Any]
     considered_policies: tuple[ReusePolicy, ...]
     confidence: float | None = None
-    planner_name: str = "prefix-heuristic-v1"
+    planner_name: str = "native-apc-fallback-v1"
     schema_version: int = 1
 
     def __post_init__(self) -> None:
@@ -71,24 +71,18 @@ class ReusePlanner(Protocol):
         """Choose a policy using only information available before inference."""
 
 
-class PrefixHeuristicPlanner:
-    """Initial transparent planner for full computation versus native APC.
+class NativeAPCFallbackPlanner:
+    """Describe the safe native-APC fallback for adjacent prompts.
 
-    Exact append-only transitions use native APC. For non-prefix edits, native
-    APC is recommended only when the exact prefix is large enough to be useful.
-    The default 64-token threshold is deliberately configurable; it is an
-    initial rule informed by the A16 calibration, not a learned optimum.
+    Every non-empty exact prefix is preserved. A future partial-reuse planner
+    can improve on this policy, but must fall back to native APC rather than
+    discarding a safe prefix hit.
     """
 
     considered_policies = (
         ReusePolicy.FULL_RECOMPUTE,
         ReusePolicy.VLLM_NATIVE_APC,
     )
-
-    def __init__(self, *, minimum_native_prefix_tokens: int = 64) -> None:
-        if minimum_native_prefix_tokens < 1:
-            raise ValueError("minimum_native_prefix_tokens must be positive")
-        self.minimum_native_prefix_tokens = minimum_native_prefix_tokens
 
     def decide(
         self,
@@ -118,12 +112,12 @@ class PrefixHeuristicPlanner:
         elif features["previous_is_exact_prefix"]:
             policy = ReusePolicy.VLLM_NATIVE_APC
             reason = DecisionReason.APPEND_ONLY
-        elif features["common_prefix_tokens"] >= self.minimum_native_prefix_tokens:
+        elif features["common_prefix_tokens"] > 0:
             policy = ReusePolicy.VLLM_NATIVE_APC
             reason = DecisionReason.REUSABLE_NATIVE_PREFIX
         else:
             policy = ReusePolicy.FULL_RECOMPUTE
-            reason = DecisionReason.PREFIX_TOO_SMALL
+            reason = DecisionReason.NO_COMMON_PREFIX
 
         return PolicyDecision(
             policy=policy,

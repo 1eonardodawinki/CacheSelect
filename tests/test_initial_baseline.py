@@ -23,7 +23,7 @@ from benchmarks.workloads import (
     build_rag_trace,
 )
 from cacheselect.features import token_transition_features
-from cacheselect.planner import PrefixHeuristicPlanner
+from cacheselect.planner import NativeAPCFallbackPlanner
 from observability.request_recorder import RequestRecorder, validate_ledger
 
 
@@ -217,7 +217,7 @@ class BaselineRunnerTests(TestCase):
         planned = _shadow_plan_requests(
             requests,
             tokenizer=SequentialTokenizer(),
-            planner=PrefixHeuristicPlanner(minimum_native_prefix_tokens=2),
+            planner=NativeAPCFallbackPlanner(),
         )
 
         self.assertEqual(
@@ -230,7 +230,7 @@ class BaselineRunnerTests(TestCase):
         )
         self.assertEqual(
             planned[requests[2].request_id][1].policy.value,
-            "FULL_RECOMPUTE",
+            "VLLM_NATIVE_APC",
         )
 
     def test_observation_keeps_request_rendering_tokens_and_metrics(self):
@@ -303,9 +303,8 @@ class BaselineRunnerTests(TestCase):
             "metrics": {
                 "time_to_first_token_ms": 4.5,
                 "cacheselect_policy": "FULL_RECOMPUTE",
-                "cacheselect_reason": "native_prefix_too_small",
-                "cacheselect_native_cached_tokens": 48,
-                "cacheselect_minimum_native_prefix_tokens": 64,
+                "cacheselect_reason": "no_native_prefix",
+                "cacheselect_native_cached_tokens": 0,
             },
         }
 
@@ -334,9 +333,8 @@ class BaselineRunnerTests(TestCase):
             observation["runtime_policy"],
             {
                 "policy": "FULL_RECOMPUTE",
-                "reason": "native_prefix_too_small",
-                "native_cached_tokens": 48,
-                "minimum_native_prefix_tokens": 64,
+                "reason": "no_native_prefix",
+                "native_cached_tokens": 0,
             },
         )
 

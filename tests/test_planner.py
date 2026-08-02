@@ -3,16 +3,16 @@ from unittest import TestCase
 
 from cacheselect.planner import (
     DecisionReason,
+    NativeAPCFallbackPlanner,
     PolicyDecision,
-    PrefixHeuristicPlanner,
     ReusePolicy,
 )
 from cacheselect.tokenization import rendered_chat_token_ids
 
 
-class PrefixHeuristicPlannerTests(TestCase):
+class NativeAPCFallbackPlannerTests(TestCase):
     def setUp(self):
-        self.planner = PrefixHeuristicPlanner(minimum_native_prefix_tokens=4)
+        self.planner = NativeAPCFallbackPlanner()
 
     def test_cold_request_recomputes(self):
         decision = self.planner.decide(None, [1, 2, 3])
@@ -32,7 +32,7 @@ class PrefixHeuristicPlannerTests(TestCase):
         self.assertEqual(decision.policy, ReusePolicy.VLLM_NATIVE_APC)
         self.assertEqual(decision.reason, DecisionReason.APPEND_ONLY)
 
-    def test_non_prefix_edit_uses_native_cache_for_large_prefix(self):
+    def test_non_prefix_edit_preserves_any_native_prefix(self):
         decision = self.planner.decide(
             [1, 2, 3, 4, 5, 6],
             [1, 2, 3, 4, 9, 6],
@@ -42,14 +42,14 @@ class PrefixHeuristicPlannerTests(TestCase):
         self.assertEqual(decision.reason, DecisionReason.REUSABLE_NATIVE_PREFIX)
         self.assertEqual(decision.features["common_prefix_tokens"], 4)
 
-    def test_non_prefix_edit_recomputes_for_small_prefix(self):
+    def test_non_prefix_edit_recomputes_without_common_prefix(self):
         decision = self.planner.decide(
-            [1, 2, 3, 4, 5],
-            [1, 2, 9, 4, 5],
+            [1, 2, 3],
+            [9, 2, 3],
         )
 
         self.assertEqual(decision.policy, ReusePolicy.FULL_RECOMPUTE)
-        self.assertEqual(decision.reason, DecisionReason.PREFIX_TOO_SMALL)
+        self.assertEqual(decision.reason, DecisionReason.NO_COMMON_PREFIX)
 
     def test_decision_is_json_safe_and_lists_future_action(self):
         decision = self.planner.decide([1, 2], [1, 2, 3])

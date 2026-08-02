@@ -20,8 +20,8 @@ from benchmarks.evaluation import score_response
 from benchmarks.schema import RequestSpec, load_trace
 from observability.request_recorder import RequestRecorder, validate_ledger
 from cacheselect.planner import (
+    NativeAPCFallbackPlanner,
     PolicyDecision,
-    PrefixHeuristicPlanner,
     ReusePlanner,
     ReusePolicy,
 )
@@ -97,7 +97,6 @@ def _validate_observability(
             "cacheselect_policy",
             "cacheselect_reason",
             "cacheselect_native_cached_tokens",
-            "cacheselect_minimum_native_prefix_tokens",
         )
         missing_cacheselect = [
             name for name in required_cacheselect if metrics.get(name) is None
@@ -106,7 +105,7 @@ def _validate_observability(
             raise RuntimeError(
                 "vLLM omitted required CacheSelect metrics "
                 f"{missing_cacheselect}. Start this repository's vLLM checkout "
-                "with --cacheselect-minimum-native-prefix-tokens."
+                "with --enable-cacheselect."
             )
 
 
@@ -193,9 +192,6 @@ def _observe_request(
             "reason": server_metrics.get("cacheselect_reason"),
             "native_cached_tokens": server_metrics.get(
                 "cacheselect_native_cached_tokens"
-            ),
-            "minimum_native_prefix_tokens": server_metrics.get(
-                "cacheselect_minimum_native_prefix_tokens"
             ),
         }
 
@@ -319,12 +315,6 @@ def main() -> None:
         help="Tokenizer used for planner preflight (defaults to --model).",
     )
     parser.add_argument(
-        "--minimum-native-prefix-tokens",
-        type=int,
-        default=64,
-        help="Exact-prefix threshold for the initial shadow planner.",
-    )
-    parser.add_argument(
         "--run-id",
         default=None,
         help="Request-ledger run ID (defaults to a unique trace/APC ID).",
@@ -350,17 +340,15 @@ def main() -> None:
 
         planner_tokenizer_name = args.planner_tokenizer or args.model
         tokenizer = AutoTokenizer.from_pretrained(planner_tokenizer_name)
-        planner = PrefixHeuristicPlanner(
-            minimum_native_prefix_tokens=args.minimum_native_prefix_tokens
-        )
-        planner_name = "prefix-heuristic-v1"
+        planner = NativeAPCFallbackPlanner()
+        planner_name = "native-apc-fallback-v1"
         planned_requests = _shadow_plan_requests(
             trace.requests,
             tokenizer=tokenizer,
             planner=planner,
         )
     elif args.planner_mode == "vllm":
-        planner_name = "native-prefix-threshold-v1"
+        planner_name = "native-apc-fallback-v1"
     run_id = args.run_id or (
         f"{trace.trace_id}-apc-{args.apc_label}-"
         f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S%fZ')}"
@@ -454,11 +442,6 @@ def main() -> None:
             "mode": args.planner_mode,
             "name": planner_name,
             "tokenizer": planner_tokenizer_name,
-            "minimum_native_prefix_tokens": (
-                args.minimum_native_prefix_tokens
-                if args.planner_mode in {"shadow", "vllm"}
-                else None
-            ),
         },
         "run_id": run_id,
         "request_ledger": str(recorder.path),
