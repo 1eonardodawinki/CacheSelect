@@ -14,7 +14,6 @@ STORAGE_ROOT="${CACHESELECT_STORAGE_ROOT:-/vol/bitbucket/$USER}"
 CUDA_SETUP="${CACHESELECT_CUDA_SETUP:-/vol/cuda/13.0.0/setup.sh}"
 MODEL="${CACHESELECT_SMOKE_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 PORT="${CACHESELECT_SMOKE_PORT:-8000}"
-MINIMUM_NATIVE_PREFIX_TOKENS="${CACHESELECT_NATIVE_PREFIX_MIN_TOKENS:-64}"
 JOB_TAG="${SLURM_JOB_ID:-manual-$(date -u +%Y%m%dT%H%M%SZ)}"
 
 RESULT_DIR="$STORAGE_ROOT/cacheselect-results/native-smoke-$JOB_TAG"
@@ -50,7 +49,6 @@ echo "host=$(hostname)"
 echo "project_root=$PROJECT_ROOT"
 echo "project_commit=$(git rev-parse HEAD)"
 echo "model=$MODEL"
-echo "minimum_native_prefix_tokens=$MINIMUM_NATIVE_PREFIX_TOKENS"
 echo "vllm=$(command -v vllm)"
 echo "vllm_version=$(vllm --version)"
 nvidia-smi --query-gpu=name,uuid,memory.total,driver_version \
@@ -115,10 +113,7 @@ run_condition() {
   local -a cacheselect_args=()
 
   if [[ "$planner_mode" == "vllm" ]]; then
-    cacheselect_args=(
-      --cacheselect-minimum-native-prefix-tokens
-      "$MINIMUM_NATIVE_PREFIX_TOKENS"
-    )
+    cacheselect_args=(--enable-cacheselect)
   fi
 
   echo "Starting fresh vLLM server: condition=$condition"
@@ -142,7 +137,6 @@ run_condition() {
     --model "$MODEL" \
     --apc-label on \
     --planner-mode "$planner_mode" \
-    --minimum-native-prefix-tokens "$MINIMUM_NATIVE_PREFIX_TOKENS" \
     --run-id "$run_id" \
     --request-log-dir "$REQUEST_LOG_DIR" \
     --output "$result_path"
@@ -184,7 +178,7 @@ selected = [item["cached_tokens"] for item in observations]
 expected_policies = [
     "FULL_RECOMPUTE",
     "VLLM_NATIVE_APC",
-    "FULL_RECOMPUTE",
+    "VLLM_NATIVE_APC",
     "VLLM_NATIVE_APC",
 ]
 if policies != expected_policies:
@@ -193,21 +187,23 @@ if policies != expected_policies:
     )
 
 for policy, candidate, cached in zip(policies, candidates, selected):
-    if policy == "FULL_RECOMPUTE" and cached != 0:
+    if candidate == 0 and policy != "FULL_RECOMPUTE":
         raise SystemExit(
-            f"{cacheselect_path}: full recomputation selected but cached={cached}"
+            f"{cacheselect_path}: no hit should select full recomputation"
         )
-    if policy == "VLLM_NATIVE_APC" and cached != candidate:
+    if candidate > 0 and policy != "VLLM_NATIVE_APC":
         raise SystemExit(
-            f"{cacheselect_path}: native APC selected {cached}, candidate={candidate}"
+            f"{cacheselect_path}: native hit {candidate} was not preserved"
+        )
+    if cached != candidate:
+        raise SystemExit(
+            f"{cacheselect_path}: selected cached={cached}, candidate={candidate}"
         )
 
-if not any(
-    policy == "FULL_RECOMPUTE" and candidate > 0
-    for policy, candidate in zip(policies, candidates)
-):
+native_cached = [item["cached_tokens"] for item in native["observations"]]
+if selected != native_cached:
     raise SystemExit(
-        f"{cacheselect_path}: no non-zero native hit was rejected by CacheSelect"
+        f"CacheSelect changed APC hits: native={native_cached}, selected={selected}"
     )
 
 for path, result in ((native_path, native), (cacheselect_path, cacheselect)):
