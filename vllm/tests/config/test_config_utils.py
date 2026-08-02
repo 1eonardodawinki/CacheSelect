@@ -214,3 +214,7 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
     base_hash = CacheConfig().compute_hash()
     assert CacheConfig(kv_cache_memory_bytes=1 << 30).compute_hash() == base_hash
     assert CacheConfig(gpu_memory_utilization=0.5).compute_hash() == base_hash
+    assert (
+        CacheConfig(cacheselect_minimum_native_prefix_tokens=64).compute_hash()
+        == base_hash
+    )

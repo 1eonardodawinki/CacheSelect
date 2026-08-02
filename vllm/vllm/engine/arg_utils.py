@@ -511,6 +511,9 @@ class EngineArgs:
     )
     block_size: int | None = None
     enable_prefix_caching: bool | None = None
+    cacheselect_minimum_native_prefix_tokens: int | None = (
+        CacheConfig.cacheselect_minimum_native_prefix_tokens
+    )
     prefix_caching_hash_algo: PrefixCachingHashAlgo = (
         CacheConfig.prefix_caching_hash_algo
     )
@@ -1173,6 +1176,10 @@ class EngineArgs:
                 **cache_kwargs["enable_prefix_caching"],
                 "default": None,
             },
+        )
+        cache_group.add_argument(
+            "--cacheselect-minimum-native-prefix-tokens",
+            **cache_kwargs["cacheselect_minimum_native_prefix_tokens"],
         )
         cache_group.add_argument(
             "--prefix-caching-hash-algo", **cache_kwargs["prefix_caching_hash_algo"]
@@ -1901,6 +1908,9 @@ class EngineArgs:
             num_gpu_blocks_override=self.num_gpu_blocks_override,
             sliding_window=sliding_window,
             enable_prefix_caching=self.enable_prefix_caching,
+            cacheselect_minimum_native_prefix_tokens=(
+                self.cacheselect_minimum_native_prefix_tokens
+            ),
             prefix_caching_hash_algo=self.prefix_caching_hash_algo,
             calculate_kv_scales=self.calculate_kv_scales,
             kv_cache_dtype_skip_layers=self.kv_cache_dtype_skip_layers,

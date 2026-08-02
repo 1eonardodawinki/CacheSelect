@@ -92,6 +92,10 @@ class CacheConfig:
     `ModelConfig` and that value should be manually duplicated here."""
     enable_prefix_caching: bool = True
     """Whether to enable prefix caching."""
+    cacheselect_minimum_native_prefix_tokens: int | None = Field(default=None, gt=0)
+    """Experimental CacheSelect threshold for accepting a native prefix-cache
+    hit. ``None`` disables CacheSelect and preserves the standard vLLM cache
+    behavior."""
     prefix_caching_hash_algo: PrefixCachingHashAlgo = "sha256"
     """Set the hash algorithm for prefix caching:
 
@@ -207,6 +211,7 @@ class CacheConfig:
             "is_attention_free",
             "num_gpu_blocks_override",
             "enable_prefix_caching",
+            "cacheselect_minimum_native_prefix_tokens",
             "prefix_caching_hash_algo",
             # Prefix-caching implementation detail (doesn't affect compiled graph).
             "prefix_match_unit",
