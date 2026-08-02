@@ -1,0 +1,36 @@
+CacheSelect RAG smoke experiment
+job_id=269445
+host=gpuvm36.doc.ic.ac.uk
+project_root=/homes/lmw25/DeltaCache
+project_commit=15c5eb7c1373de3963f0018ef811040c7f822a26
+model=Qwen/Qwen2.5-1.5B-Instruct
+planner_mode=shadow minimum_native_prefix_tokens=64
+vllm=/vol/bitbucket/lmw25/cacheselect-env/bin/vllm
+vllm_version=0.0.0+d6dbdb9b0
+NVIDIA A16, GPU-17e19f52-cd93-db24-f6f9-1fe6e0ff7159, 15356 MiB, 595.71.05
+Starting fresh vLLM server: apc=off
+vLLM is healthy: apc=off pid=2368989
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/rag-smoke-269445/rag-apc-off.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/rag-smoke-269445/rag-smoke-269445-apc-off.jsonl
+Completed condition: apc=off result=/vol/bitbucket/lmw25/cacheselect-results/rag-smoke-269445/rag-apc-off.json
+Starting fresh vLLM server: apc=on
+vLLM is healthy: apc=on pid=2369934
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/rag-smoke-269445/rag-apc-on.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/rag-smoke-269445/rag-smoke-269445-apc-on.jsonl
+Completed condition: apc=on result=/vol/bitbucket/lmw25/cacheselect-results/rag-smoke-269445/rag-apc-on.json
+rag-apc-off.json: cached_tokens=[0, 0, 0, 0] ttft_ms=[49.4313333183527, 51.34799238294363, 51.74102075397968, 50.98383314907551] quality_passed=[True, True, True, True] planner_decisions=['FULL_RECOMPUTE', 'VLLM_NATIVE_APC', 'FULL_RECOMPUTE', 'VLLM_NATIVE_APC']
+rag-apc-on.json: cached_tokens=[0, 80, 32, 160] ttft_ms=[49.57970604300499, 37.23718971014023, 48.83253667503595, 25.0100614503026] quality_passed=[True, True, True, True] planner_decisions=['FULL_RECOMPUTE', 'VLLM_NATIVE_APC', 'FULL_RECOMPUTE', 'VLLM_NATIVE_APC']
+RAG smoke experiment completed successfully
+results=/vol/bitbucket/lmw25/cacheselect-results/rag-smoke-269445
+request_logs=/vol/bitbucket/lmw25/cacheselect-request-logs/rag-smoke-269445
+server_logs=/vol/bitbucket/lmw25/cacheselect-server-logs/rag-smoke-269445
