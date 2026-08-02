@@ -805,11 +805,22 @@ class Scheduler(SchedulerInterface):
                     # Track first scheduled prefill, not post-preemption repeat prefills
                     if request.prefill_stats and request.num_preemptions <= 0:
                         assert num_computed_tokens <= request.num_prompt_tokens
-                        request.prefill_stats.set(
+                        prefill_stats = request.prefill_stats
+                        prefill_stats.set(
                             num_prompt_tokens=request.num_prompt_tokens,
                             num_local_cached_tokens=num_new_local_computed_tokens,
                             num_external_cached_tokens=num_external_computed_tokens,
                         )
+                        if request.kv_reuse_decision is not None:
+                            decision = request.kv_reuse_decision
+                            prefill_stats.cacheselect_policy = decision.policy.value
+                            prefill_stats.cacheselect_reason = decision.reason.value
+                            prefill_stats.cacheselect_native_cached_tokens = (
+                                decision.native_cached_tokens
+                            )
+                            prefill_stats.cacheselect_minimum_native_prefix_tokens = (
+                                decision.minimum_native_prefix_tokens
+                            )
                 else:
                     # KVTransfer: WAITING reqs have num_computed_tokens > 0
                     # after async KV recvs are completed.

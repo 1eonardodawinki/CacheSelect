@@ -638,12 +638,24 @@ class OutputProcessor:
 
             if req_state.is_prefilling:
                 if engine_core_output.prefill_stats is not None:
-                    req_state.num_cached_tokens = (
-                        engine_core_output.prefill_stats.num_cached_tokens
-                    )
+                    prefill_stats = engine_core_output.prefill_stats
+                    req_state.num_cached_tokens = prefill_stats.num_cached_tokens
                     req_state.num_cache_creation_tokens = (
-                        engine_core_output.prefill_stats.num_cache_creation_tokens
+                        prefill_stats.num_cache_creation_tokens
                     )
+                    if req_state.stats is not None:
+                        req_state.stats.cacheselect_policy = (
+                            prefill_stats.cacheselect_policy
+                        )
+                        req_state.stats.cacheselect_reason = (
+                            prefill_stats.cacheselect_reason
+                        )
+                        req_state.stats.cacheselect_native_cached_tokens = (
+                            prefill_stats.cacheselect_native_cached_tokens
+                        )
+                        req_state.stats.cacheselect_minimum_native_prefix_tokens = (
+                            prefill_stats.cacheselect_minimum_native_prefix_tokens
+                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:

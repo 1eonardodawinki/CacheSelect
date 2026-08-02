@@ -235,6 +235,12 @@ class RequestStateStats:
     # Track if this request is corrupted (NaNs in logits)
     is_corrupted: bool = False
 
+    # Experimental CacheSelect decision metadata.
+    cacheselect_policy: str | None = None
+    cacheselect_reason: str | None = None
+    cacheselect_native_cached_tokens: int | None = None
+    cacheselect_minimum_native_prefix_tokens: int | None = None
+
 
 @dataclass
 class FinishedRequestStats:
@@ -266,6 +272,10 @@ class PrefillStats:
         num_local_cached_tokens: Tokens to be prefilled from local prefix cache.
         num_external_cached_tokens: Tokens to be prefilled from external KV transfer.
         num_cache_creation_tokens: Tokens computed and written to the prefix cache.
+        cacheselect_policy: CacheSelect policy applied to this prefill, if enabled.
+        cacheselect_reason: Machine-readable reason for that policy.
+        cacheselect_native_cached_tokens: Candidate native hit before policy filtering.
+        cacheselect_minimum_native_prefix_tokens: Configured acceptance threshold.
     """
 
     num_prompt_tokens: int = 0
@@ -274,6 +284,10 @@ class PrefillStats:
     num_local_cached_tokens: int = 0
     num_external_cached_tokens: int = 0
     num_cache_creation_tokens: int = 0
+    cacheselect_policy: str | None = None
+    cacheselect_reason: str | None = None
+    cacheselect_native_cached_tokens: int | None = None
+    cacheselect_minimum_native_prefix_tokens: int | None = None
 
     def set(
         self,

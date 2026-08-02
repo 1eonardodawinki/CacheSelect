@@ -125,6 +125,10 @@ class PerRequestTimingMetrics(OpenAIBaseModel):
     queue_time_ms: float | None = None
     mean_itl_ms: float | None = None
     tokens_per_second: float | None = None
+    cacheselect_policy: str | None = None
+    cacheselect_reason: str | None = None
+    cacheselect_native_cached_tokens: int | None = None
+    cacheselect_minimum_native_prefix_tokens: int | None = None
 
 
 class RequestResponseMetadata(BaseModel):
