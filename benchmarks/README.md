@@ -215,6 +215,25 @@ python -m benchmarks.run_vllm_baseline \
   --output benchmarks/results/rag_apc-on.json
 ```
 
+To evaluate the initial CacheSelect planner without changing the forced
+baseline policy, enable shadow mode:
+
+```bash
+python -m benchmarks.run_vllm_baseline \
+  --trace benchmarks/traces/rag.json \
+  --model Qwen/Qwen2.5-7B-Instruct \
+  --apc-label on \
+  --planner-mode shadow \
+  --minimum-native-prefix-tokens 64 \
+  --output benchmarks/results/rag_apc-on-shadow.json
+```
+
+Shadow mode tokenizes every request before execution, records the planner's
+recommendation separately from the policy actually executed, and fails if the
+local token IDs differ from vLLM's rendered prompt. It does not yet switch the
+backend policy. See `cacheselect/README.md` for the runtime boundary and next
+implementation milestone.
+
 Repeat the runner for `periodic_agent.json` and `chat.json`.
 
 Audit the resulting ledger before analysing a run:
