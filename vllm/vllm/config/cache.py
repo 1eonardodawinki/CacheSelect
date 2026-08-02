@@ -92,10 +92,11 @@ class CacheConfig:
     `ModelConfig` and that value should be manually duplicated here."""
     enable_prefix_caching: bool = True
     """Whether to enable prefix caching."""
-    cacheselect_minimum_native_prefix_tokens: int | None = Field(default=None, gt=0)
-    """Experimental CacheSelect threshold for accepting a native prefix-cache
-    hit. ``None`` disables CacheSelect and preserves the standard vLLM cache
-    behavior."""
+    enable_cacheselect: bool = False
+    """Enable the experimental CacheSelect runtime decision hook. CacheSelect
+    preserves every native prefix-cache hit; this flag currently adds
+    per-request policy decisions and observability without changing APC
+    execution."""
     prefix_caching_hash_algo: PrefixCachingHashAlgo = "sha256"
     """Set the hash algorithm for prefix caching:
 
@@ -211,7 +212,7 @@ class CacheConfig:
             "is_attention_free",
             "num_gpu_blocks_override",
             "enable_prefix_caching",
-            "cacheselect_minimum_native_prefix_tokens",
+            "enable_cacheselect",
             "prefix_caching_hash_algo",
             # Prefix-caching implementation detail (doesn't affect compiled graph).
             "prefix_match_unit",
@@ -266,10 +267,7 @@ class CacheConfig:
 
     @model_validator(mode="after")
     def _validate_cacheselect_requires_prefix_caching(self) -> "CacheConfig":
-        if (
-            self.cacheselect_minimum_native_prefix_tokens is not None
-            and not self.enable_prefix_caching
-        ):
+        if self.enable_cacheselect and not self.enable_prefix_caching:
             raise ValueError("CacheSelect requires prefix caching to be enabled")
         return self
 

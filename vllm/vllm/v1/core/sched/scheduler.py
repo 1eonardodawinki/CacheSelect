@@ -276,9 +276,7 @@ class Scheduler(SchedulerInterface):
             hash_block_size=hash_block_size,
             metrics_collector=self.kv_metrics_collector,
             watermark=self.scheduler_config.watermark,
-            cacheselect_minimum_native_prefix_tokens=(
-                self.cache_config.cacheselect_minimum_native_prefix_tokens
-            ),
+            enable_cacheselect=self.cache_config.enable_cacheselect,
         )
         # Bind GPU block pool to the KV connector. This must happen after
         # kv_cache_manager is constructed so block_pool is available.
@@ -817,9 +815,6 @@ class Scheduler(SchedulerInterface):
                             prefill_stats.cacheselect_reason = decision.reason.value
                             prefill_stats.cacheselect_native_cached_tokens = (
                                 decision.native_cached_tokens
-                            )
-                            prefill_stats.cacheselect_minimum_native_prefix_tokens = (
-                                decision.minimum_native_prefix_tokens
                             )
                 else:
                     # KVTransfer: WAITING reqs have num_computed_tokens > 0

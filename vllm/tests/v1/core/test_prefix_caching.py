@@ -350,25 +350,14 @@ def test_prefill(hash_fn):
     )
 
 
-@pytest.mark.parametrize(
-    ("minimum_native_prefix_tokens", "expected_cached_tokens", "expected_policy"),
-    [
-        (48, 48, KVReusePolicy.VLLM_NATIVE_APC),
-        (49, 0, KVReusePolicy.FULL_RECOMPUTE),
-    ],
-)
-def test_cacheselect_controls_native_prefix_reuse(
-    minimum_native_prefix_tokens,
-    expected_cached_tokens,
-    expected_policy,
-):
+def test_cacheselect_preserves_native_prefix_reuse():
     block_size = 16
     manager = make_kv_cache_manager(
         make_kv_cache_config(block_size, 11),
         max_model_len=8192,
         enable_caching=True,
         hash_block_size=block_size,
-        cacheselect_minimum_native_prefix_tokens=minimum_native_prefix_tokens,
+        enable_cacheselect=True,
     )
 
     common_token_ids = [i for i in range(3) for _ in range(block_size)]
@@ -386,6 +375,8 @@ def test_cacheselect_controls_native_prefix_reuse(
         new_computed_blocks=computed_blocks,
     )
     assert blocks is not None
+    assert req0.kv_reuse_decision is not None
+    assert req0.kv_reuse_decision.policy == KVReusePolicy.FULL_RECOMPUTE
 
     req1 = make_request(
         "target",
@@ -395,10 +386,10 @@ def test_cacheselect_controls_native_prefix_reuse(
     )
     _, num_computed_tokens, _ = manager.get_computed_blocks(req1)
 
-    assert num_computed_tokens == expected_cached_tokens
+    assert num_computed_tokens == 48
     assert req1.kv_reuse_decision is not None
     assert req1.kv_reuse_decision.native_cached_tokens == 48
-    assert req1.kv_reuse_decision.policy == expected_policy
+    assert req1.kv_reuse_decision.policy == KVReusePolicy.VLLM_NATIVE_APC
 
 
 def test_prefill_hybrid_model():

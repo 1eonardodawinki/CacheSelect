@@ -49,16 +49,16 @@ def test_prefix_caching_from_cli():
         args = parser.parse_args(["--prefix-caching-hash-algo", "invalid"])
 
 
-def test_cacheselect_threshold_from_cli():
+def test_cacheselect_from_cli():
     parser = EngineArgs.add_cli_args(FlexibleArgumentParser())
 
     args = parser.parse_args([])
     engine_args = EngineArgs.from_cli_args(args=args)
-    assert engine_args.cacheselect_minimum_native_prefix_tokens is None
+    assert not engine_args.enable_cacheselect
 
-    args = parser.parse_args(["--cacheselect-minimum-native-prefix-tokens", "64"])
+    args = parser.parse_args(["--enable-cacheselect"])
     engine_args = EngineArgs.from_cli_args(args=args)
-    assert engine_args.cacheselect_minimum_native_prefix_tokens == 64
+    assert engine_args.enable_cacheselect
 
 
 @pytest.mark.skipif(_xxhash is None, reason="xxhash not installed")

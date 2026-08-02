@@ -653,9 +653,6 @@ class OutputProcessor:
                         req_state.stats.cacheselect_native_cached_tokens = (
                             prefill_stats.cacheselect_native_cached_tokens
                         )
-                        req_state.stats.cacheselect_minimum_native_prefix_tokens = (
-                            prefill_stats.cacheselect_minimum_native_prefix_tokens
-                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:

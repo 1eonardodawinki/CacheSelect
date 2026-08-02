@@ -12,10 +12,7 @@ from vllm.utils.math_utils import cdiv
 from vllm.v1.core.kv_cache_coordinator import get_kv_cache_coordinator
 from vllm.v1.core.kv_cache_metrics import KVCacheMetricsCollector
 from vllm.v1.core.kv_cache_utils import KVCacheBlock, KVCacheBlockCopy
-from vllm.v1.core.kv_reuse_planner import (
-    KVReusePolicy,
-    NativePrefixThresholdPlanner,
-)
+from vllm.v1.core.kv_reuse_planner import NativeAPCFallbackPlanner
 from vllm.v1.kv_cache_interface import (
     AttentionSpec,
     CrossAttentionSpec,
@@ -131,7 +128,7 @@ class KVCacheManager:
         pcp_world_size: int = 1,
         metrics_collector: KVCacheMetricsCollector | None = None,
         watermark: float = 0.0,
-        cacheselect_minimum_native_prefix_tokens: int | None = None,
+        enable_cacheselect: bool = False,
     ) -> None:
         self.max_model_len = max_model_len
         # When unset, fall back to `max_model_len` so the recycling-aware cap
@@ -146,9 +143,7 @@ class KVCacheManager:
         self.log_stats = log_stats
         self.metrics_collector = metrics_collector
         self.kv_reuse_planner = (
-            NativePrefixThresholdPlanner(cacheselect_minimum_native_prefix_tokens)
-            if cacheselect_minimum_native_prefix_tokens is not None
-            else None
+            NativeAPCFallbackPlanner() if enable_cacheselect else None
         )
         # FIXME: make prefix cache stats conditional on log_stats. We still need
         # this comment because when the log stats is enabled there are still
@@ -272,8 +267,6 @@ class KVCacheManager:
                 native_cached_tokens=num_new_computed_tokens,
             )
             request.kv_reuse_decision = decision
-            if decision.policy == KVReusePolicy.FULL_RECOMPUTE:
-                return self.empty_kv_cache_blocks, 0, 0
 
         # When kv_cache_report_mode is "full", emit BlockStored events
         # for the reused prefix cache blocks so that external consumers

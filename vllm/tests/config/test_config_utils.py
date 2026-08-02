@@ -214,15 +214,12 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
     base_hash = CacheConfig().compute_hash()
     assert CacheConfig(kv_cache_memory_bytes=1 << 30).compute_hash() == base_hash
     assert CacheConfig(gpu_memory_utilization=0.5).compute_hash() == base_hash
-    assert (
-        CacheConfig(cacheselect_minimum_native_prefix_tokens=64).compute_hash()
-        == base_hash
-    )
+    assert CacheConfig(enable_cacheselect=True).compute_hash() == base_hash
 
 
 def test_cacheselect_requires_prefix_caching():
     with pytest.raises(ValueError, match="requires prefix caching"):
         CacheConfig(
             enable_prefix_caching=False,
-            cacheselect_minimum_native_prefix_tokens=64,
+            enable_cacheselect=True,
         )

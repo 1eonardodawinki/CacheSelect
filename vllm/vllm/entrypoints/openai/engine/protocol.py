@@ -128,7 +128,6 @@ class PerRequestTimingMetrics(OpenAIBaseModel):
     cacheselect_policy: str | None = None
     cacheselect_reason: str | None = None
     cacheselect_native_cached_tokens: int | None = None
-    cacheselect_minimum_native_prefix_tokens: int | None = None
 
 
 class RequestResponseMetadata(BaseModel):

@@ -239,7 +239,6 @@ class RequestStateStats:
     cacheselect_policy: str | None = None
     cacheselect_reason: str | None = None
     cacheselect_native_cached_tokens: int | None = None
-    cacheselect_minimum_native_prefix_tokens: int | None = None
 
 
 @dataclass
@@ -275,7 +274,6 @@ class PrefillStats:
         cacheselect_policy: CacheSelect policy applied to this prefill, if enabled.
         cacheselect_reason: Machine-readable reason for that policy.
         cacheselect_native_cached_tokens: Candidate native hit before policy filtering.
-        cacheselect_minimum_native_prefix_tokens: Configured acceptance threshold.
     """
 
     num_prompt_tokens: int = 0
@@ -287,7 +285,6 @@ class PrefillStats:
     cacheselect_policy: str | None = None
     cacheselect_reason: str | None = None
     cacheselect_native_cached_tokens: int | None = None
-    cacheselect_minimum_native_prefix_tokens: int | None = None
 
     def set(
         self,

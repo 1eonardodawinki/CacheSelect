@@ -703,18 +703,16 @@ def test_build_per_request_timing_metrics_valid_timestamps():
 
 def test_build_per_request_timing_metrics_includes_cacheselect_decision():
     request_stats = RequestStateStats(
-        cacheselect_policy="FULL_RECOMPUTE",
-        cacheselect_reason="native_prefix_too_small",
+        cacheselect_policy="VLLM_NATIVE_APC",
+        cacheselect_reason="reusable_native_prefix",
         cacheselect_native_cached_tokens=48,
-        cacheselect_minimum_native_prefix_tokens=64,
     )
 
     metrics = build_per_request_timing_metrics(request_stats, num_generation_tokens=1)
 
-    assert metrics.cacheselect_policy == "FULL_RECOMPUTE"
-    assert metrics.cacheselect_reason == "native_prefix_too_small"
+    assert metrics.cacheselect_policy == "VLLM_NATIVE_APC"
+    assert metrics.cacheselect_reason == "reusable_native_prefix"
     assert metrics.cacheselect_native_cached_tokens == 48
-    assert metrics.cacheselect_minimum_native_prefix_tokens == 64
 
 
 @pytest.mark.asyncio
