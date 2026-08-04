@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+from benchmarks.analyze_reuse_opportunities import analyze_benchmark_result
 from cacheselect.reuse_opportunity import analyze_reuse_opportunity
 
 
@@ -93,3 +94,64 @@ class ReuseOpportunityTests(TestCase):
                 native_cached_tokens=1,
                 block_size=0,
             )
+
+
+class BenchmarkReuseOpportunityTests(TestCase):
+    def test_result_analysis_uses_runtime_native_candidate(self):
+        result = {
+            "trace_id": "trace",
+            "workload": "rag",
+            "model": "model",
+            "observations": [
+                {
+                    "request_id": "before",
+                    "prompt_token_ids": list(range(12)),
+                    "cached_tokens": 0,
+                    "runtime_policy": None,
+                },
+                {
+                    "request_id": "after",
+                    "prompt_token_ids": (
+                        list(range(4)) + list(range(8, 12)) + list(range(4, 8))
+                    ),
+                    "cached_tokens": 4,
+                    "runtime_policy": {"native_cached_tokens": 4},
+                },
+            ],
+            "transitions": [
+                {
+                    "transition_id": "before-to-after",
+                    "previous_request_id": "before",
+                    "current_request_id": "after",
+                    "ground_truth": {"change_type": "reorder"},
+                    "current_cached_tokens": 4,
+                }
+            ],
+        }
+
+        report = analyze_benchmark_result(result, block_size=4)
+
+        self.assertEqual(report["summary"]["candidate_block_count"], 2)
+        self.assertEqual(
+            report["summary"]["location_independent_candidate_tokens"],
+            8,
+        )
+        self.assertEqual(
+            report["transitions"][0]["opportunity"]["native_cached_tokens"],
+            4,
+        )
+
+    def test_missing_observation_is_rejected(self):
+        result = {
+            "observations": [],
+            "transitions": [
+                {
+                    "transition_id": "missing",
+                    "previous_request_id": "before",
+                    "current_request_id": "after",
+                }
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, "referenced observation"):
+            analyze_benchmark_result(result, block_size=4)
