@@ -94,10 +94,14 @@ class WorkloadTests(TestCase):
 
         metadata = _source_metadata_by_request(trace)
 
-        self.assertNotIn(trace.requests[0].request_id, metadata)
+        self.assertEqual(
+            metadata[trace.requests[0].request_id],
+            {"cacheselect_request_id": trace.requests[0].request_id},
+        )
         self.assertEqual(
             metadata[trace.requests[1].request_id],
             {
+                "cacheselect_request_id": trace.requests[1].request_id,
                 "cacheselect_source_request_id": trace.requests[0].request_id,
                 "cacheselect_transition_id": trace.transitions[0].transition_id,
             },
@@ -286,6 +290,7 @@ class BaselineRunnerTests(TestCase):
                 api_key=None,
                 timeout_seconds=2.0,
                 vllm_xargs={
+                    "cacheselect_request_id": "chat-target",
                     "cacheselect_source_request_id": "chat-source",
                     "cacheselect_transition_id": "chat-transition",
                 },
@@ -298,6 +303,7 @@ class BaselineRunnerTests(TestCase):
         self.assertEqual(
             sent_payload["vllm_xargs"],
             {
+                "cacheselect_request_id": "chat-target",
                 "cacheselect_source_request_id": "chat-source",
                 "cacheselect_transition_id": "chat-transition",
             },

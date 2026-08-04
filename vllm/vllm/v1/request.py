@@ -104,6 +104,7 @@ class Request:
         self.kv_transfer_params: dict[str, Any] | None = None
         # E/P/D: Connector-specific encoder-cache transfer parameters.
         self.ec_transfer_params: dict[str, Any] | None = None
+        self.cacheselect_request_id: str | None = None
         self.cacheselect_source_request_id: str | None = None
         self.cacheselect_transition_id: str | None = None
 
@@ -125,6 +126,7 @@ class Request:
                     "kv_cache_report_mode", "incremental"
                 )
                 for attribute, key in (
+                    ("cacheselect_request_id", "cacheselect_request_id"),
                     (
                         "cacheselect_source_request_id",
                         "cacheselect_source_request_id",

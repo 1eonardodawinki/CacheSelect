@@ -406,11 +406,13 @@ def test_cacheselect_request_metadata_is_read_from_sampling_params():
         16,
         sha256,
         extra_args={
+            "cacheselect_request_id": "target",
             "cacheselect_source_request_id": "source",
             "cacheselect_transition_id": "source-to-target",
         },
     )
 
+    assert request.cacheselect_request_id == "target"
     assert request.cacheselect_source_request_id == "source"
     assert request.cacheselect_transition_id == "source-to-target"
 
@@ -436,7 +438,13 @@ def test_cacheselect_locates_resident_aligned_blocks_without_reusing_them():
         enable_cacheselect=True,
     )
     source_tokens = [token for token in range(5) for _ in range(block_size)]
-    source = make_request("source", source_tokens, block_size, sha256)
+    source = make_request(
+        "chatcmpl-source",
+        source_tokens,
+        block_size,
+        sha256,
+        extra_args={"cacheselect_request_id": "source"},
+    )
     computed_blocks, _, _ = manager.get_computed_blocks(source)
     allocated = manager.allocate_slots(
         source,
@@ -455,11 +463,12 @@ def test_cacheselect_locates_resident_aligned_blocks_without_reusing_them():
         + [4] * block_size
     )
     target = make_request(
-        "target",
+        "chatcmpl-target",
         target_tokens,
         block_size,
         sha256,
         extra_args={
+            "cacheselect_request_id": "target",
             "cacheselect_source_request_id": "source",
             "cacheselect_transition_id": "source-to-target",
         },

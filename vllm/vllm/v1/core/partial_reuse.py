@@ -134,13 +134,14 @@ class AlignedBlockReuseLocator:
                 )
             )
 
-        self._sources[request.request_id] = SourceRequestIndex(
-            request_id=request.request_id,
+        request_id = request.cacheselect_request_id or request.request_id
+        self._sources[request_id] = SourceRequestIndex(
+            request_id=request_id,
             cache_salt=request.cache_salt,
             lora_adapter_id=self._lora_adapter_id(request),
             blocks=tuple(indexed_blocks),
         )
-        self._sources.move_to_end(request.request_id)
+        self._sources.move_to_end(request_id)
         while len(self._sources) > self.max_source_requests:
             self._sources.popitem(last=False)
 
@@ -212,7 +213,7 @@ class AlignedBlockReuseLocator:
         return PartialReusePlan(
             transition_id=request.cacheselect_transition_id,
             source_request_id=source_request_id,
-            target_request_id=request.request_id,
+            target_request_id=request.cacheselect_request_id or request.request_id,
             block_size=self.block_size,
             native_cached_tokens=native_cached_tokens,
             reason=reason,

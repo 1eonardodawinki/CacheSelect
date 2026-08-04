@@ -263,13 +263,18 @@ def _source_metadata_by_request(
     trace: WorkloadTrace,
 ) -> dict[str, dict[str, str]]:
     """Map each changed request to its explicitly named source request."""
-    return {
-        transition.current_request_id: {
-            "cacheselect_source_request_id": transition.previous_request_id,
-            "cacheselect_transition_id": transition.transition_id,
-        }
-        for transition in trace.transitions
+    metadata = {
+        request.request_id: {"cacheselect_request_id": request.request_id}
+        for request in trace.requests
     }
+    for transition in trace.transitions:
+        metadata[transition.current_request_id].update(
+            {
+                "cacheselect_source_request_id": transition.previous_request_id,
+                "cacheselect_transition_id": transition.transition_id,
+            }
+        )
+    return metadata
 
 
 def _transition_results(
