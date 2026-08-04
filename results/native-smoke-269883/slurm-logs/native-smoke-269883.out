@@ -1,0 +1,33 @@
+CacheSelect native execution smoke experiment
+job_id=269883
+host=parrot.doc.ic.ac.uk
+project_root=/homes/lmw25/DeltaCache
+project_commit=a6a07e9c0cbf8a465e5d18b75a800b18bbeb0205
+model=Qwen/Qwen2.5-1.5B-Instruct
+vllm=/vol/bitbucket/lmw25/cacheselect-env/bin/vllm
+vllm_version=0.0.0+d6dbdb9b0
+NVIDIA A16, GPU-993d30e0-3321-0df4-43f1-2911291e7797, 15356 MiB, 595.71.05
+Starting fresh vLLM server: condition=native-apc
+vLLM is healthy: condition=native-apc pid=2752940
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/native-smoke-269883/rag-native-apc.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/native-smoke-269883/native-smoke-269883-native-apc.jsonl
+Completed condition: condition=native-apc result=/vol/bitbucket/lmw25/cacheselect-results/native-smoke-269883/rag-native-apc.json
+Starting fresh vLLM server: condition=cacheselect
+vLLM is healthy: condition=cacheselect pid=2753532
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/native-smoke-269883/rag-cacheselect.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/native-smoke-269883/native-smoke-269883-cacheselect.jsonl
+Completed condition: condition=cacheselect result=/vol/bitbucket/lmw25/cacheselect-results/native-smoke-269883/rag-cacheselect.json
+rag-native-apc.json: cached_tokens=[0, 80, 32, 160] ttft_ms=[51.23410187661648, 39.3538624048233, 51.705989986658096, 27.25848276168108] runtime=[None, None, None, None]
+rag-cacheselect.json: cached_tokens=[0, 80, 32, 160] ttft_ms=[51.127453334629536, 39.16658367961645, 50.505686551332474, 27.320222929120064] runtime=[{'policy': 'FULL_RECOMPUTE', 'reason': 'no_native_prefix', 'native_cached_tokens': 0}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 80}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 32}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 160}]
+CacheSelect native execution smoke completed successfully
+results=/vol/bitbucket/lmw25/cacheselect-results/native-smoke-269883
+request_logs=/vol/bitbucket/lmw25/cacheselect-request-logs/native-smoke-269883
+server_logs=/vol/bitbucket/lmw25/cacheselect-server-logs/native-smoke-269883
