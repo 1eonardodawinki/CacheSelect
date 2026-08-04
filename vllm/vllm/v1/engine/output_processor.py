@@ -653,6 +653,9 @@ class OutputProcessor:
                         req_state.stats.cacheselect_native_cached_tokens = (
                             prefill_stats.cacheselect_native_cached_tokens
                         )
+                        req_state.stats.cacheselect_partial_reuse_plan = (
+                            prefill_stats.cacheselect_partial_reuse_plan
+                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:

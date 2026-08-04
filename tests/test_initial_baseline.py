@@ -331,6 +331,10 @@ class BaselineRunnerTests(TestCase):
                 "cacheselect_policy": "FULL_RECOMPUTE",
                 "cacheselect_reason": "no_native_prefix",
                 "cacheselect_native_cached_tokens": 0,
+                "cacheselect_partial_reuse_plan": {
+                    "source_request_id": "rag-source",
+                    "candidate_token_count": 48,
+                },
             },
         }
 
@@ -361,6 +365,10 @@ class BaselineRunnerTests(TestCase):
                 "policy": "FULL_RECOMPUTE",
                 "reason": "no_native_prefix",
                 "native_cached_tokens": 0,
+                "partial_reuse_plan": {
+                    "source_request_id": "rag-source",
+                    "candidate_token_count": 48,
+                },
             },
         )
 

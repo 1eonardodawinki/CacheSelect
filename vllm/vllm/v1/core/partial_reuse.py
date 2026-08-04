@@ -37,6 +37,14 @@ class PartialReuseCandidate:
     source_resident: bool
     requires_repair: bool = True
 
+    def to_public_dict(self) -> dict[str, Any]:
+        return {
+            "source_block_index": self.source_block_index,
+            "target_block_index": self.target_block_index,
+            "source_resident": self.source_resident,
+            "requires_repair": self.requires_repair,
+        }
+
 
 @dataclass(frozen=True)
 class PartialReusePlan:
@@ -66,17 +74,16 @@ class PartialReusePlan:
 
     def to_dict(self) -> dict[str, Any]:
         payload = asdict(self)
-        payload.update(
-            {
-                "candidate_block_count": self.candidate_block_count,
-                "candidate_token_count": self.candidate_token_count,
-                "resident_candidate_block_count": (
-                    self.resident_candidate_block_count
-                ),
-                "resident_candidate_token_count": (
-                    self.resident_candidate_token_count
-                ),
-            }
+        payload["candidates"] = [
+            candidate.to_public_dict() for candidate in self.candidates
+        ]
+        payload["candidate_block_count"] = self.candidate_block_count
+        payload["candidate_token_count"] = self.candidate_token_count
+        payload["resident_candidate_block_count"] = (
+            self.resident_candidate_block_count
+        )
+        payload["resident_candidate_token_count"] = (
+            self.resident_candidate_token_count
         )
         return payload
 

@@ -702,10 +702,15 @@ def test_build_per_request_timing_metrics_valid_timestamps():
 
 
 def test_build_per_request_timing_metrics_includes_cacheselect_decision():
+    partial_reuse_plan = {
+        "source_request_id": "source",
+        "candidate_token_count": 48,
+    }
     request_stats = RequestStateStats(
         cacheselect_policy="VLLM_NATIVE_APC",
         cacheselect_reason="reusable_native_prefix",
         cacheselect_native_cached_tokens=48,
+        cacheselect_partial_reuse_plan=partial_reuse_plan,
     )
 
     metrics = build_per_request_timing_metrics(request_stats, num_generation_tokens=1)
@@ -713,6 +718,7 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
     assert metrics.cacheselect_policy == "VLLM_NATIVE_APC"
     assert metrics.cacheselect_reason == "reusable_native_prefix"
     assert metrics.cacheselect_native_cached_tokens == 48
+    assert metrics.cacheselect_partial_reuse_plan == partial_reuse_plan
 
 
 @pytest.mark.asyncio

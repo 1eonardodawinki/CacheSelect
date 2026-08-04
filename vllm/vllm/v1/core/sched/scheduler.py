@@ -816,6 +816,10 @@ class Scheduler(SchedulerInterface):
                             prefill_stats.cacheselect_native_cached_tokens = (
                                 decision.native_cached_tokens
                             )
+                        if request.partial_reuse_plan is not None:
+                            prefill_stats.cacheselect_partial_reuse_plan = (
+                                request.partial_reuse_plan.to_dict()
+                            )
                 else:
                     # KVTransfer: WAITING reqs have num_computed_tokens > 0
                     # after async KV recvs are completed.

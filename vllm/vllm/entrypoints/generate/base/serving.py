@@ -98,6 +98,7 @@ def build_per_request_timing_metrics(
         cacheselect_policy=metrics.cacheselect_policy,
         cacheselect_reason=metrics.cacheselect_reason,
         cacheselect_native_cached_tokens=metrics.cacheselect_native_cached_tokens,
+        cacheselect_partial_reuse_plan=metrics.cacheselect_partial_reuse_plan,
     )
 
 

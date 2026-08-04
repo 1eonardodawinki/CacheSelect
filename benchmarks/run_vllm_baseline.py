@@ -191,7 +191,7 @@ def _observe_request(
     output_text = _output_text(response)
     quality = score_response(output_text, request.ground_truth)
     server_metrics = response.get("metrics") or {}
-    runtime_policy = None
+    runtime_policy: dict[str, Any] | None = None
     if server_metrics.get("cacheselect_policy") is not None:
         runtime_policy = {
             "policy": server_metrics["cacheselect_policy"],
@@ -200,6 +200,9 @@ def _observe_request(
                 "cacheselect_native_cached_tokens"
             ),
         }
+        partial_reuse_plan = server_metrics.get("cacheselect_partial_reuse_plan")
+        if partial_reuse_plan is not None:
+            runtime_policy["partial_reuse_plan"] = partial_reuse_plan
 
     observation = {
         "request_id": request.request_id,
