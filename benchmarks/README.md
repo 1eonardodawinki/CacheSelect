@@ -86,8 +86,20 @@ sbatch benchmarks/run_cacheselect_smoke.slurm
 
 The job checks that every request records a runtime decision, every non-zero
 native hit is preserved, CacheSelect and native APC report identical cache-hit
-counts, all ledgers complete, and answer quality still passes. This is a
-correctness and observability smoke test, not an expected speedup.
+counts, all ledgers complete, and answer quality still passes. It also passes
+each transition's previous request ID to vLLM and verifies the online shadow
+locator's aligned block mappings. For the current RAG trace it expects 80
+resident candidate tokens in the document-reorder transition and none in the
+other two transitions. This is a correctness and observability smoke test, not
+an expected speedup: every candidate is marked as requiring KV repair and is
+still recomputed by native vLLM.
+
+The online locator currently covers the deliberately narrow first milestone:
+one full-attention KV group where scheduler, hash and physical block sizes are
+equal. It indexes only full source blocks, requires an explicit source request
+ID, checks cache-salt and LoRA compatibility, and confirms that each source
+block is still resident. Candidates that cross source block boundaries remain
+visible only to the offline analyzer until gathering/repacking is implemented.
 
 Analyze the full blocks whose token content exists elsewhere in the previous
 prompt but falls outside APC's exact-prefix hit:

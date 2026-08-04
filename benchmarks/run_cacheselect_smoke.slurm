@@ -206,6 +206,50 @@ if selected != native_cached:
         f"CacheSelect changed APC hits: native={native_cached}, selected={selected}"
     )
 
+transition_observations = observations[1:]
+plans = [
+    (item.get("runtime_policy") or {}).get("partial_reuse_plan")
+    for item in transition_observations
+]
+if any(plan is None for plan in plans):
+    raise SystemExit(
+        f"{cacheselect_path}: every transition must report a partial reuse plan"
+    )
+
+expected_candidate_tokens = [0, 80, 0]
+candidate_tokens = [plan["candidate_token_count"] for plan in plans]
+resident_tokens = [plan["resident_candidate_token_count"] for plan in plans]
+if candidate_tokens != expected_candidate_tokens:
+    raise SystemExit(
+        f"{cacheselect_path}: expected aligned candidate tokens "
+        f"{expected_candidate_tokens}, got {candidate_tokens}"
+    )
+if resident_tokens != expected_candidate_tokens:
+    raise SystemExit(
+        f"{cacheselect_path}: expected all candidates to remain resident, "
+        f"got resident tokens {resident_tokens}"
+    )
+
+expected_mappings = [
+    [],
+    [(3, 5), (4, 6), (5, 7), (6, 8), (10, 10)],
+    [],
+]
+actual_mappings = [
+    [
+        (candidate["source_block_index"], candidate["target_block_index"])
+        for candidate in plan["candidates"]
+    ]
+    for plan in plans
+]
+if actual_mappings != expected_mappings:
+    raise SystemExit(
+        f"{cacheselect_path}: expected block mappings {expected_mappings}, "
+        f"got {actual_mappings}"
+    )
+if "source_block_id" in json.dumps(plans):
+    raise SystemExit(f"{cacheselect_path}: internal GPU block IDs leaked")
+
 for path, result in ((native_path, native), (cacheselect_path, cacheselect)):
     observations = result["observations"]
     cached = [item["cached_tokens"] for item in observations]
@@ -215,6 +259,11 @@ for path, result in ((native_path, native), (cacheselect_path, cacheselect)):
     ]
     runtime = [item.get("runtime_policy") for item in observations]
     print(f"{path.name}: cached_tokens={cached} ttft_ms={ttft} runtime={runtime}")
+print(
+    "online_aligned_candidates="
+    f"{candidate_tokens} resident_tokens={resident_tokens} "
+    f"mappings={actual_mappings}"
+)
 PY
 
 echo "CacheSelect native execution smoke completed successfully"
