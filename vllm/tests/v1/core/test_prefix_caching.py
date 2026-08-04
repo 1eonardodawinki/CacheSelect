@@ -6,6 +6,7 @@ import copy
 from collections.abc import Callable
 from math import lcm
 from types import SimpleNamespace
+from typing import Any
 
 import pytest
 import torch
@@ -74,6 +75,7 @@ def make_request(
     prompt_logprobs: int | None = None,
     cache_salt: str | None = None,
     lora_request: LoRARequest | None = None,
+    extra_args: dict[str, Any] | None = None,
 ):
     mm_features = []
     if mm_positions is not None:
@@ -87,7 +89,11 @@ def make_request(
             )
             mm_features.append(mm_feature)
 
-    sampling_params = SamplingParams(max_tokens=17, prompt_logprobs=prompt_logprobs)
+    sampling_params = SamplingParams(
+        max_tokens=17,
+        prompt_logprobs=prompt_logprobs,
+        extra_args=extra_args,
+    )
     sampling_params.update_from_generation_config({}, eos_token_id=100)
 
     return Request(
@@ -390,6 +396,33 @@ def test_cacheselect_preserves_native_prefix_reuse():
     assert req1.kv_reuse_decision is not None
     assert req1.kv_reuse_decision.native_cached_tokens == 48
     assert req1.kv_reuse_decision.policy == KVReusePolicy.VLLM_NATIVE_APC
+
+
+def test_cacheselect_request_metadata_is_read_from_sampling_params():
+    request = make_request(
+        "target",
+        [1, 2, 3],
+        16,
+        sha256,
+        extra_args={
+            "cacheselect_source_request_id": "source",
+            "cacheselect_transition_id": "source-to-target",
+        },
+    )
+
+    assert request.cacheselect_source_request_id == "source"
+    assert request.cacheselect_transition_id == "source-to-target"
+
+
+def test_cacheselect_request_metadata_rejects_non_string_ids():
+    with pytest.raises(ValueError, match="cacheselect_source_request_id"):
+        make_request(
+            "target",
+            [1, 2, 3],
+            16,
+            sha256,
+            extra_args={"cacheselect_source_request_id": 3},
+        )
 
 
 def test_prefill_hybrid_model():

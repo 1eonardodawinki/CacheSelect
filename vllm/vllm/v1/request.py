@@ -103,6 +103,8 @@ class Request:
         self.kv_transfer_params: dict[str, Any] | None = None
         # E/P/D: Connector-specific encoder-cache transfer parameters.
         self.ec_transfer_params: dict[str, Any] | None = None
+        self.cacheselect_source_request_id: str | None = None
+        self.cacheselect_transition_id: str | None = None
 
         if pooling_params is not None:
             # Pooling models.
@@ -115,15 +117,23 @@ class Request:
                 self.status = RequestStatus.WAITING_FOR_STRUCTURED_OUTPUT_GRAMMAR
 
             if sampling_params.extra_args is not None:
-                self.kv_transfer_params = sampling_params.extra_args.get(
-                    "kv_transfer_params"
-                )
-                self.ec_transfer_params = sampling_params.extra_args.get(
-                    "ec_transfer_params"
-                )
-                self.kv_cache_report_mode = sampling_params.extra_args.get(
+                extra_args = sampling_params.extra_args
+                self.kv_transfer_params = extra_args.get("kv_transfer_params")
+                self.ec_transfer_params = extra_args.get("ec_transfer_params")
+                self.kv_cache_report_mode = extra_args.get(
                     "kv_cache_report_mode", "incremental"
                 )
+                for attribute, key in (
+                    (
+                        "cacheselect_source_request_id",
+                        "cacheselect_source_request_id",
+                    ),
+                    ("cacheselect_transition_id", "cacheselect_transition_id"),
+                ):
+                    value = extra_args.get(key)
+                    if value is not None and not isinstance(value, str):
+                        raise ValueError(f"{key} must be a string")
+                    setattr(self, attribute, value)
             else:
                 self.kv_cache_report_mode = "incremental"
         else:
