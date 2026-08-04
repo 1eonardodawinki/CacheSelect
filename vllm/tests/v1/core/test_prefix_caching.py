@@ -51,6 +51,7 @@ from vllm.v1.kv_cache_interface import (
     MLAAttentionSpec,
     SlidingWindowSpec,
 )
+from vllm.v1.request import RequestStatus
 
 pytestmark = pytest.mark.cpu_test
 
@@ -423,6 +424,58 @@ def test_cacheselect_request_metadata_rejects_non_string_ids():
             sha256,
             extra_args={"cacheselect_source_request_id": 3},
         )
+
+
+def test_cacheselect_locates_resident_aligned_blocks_without_reusing_them():
+    block_size = 16
+    manager = make_kv_cache_manager(
+        make_kv_cache_config(block_size, 11),
+        max_model_len=8192,
+        enable_caching=True,
+        hash_block_size=block_size,
+        enable_cacheselect=True,
+    )
+    source_tokens = [token for token in range(5) for _ in range(block_size)]
+    source = make_request("source", source_tokens, block_size, sha256)
+    computed_blocks, _, _ = manager.get_computed_blocks(source)
+    allocated = manager.allocate_slots(
+        source,
+        num_new_tokens=source.num_tokens,
+        new_computed_blocks=computed_blocks,
+    )
+    assert allocated is not None
+    source.status = RequestStatus.FINISHED_STOPPED
+    manager.free(source)
+
+    target_tokens = (
+        [0] * block_size
+        + [9] * block_size
+        + [2] * block_size
+        + [3] * block_size
+        + [4] * block_size
+    )
+    target = make_request(
+        "target",
+        target_tokens,
+        block_size,
+        sha256,
+        extra_args={
+            "cacheselect_source_request_id": "source",
+            "cacheselect_transition_id": "source-to-target",
+        },
+    )
+
+    _, num_computed_tokens, _ = manager.get_computed_blocks(target)
+
+    assert num_computed_tokens == block_size
+    assert target.partial_reuse_plan is not None
+    assert target.partial_reuse_plan.reason == "aligned_candidates"
+    assert target.partial_reuse_plan.candidate_block_count == 3
+    assert target.partial_reuse_plan.resident_candidate_block_count == 3
+    assert [
+        (candidate.source_block_index, candidate.target_block_index)
+        for candidate in target.partial_reuse_plan.candidates
+    ] == [(2, 2), (3, 3), (4, 4)]
 
 
 def test_prefill_hybrid_model():

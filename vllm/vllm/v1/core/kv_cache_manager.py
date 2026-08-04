@@ -13,10 +13,12 @@ from vllm.v1.core.kv_cache_coordinator import get_kv_cache_coordinator
 from vllm.v1.core.kv_cache_metrics import KVCacheMetricsCollector
 from vllm.v1.core.kv_cache_utils import KVCacheBlock, KVCacheBlockCopy
 from vllm.v1.core.kv_reuse_planner import NativeAPCFallbackPlanner
+from vllm.v1.core.partial_reuse import AlignedBlockReuseLocator
 from vllm.v1.kv_cache_interface import (
     AttentionSpec,
     CrossAttentionSpec,
     EncoderOnlyAttentionSpec,
+    FullAttentionSpec,
     KVCacheConfig,
     get_kv_cache_spec_kind,
     get_kv_cache_spec_sliding_window,
@@ -166,6 +168,22 @@ class KVCacheManager:
         self.num_kv_cache_groups = len(kv_cache_config.kv_cache_groups)
         self.block_pool = self.coordinator.block_pool
         self.kv_cache_config = kv_cache_config
+        supports_aligned_reuse = (
+            enable_cacheselect
+            and self.num_kv_cache_groups == 1
+            and isinstance(
+                kv_cache_config.kv_cache_groups[0].kv_cache_spec,
+                FullAttentionSpec,
+            )
+            and scheduler_block_size == hash_block_size
+            and scheduler_block_size
+            == kv_cache_config.kv_cache_groups[0].kv_cache_spec.block_size
+        )
+        self.partial_reuse_locator = (
+            AlignedBlockReuseLocator(self.block_pool, scheduler_block_size)
+            if supports_aligned_reuse
+            else None
+        )
 
         # Watermark: minimum number of KV cache blocks to keep free when
         # admitting waiting/preempted requests, to avoid frequent preemptions.
@@ -267,6 +285,11 @@ class KVCacheManager:
                 native_cached_tokens=num_new_computed_tokens,
             )
             request.kv_reuse_decision = decision
+            if self.partial_reuse_locator is not None:
+                request.partial_reuse_plan = self.partial_reuse_locator.locate(
+                    request,
+                    num_new_computed_tokens,
+                )
 
         # When kv_cache_report_mode is "full", emit BlockStored events
         # for the reused prefix cache blocks so that external consumers
@@ -530,7 +553,15 @@ class KVCacheManager:
         Args:
             request: The request to free the blocks.
         """
+        self._index_partial_reuse_source(request)
         self.coordinator.free(request.request_id)
+
+    def _index_partial_reuse_source(self, request: Request) -> None:
+        if self.partial_reuse_locator is None or not request.is_finished():
+            return
+        blocks = self.coordinator.get_blocks(request.request_id)
+        if blocks:
+            self.partial_reuse_locator.index(request, blocks[0])
 
     def remove_skipped_blocks(
         self,
@@ -562,6 +593,7 @@ class KVCacheManager:
         Returns:
             The request's blocks in allocation order.
         """
+        self._index_partial_reuse_source(request)
         return self.coordinator.pop_blocks_for_free(request.request_id)
 
     def evict_blocks(self, block_ids: set[int]) -> None:
@@ -586,6 +618,8 @@ class KVCacheManager:
         if self.log_stats:
             assert self.prefix_cache_stats is not None
             self.prefix_cache_stats.reset = True
+        if self.partial_reuse_locator is not None:
+            self.partial_reuse_locator.clear()
         return True
 
     def get_num_common_prefix_blocks(self, running_request_id: str) -> list[int]:

@@ -28,6 +28,7 @@ if TYPE_CHECKING:
     from vllm.lora.request import LoRARequest
     from vllm.v1.core.kv_cache_utils import BlockHash
     from vllm.v1.core.kv_reuse_planner import KVReuseDecision
+    from vllm.v1.core.partial_reuse import PartialReusePlan
 
 
 @dataclass
@@ -207,6 +208,7 @@ class Request:
 
         self.prefill_stats: PrefillStats | None = PrefillStats()
         self.kv_reuse_decision: KVReuseDecision | None = None
+        self.partial_reuse_plan: PartialReusePlan | None = None
 
         self.block_hashes: list[BlockHash] = []
         # Store the block hasher without binding self to avoid creating a
