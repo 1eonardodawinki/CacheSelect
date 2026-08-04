@@ -37,6 +37,30 @@ The mean CacheSelect-minus-native TTFT difference was -0.358 ms in this single
 run. It must not be interpreted as a speedup; the purpose of the run is cache
 parity and observability correctness.
 
+## Post-prefix reuse opportunity
+
+`analysis/reuse-opportunity.json` applies the deterministic 16-token block
+analyzer to the CacheSelect condition. For each full current-position block
+that native APC recomputed, it searches the entire previous rendered prompt
+for identical token content, independent of location.
+
+| Transition | Native recompute | Candidate blocks | Candidate tokens |
+| --- | ---: | ---: | ---: |
+| Document replacement | 96 tokens | 3 | 48 (50.0%) |
+| Document reorder | 144 tokens | 6 | 96 (66.7%) |
+| Query replacement | 17 tokens | 0 | 0 (0.0%) |
+| **Total** | **257 tokens** | **9** | **144 (56.0%)** |
+
+Eight candidate blocks moved to a different prompt position. Five have an
+identical source occurrence beginning on a previous 16-token block boundary;
+four require gathering or repacking tokens across source blocks. The document
+reorder transition is therefore the best first backend prototype: it exposes
+the largest opportunity and five whole source blocks.
+
+These are content-identical candidates, not valid KV hits. Their KVs were
+computed under different preceding context and still require validation or
+repair before they can replace normal computation.
+
 ## Shutdown log note
 
 `server-logs/vllm-cacheselect.log` contains an `EngineDeadError` after all four
@@ -52,6 +76,7 @@ so this is shutdown noise rather than an inference failure.
 - `request-logs/`: append-only full input/output ledgers;
 - `server-logs/`: vLLM logs for both fresh server processes;
 - `slurm-logs/`: the top-level job transcript and success marker.
+- `analysis/`: deterministic post-prefix token/block opportunity report.
 
 These files deliberately contain complete synthetic benchmark prompts and
 outputs for reproducibility. A credential-pattern scan found no secrets.

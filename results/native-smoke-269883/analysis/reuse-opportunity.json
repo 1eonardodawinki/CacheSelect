@@ -1,0 +1,289 @@
+{
+  "schema_version": 1,
+  "analysis": "location-independent-block-content-opportunity",
+  "source": "results/native-smoke-269883/results/rag-cacheselect.json",
+  "trace_id": "rag-controlled-v2",
+  "workload": "rag",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "block_size": 16,
+  "interpretation": "Candidate blocks have token content found in the previous rendered prompt. They are not safe KV hits: contextual state still requires validation or repair.",
+  "summary": {
+    "transition_count": 3,
+    "native_recompute_tokens": 257,
+    "location_independent_candidate_tokens": 144,
+    "candidate_share_of_native_recompute": 0.5603112840466926,
+    "candidate_block_count": 9,
+    "whole_source_block_count": 5,
+    "repacking_required_block_count": 4,
+    "moved_candidate_block_count": 8
+  },
+  "transitions": [
+    {
+      "transition_id": "rag-00-to-01",
+      "previous_request_id": "rag-00",
+      "current_request_id": "rag-01",
+      "ground_truth": {
+        "change_type": "document_replacement",
+        "changed_segment_ids": [
+          "doc_battery_2024",
+          "doc_battery_2025"
+        ],
+        "expected_native_behavior": "prefix_hit_until_replaced_document",
+        "notes": "The answer changes because the retrieved battery report changes."
+      },
+      "opportunity": {
+        "block_size": 16,
+        "previous_token_count": 167,
+        "current_token_count": 176,
+        "exact_common_prefix_tokens": 82,
+        "native_cached_tokens": 80,
+        "prefix_alignment_loss_tokens": 2,
+        "common_suffix_tokens": 50,
+        "monotonic_post_edit_matching_tokens": 60,
+        "recomputed_full_block_count": 6,
+        "candidate_block_count": 3,
+        "candidate_token_count": 48,
+        "whole_source_block_count": 0,
+        "repacking_required_block_count": 3,
+        "moved_candidate_block_count": 3,
+        "candidate_share_of_native_recompute": 0.5,
+        "monotonic_matching_spans": [
+          {
+            "previous_start": 0,
+            "current_start": 0,
+            "token_count": 82
+          },
+          {
+            "previous_start": 83,
+            "current_start": 83,
+            "token_count": 1
+          },
+          {
+            "previous_start": 85,
+            "current_start": 113,
+            "token_count": 9
+          },
+          {
+            "previous_start": 117,
+            "current_start": 126,
+            "token_count": 50
+          }
+        ],
+        "candidate_blocks": [
+          {
+            "current_block_index": 8,
+            "current_start": 128,
+            "previous_starts": [
+              119
+            ],
+            "aligned_previous_starts": [],
+            "same_position_match": false,
+            "has_whole_source_block": false,
+            "moved": true,
+            "requires_repacking": true
+          },
+          {
+            "current_block_index": 9,
+            "current_start": 144,
+            "previous_starts": [
+              135
+            ],
+            "aligned_previous_starts": [],
+            "same_position_match": false,
+            "has_whole_source_block": false,
+            "moved": true,
+            "requires_repacking": true
+          },
+          {
+            "current_block_index": 10,
+            "current_start": 160,
+            "previous_starts": [
+              151
+            ],
+            "aligned_previous_starts": [],
+            "same_position_match": false,
+            "has_whole_source_block": false,
+            "moved": true,
+            "requires_repacking": true
+          }
+        ]
+      }
+    },
+    {
+      "transition_id": "rag-01-to-02",
+      "previous_request_id": "rag-01",
+      "current_request_id": "rag-02",
+      "ground_truth": {
+        "change_type": "document_reorder",
+        "changed_segment_ids": [
+          "doc_grid",
+          "doc_solar",
+          "doc_battery_2025"
+        ],
+        "expected_native_behavior": "prefix_miss_at_first_reordered_document",
+        "notes": "Document contents are identical but their positions change."
+      },
+      "opportunity": {
+        "block_size": 16,
+        "previous_token_count": 176,
+        "current_token_count": 176,
+        "exact_common_prefix_tokens": 45,
+        "native_cached_tokens": 32,
+        "prefix_alignment_loss_tokens": 13,
+        "common_suffix_tokens": 18,
+        "monotonic_post_edit_matching_tokens": 101,
+        "recomputed_full_block_count": 9,
+        "candidate_block_count": 6,
+        "candidate_token_count": 96,
+        "whole_source_block_count": 5,
+        "repacking_required_block_count": 1,
+        "moved_candidate_block_count": 5,
+        "candidate_share_of_native_recompute": 0.6666666666666666,
+        "monotonic_matching_spans": [
+          {
+            "previous_start": 0,
+            "current_start": 0,
+            "token_count": 43
+          },
+          {
+            "previous_start": 43,
+            "current_start": 75,
+            "token_count": 84
+          },
+          {
+            "previous_start": 159,
+            "current_start": 159,
+            "token_count": 17
+          }
+        ],
+        "candidate_blocks": [
+          {
+            "current_block_index": 3,
+            "current_start": 48,
+            "previous_starts": [
+              132
+            ],
+            "aligned_previous_starts": [],
+            "same_position_match": false,
+            "has_whole_source_block": false,
+            "moved": true,
+            "requires_repacking": true
+          },
+          {
+            "current_block_index": 5,
+            "current_start": 80,
+            "previous_starts": [
+              48
+            ],
+            "aligned_previous_starts": [
+              48
+            ],
+            "same_position_match": false,
+            "has_whole_source_block": true,
+            "moved": true,
+            "requires_repacking": false
+          },
+          {
+            "current_block_index": 6,
+            "current_start": 96,
+            "previous_starts": [
+              64
+            ],
+            "aligned_previous_starts": [
+              64
+            ],
+            "same_position_match": false,
+            "has_whole_source_block": true,
+            "moved": true,
+            "requires_repacking": false
+          },
+          {
+            "current_block_index": 7,
+            "current_start": 112,
+            "previous_starts": [
+              80
+            ],
+            "aligned_previous_starts": [
+              80
+            ],
+            "same_position_match": false,
+            "has_whole_source_block": true,
+            "moved": true,
+            "requires_repacking": false
+          },
+          {
+            "current_block_index": 8,
+            "current_start": 128,
+            "previous_starts": [
+              96
+            ],
+            "aligned_previous_starts": [
+              96
+            ],
+            "same_position_match": false,
+            "has_whole_source_block": true,
+            "moved": true,
+            "requires_repacking": false
+          },
+          {
+            "current_block_index": 10,
+            "current_start": 160,
+            "previous_starts": [
+              160
+            ],
+            "aligned_previous_starts": [
+              160
+            ],
+            "same_position_match": true,
+            "has_whole_source_block": true,
+            "moved": false,
+            "requires_repacking": false
+          }
+        ]
+      }
+    },
+    {
+      "transition_id": "rag-02-to-03",
+      "previous_request_id": "rag-02",
+      "current_request_id": "rag-03",
+      "ground_truth": {
+        "change_type": "query_replacement",
+        "changed_segment_ids": [
+          "query"
+        ],
+        "expected_native_behavior": "prefix_hit_through_all_documents",
+        "notes": "Only the final query changes."
+      },
+      "opportunity": {
+        "block_size": 16,
+        "previous_token_count": 176,
+        "current_token_count": 177,
+        "exact_common_prefix_tokens": 162,
+        "native_cached_tokens": 160,
+        "prefix_alignment_loss_tokens": 2,
+        "common_suffix_tokens": 6,
+        "monotonic_post_edit_matching_tokens": 6,
+        "recomputed_full_block_count": 1,
+        "candidate_block_count": 0,
+        "candidate_token_count": 0,
+        "whole_source_block_count": 0,
+        "repacking_required_block_count": 0,
+        "moved_candidate_block_count": 0,
+        "candidate_share_of_native_recompute": 0.0,
+        "monotonic_matching_spans": [
+          {
+            "previous_start": 0,
+            "current_start": 0,
+            "token_count": 162
+          },
+          {
+            "previous_start": 170,
+            "current_start": 171,
+            "token_count": 6
+          }
+        ],
+        "candidate_blocks": []
+      }
+    }
+  ]
+}

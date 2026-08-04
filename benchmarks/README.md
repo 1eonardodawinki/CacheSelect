@@ -89,6 +89,21 @@ native hit is preserved, CacheSelect and native APC report identical cache-hit
 counts, all ledgers complete, and answer quality still passes. This is a
 correctness and observability smoke test, not an expected speedup.
 
+Analyze the full blocks whose token content exists elsewhere in the previous
+prompt but falls outside APC's exact-prefix hit:
+
+```bash
+python -m benchmarks.analyze_reuse_opportunities \
+  --input results/native-smoke-269883/results/rag-cacheselect.json \
+  --output results/native-smoke-269883/analysis/reuse-opportunity.json \
+  --block-size 16
+```
+
+The analyzer reports content opportunity rather than safe KV reuse. An
+identical block can have context-dependent KV state and may require selective
+repair. It also distinguishes whole source blocks from candidates that need
+token gathering or repacking.
+
 ## Full baseline matrix
 
 After the smoke experiment passes, submit the complete controlled baseline as
