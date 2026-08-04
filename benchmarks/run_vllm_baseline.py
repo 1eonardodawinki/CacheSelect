@@ -17,7 +17,7 @@ from cacheselect.features import (
     token_transition_features,
 )
 from benchmarks.evaluation import score_response
-from benchmarks.schema import RequestSpec, load_trace
+from benchmarks.schema import RequestSpec, WorkloadTrace, load_trace
 from observability.request_recorder import RequestRecorder, validate_ledger
 from cacheselect.planner import (
     NativeAPCFallbackPlanner,
@@ -121,8 +121,14 @@ def _observe_request(
     policy_metadata: dict[str, Any] | None = None,
     expected_prompt_token_ids: list[int] | None = None,
     require_cacheselect_metrics: bool = False,
+    vllm_xargs: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     payload = request.api_payload(model, max_completion_tokens)
+    if vllm_xargs:
+        payload["vllm_xargs"] = {
+            **(payload.get("vllm_xargs") or {}),
+            **vllm_xargs,
+        }
     pending = None
     if recorder is not None:
         pending = recorder.start(
@@ -250,6 +256,19 @@ def _shadow_plan_requests(
     return planned
 
 
+def _source_metadata_by_request(
+    trace: WorkloadTrace,
+) -> dict[str, dict[str, str]]:
+    """Map each changed request to its explicitly named source request."""
+    return {
+        transition.current_request_id: {
+            "cacheselect_source_request_id": transition.previous_request_id,
+            "cacheselect_transition_id": transition.transition_id,
+        }
+        for transition in trace.transitions
+    }
+
+
 def _transition_results(
     trace,
     observations: list[dict[str, Any]],
@@ -367,6 +386,9 @@ def main() -> None:
         },
     )
     observations = []
+    source_metadata = (
+        _source_metadata_by_request(trace) if args.planner_mode == "vllm" else {}
+    )
     execution_policy = (
         ReusePolicy.VLLM_NATIVE_APC
         if args.apc_label == "on"
@@ -409,6 +431,7 @@ def main() -> None:
                 policy_metadata=policy_metadata,
                 expected_prompt_token_ids=expected_prompt_tokens,
                 require_cacheselect_metrics=args.planner_mode == "vllm",
+                vllm_xargs=source_metadata.get(request.request_id),
             )
         )
 

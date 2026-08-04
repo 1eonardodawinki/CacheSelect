@@ -7,6 +7,7 @@ from unittest.mock import patch
 from benchmarks.run_vllm_baseline import (
     _observe_request,
     _shadow_plan_requests,
+    _source_metadata_by_request,
     _validate_observability,
 )
 from benchmarks.evaluation import score_response
@@ -87,6 +88,20 @@ class WorkloadTests(TestCase):
         serialised = json.dumps(payload)
         self.assertNotIn("expected_answer", serialised)
         self.assertNotIn("ground_truth", serialised)
+
+    def test_source_metadata_names_only_the_previous_request(self):
+        trace = build_rag_trace()
+
+        metadata = _source_metadata_by_request(trace)
+
+        self.assertNotIn(trace.requests[0].request_id, metadata)
+        self.assertEqual(
+            metadata[trace.requests[1].request_id],
+            {
+                "cacheselect_source_request_id": trace.requests[0].request_id,
+                "cacheselect_transition_id": trace.transitions[0].transition_id,
+            },
+        )
 
     def test_length_calibration_controls_target_and_edit_position(self):
         def count_words(messages):
@@ -270,12 +285,23 @@ class BaselineRunnerTests(TestCase):
                 max_completion_tokens=8,
                 api_key=None,
                 timeout_seconds=2.0,
+                vllm_xargs={
+                    "cacheselect_source_request_id": "chat-source",
+                    "cacheselect_transition_id": "chat-transition",
+                },
             )
 
         sent_request = urlopen.call_args.args[0]
         sent_payload = json.loads(sent_request.data)
         self.assertTrue(sent_payload["return_token_ids"])
         self.assertTrue(sent_payload["return_prompt_text"])
+        self.assertEqual(
+            sent_payload["vllm_xargs"],
+            {
+                "cacheselect_source_request_id": "chat-source",
+                "cacheselect_transition_id": "chat-transition",
+            },
+        )
         self.assertEqual(observation["rendered_prompt"], "rendered prompt")
         self.assertEqual(observation["prompt_token_ids"], [1, 2, 3])
         self.assertEqual(observation["cached_tokens"], 2)
