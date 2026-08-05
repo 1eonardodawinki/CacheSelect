@@ -1,5 +1,6 @@
 from unittest import TestCase
 
+from benchmarks.analyze_locator_calibration import analyze_locator_result
 from benchmarks.analyze_reuse_opportunities import analyze_benchmark_result
 from cacheselect.reuse_opportunity import analyze_reuse_opportunity
 
@@ -155,3 +156,94 @@ class BenchmarkReuseOpportunityTests(TestCase):
 
         with self.assertRaisesRegex(ValueError, "referenced observation"):
             analyze_benchmark_result(result, block_size=4)
+
+
+class LocatorCalibrationTests(TestCase):
+    @staticmethod
+    def _result(candidate_token_count: int = 8):
+        source_tokens = list(range(16))
+        edited_tokens = list(range(4)) + [40, 41, 42, 43] + list(range(8, 16))
+        plan = {
+            "transition_id": "source-to-edited",
+            "source_request_id": "source",
+            "target_request_id": "edited",
+            "block_size": 4,
+            "native_cached_tokens": 4,
+            "reason": "aligned_candidates",
+            "candidate_block_count": candidate_token_count // 4,
+            "candidate_token_count": candidate_token_count,
+            "resident_candidate_block_count": candidate_token_count // 4,
+            "resident_candidate_token_count": candidate_token_count,
+            "candidates": [
+                {
+                    "source_block_index": index,
+                    "target_block_index": index,
+                    "source_resident": True,
+                    "requires_repair": True,
+                }
+                for index in range(2, 2 + candidate_token_count // 4)
+            ],
+        }
+        return {
+            "request_ledger_summary": {
+                "started": 2,
+                "completed": 2,
+                "failed": 0,
+            },
+            "observations": [
+                {
+                    "request_id": "source",
+                    "prompt_token_count": 16,
+                    "prompt_token_ids": source_tokens,
+                    "cached_tokens": 0,
+                    "quality": {"passed": True},
+                },
+                {
+                    "request_id": "edited",
+                    "prompt_token_count": 16,
+                    "prompt_token_ids": edited_tokens,
+                    "cached_tokens": 4,
+                    "quality": {"passed": True},
+                    "server_metrics": {"time_to_first_token_ms": 10.0},
+                    "runtime_policy": {
+                        "policy": "VLLM_NATIVE_APC",
+                        "native_cached_tokens": 4,
+                        "partial_reuse_plan": plan,
+                    },
+                },
+            ],
+            "transitions": [
+                {
+                    "transition_id": "source-to-edited",
+                    "previous_request_id": "source",
+                    "current_request_id": "edited",
+                    "current_cached_tokens": 4,
+                }
+            ],
+        }
+
+    def test_online_locator_matches_offline_aligned_candidates(self):
+        row = analyze_locator_result(
+            self._result(),
+            target_prompt_tokens=16,
+            edit_position="middle",
+            block_size=4,
+        )
+
+        self.assertEqual(row["native_recomputed_tokens"], 12)
+        self.assertEqual(row["offline_all_candidate_tokens"], 8)
+        self.assertEqual(row["online_candidate_tokens"], 8)
+        self.assertEqual(row["resident_candidate_tokens"], 8)
+        self.assertAlmostEqual(
+            row["online_candidate_share_of_native_recompute"],
+            2 / 3,
+        )
+
+    def test_online_locator_mismatch_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "aligned candidate mismatch"):
+            analyze_locator_result(
+                self._result(candidate_token_count=4),
+                target_prompt_tokens=16,
+                edit_position="middle",
+                block_size=4,
+            )

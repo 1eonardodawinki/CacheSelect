@@ -259,6 +259,19 @@ The successful condition count reaches 9. Artifacts are stored below the
 `locator-calibration-<job-id>` result, request-log, server-log and generated
 trace directories under `/vol/bitbucket/$USER`.
 
+After downloading those directories into
+`results/locator-calibration-<job-id>`, validate and summarize them with:
+
+```bash
+python -m benchmarks.analyze_locator_calibration \
+  --input-root results/locator-calibration-<job-id>
+```
+
+The analyzer requires all nine manifests, results and complete request ledgers.
+It produces `analysis/locator-calibration.json`, a condition-level CSV and a
+Markdown table comparing native recomputation with offline content matches,
+online aligned candidates and resident candidates.
+
 Analyse one complete run, or combine an interrupted initial run with a later
 continuation in the same way:
 
