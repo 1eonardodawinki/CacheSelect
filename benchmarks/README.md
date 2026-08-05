@@ -227,6 +227,38 @@ This calibration is not the final evaluation. It checks that prompt-length and
 edit-position scaling work before the implementation determines the definitive
 lengths, repetitions, policy order, and workload matrix.
 
+## Online locator calibration
+
+After the online aligned-block smoke passes, run the same 256, 1,024 and 4,096
+token early/middle/late edits through the CacheSelect-enabled vLLM server:
+
+```bash
+cd ~/DeltaCache
+LOCATOR_JOB_ID=$(sbatch --parsable benchmarks/run_locator_calibration.slurm)
+echo "$LOCATOR_JOB_ID"
+```
+
+The three array tasks each own one prompt length and execute its three edit
+positions sequentially, using at most three GPUs. Every condition gets a fresh
+server, a two-request cold-source/edit trace, a manifest, a complete request
+ledger and full server metrics. The job verifies safe APC execution, answer
+quality, stable request-scoped source lookup, agreement between the online
+aligned locator and the offline opportunity analyzer, full candidate residency
+and absence of physical GPU block IDs from API responses.
+
+Check progress with:
+
+```bash
+squeue -j "$LOCATOR_JOB_ID"
+grep -h "Locator calibration condition completed successfully" \
+  /vol/bitbucket/$USER/cacheselect-server-logs/locator-calibration-"$LOCATOR_JOB_ID"_*.out \
+  2>/dev/null | wc -l
+```
+
+The successful condition count reaches 9. Artifacts are stored below the
+`locator-calibration-<job-id>` result, request-log, server-log and generated
+trace directories under `/vol/bitbucket/$USER`.
+
 Analyse one complete run, or combine an interrupted initial run with a later
 continuation in the same way:
 
