@@ -13,7 +13,7 @@ the newest scheduled step's output has been processed.
 
 import os
 import time
-from unittest.mock import PropertyMock, patch
+from unittest.mock import Mock, PropertyMock, patch
 
 import pytest
 
@@ -474,3 +474,59 @@ def test_cow_retentions_deferred_until_copy_step_processed():
     assert not scheduler.deferred_frees
     out2 = scheduler.schedule()
     assert [r.req_id for r in out2.scheduled_new_reqs] == ["late"]
+
+
+# Check that a successful request holds source leases until its GPU step completes.
+def test_partial_reuse_retentions_follow_step_fence():
+    scheduler = _create_deferring_scheduler()
+    pool = scheduler.kv_cache_manager.block_pool
+    source_block = pool.get_new_blocks(1)[0]
+    scheduler.kv_cache_manager.retain_partial_reuse_sources = Mock(
+        return_value=(source_block,)
+    )
+
+    request = create_requests(
+        num_requests=1,
+        num_tokens=NUM_PROMPT_TOKENS,
+        max_tokens=5,
+    )[0]
+    scheduler.add_request(request)
+
+    output = scheduler.schedule()
+    assert source_block.ref_cnt == 1
+    assert scheduler.deferred_frees
+
+    scheduler.update_from_output(output, _make_model_runner_output(output))
+    assert source_block.ref_cnt == 0
+    assert not scheduler.deferred_frees
+
+
+# Check that failed target allocation rolls its source lease back immediately.
+def test_partial_reuse_retentions_rollback_on_allocation_failure():
+    scheduler = _create_deferring_scheduler()
+    pool = scheduler.kv_cache_manager.block_pool
+    source_block = pool.get_new_blocks(1)[0]
+
+    # Release the mock lease through the real block-pool reference path.
+    def release_sources(blocks) -> None:
+        pool.free_blocks(blocks)
+
+    scheduler.kv_cache_manager.retain_partial_reuse_sources = Mock(
+        return_value=(source_block,)
+    )
+    scheduler.kv_cache_manager.release_partial_reuse_sources = Mock(
+        side_effect=release_sources
+    )
+    scheduler.kv_cache_manager.allocate_slots = Mock(return_value=None)
+
+    request = create_requests(
+        num_requests=1,
+        num_tokens=NUM_PROMPT_TOKENS,
+        max_tokens=5,
+    )[0]
+    scheduler.add_request(request)
+
+    output = scheduler.schedule()
+    assert not output.scheduled_new_reqs
+    assert source_block.ref_cnt == 0
+    assert not scheduler.deferred_frees

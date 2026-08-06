@@ -644,8 +644,9 @@ def test_cow_retained_blocks_returned_for_release():
     manager.block_pool.free_blocks(retained)
 
 
-def test_free_cow_retained_blocks_defers_until_copy_step_processed():
-    """Scheduler releases CoW retentions immediately when the copy's step has
+# Check that temporary block retentions respect their GPU completion fence.
+def test_free_retained_blocks_defers_until_step_processed():
+    """Scheduler releases retentions immediately when the consuming step has
     been processed (or deferral is off), and defers them otherwise."""
     from collections import deque
 
@@ -659,7 +660,7 @@ def test_free_cow_retained_blocks_defers_until_copy_step_processed():
         defer_block_free=True,
         processed_step_seq=2,
     )
-    free = Scheduler._free_cow_retained_blocks
+    free = Scheduler._free_retained_blocks
 
     # Copy step still in flight: deferred with its fence.
     free(mock, list(blocks), fence_seq=3)

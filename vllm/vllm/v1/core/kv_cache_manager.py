@@ -322,6 +322,23 @@ class KVCacheManager:
         blocks = self.create_kv_cache_blocks(computed_blocks)
         return blocks, num_new_computed_tokens, shared_prefix_boundary
 
+    # Pin revalidated CacheSelect source blocks for this request's next step.
+    def retain_partial_reuse_sources(
+        self, request: Request
+    ) -> tuple[KVCacheBlock, ...]:
+        if self.partial_reuse_locator is None or request.partial_reuse_plan is None:
+            return ()
+        return self.partial_reuse_locator.retain_resident_sources(
+            request.partial_reuse_plan
+        )
+
+    # Roll back source pins when the target request cannot be scheduled.
+    def release_partial_reuse_sources(
+        self, blocks: Sequence[KVCacheBlock]
+    ) -> None:
+        if self.partial_reuse_locator is not None:
+            self.partial_reuse_locator.release_sources(blocks)
+
     def allocate_slots(
         self,
         request: Request,

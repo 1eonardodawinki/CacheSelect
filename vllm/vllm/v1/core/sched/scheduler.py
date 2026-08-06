@@ -419,6 +419,7 @@ class Scheduler(SchedulerInterface):
         end = min((s for s in stops if start < s < end), default=end)
         return max(end - start, 0)
 
+    # Select requests for the next execution step and allocate their resources.
     def schedule(self, throttle_prefills: bool = False) -> SchedulerOutput:
         self.current_step += 1
         # NOTE(woosuk) on the scheduling algorithm:
@@ -436,6 +437,7 @@ class Scheduler(SchedulerInterface):
         scheduled_resumed_reqs: list[Request] = []
         scheduled_running_reqs: list[Request] = []
         preempted_reqs: list[Request] = []
+        partial_reuse_retained_blocks: list[KVCacheBlock] = []
 
         req_to_new_blocks: dict[str, KVCacheBlocks] = {}
         num_scheduled_tokens: dict[str, int] = {}
@@ -939,6 +941,9 @@ class Scheduler(SchedulerInterface):
                     # avoid deadlock and predictable preemptions.
                     reserved_blocks = self._inflight_prefill_reserved_blocks()
 
+                request_retained_blocks = (
+                    self.kv_cache_manager.retain_partial_reuse_sources(request)
+                )
                 new_blocks = self.kv_cache_manager.allocate_slots(
                     request,
                     num_new_tokens,
@@ -956,11 +961,17 @@ class Scheduler(SchedulerInterface):
                 if new_blocks is None:
                     # The request cannot be scheduled.
 
+                    self.kv_cache_manager.release_partial_reuse_sources(
+                        request_retained_blocks
+                    )
+
                     # NOTE: we need to untouch the request from the encode cache
                     # manager
                     if request.has_encoder_inputs:
                         self.encoder_cache_manager.free(request)
                     break
+
+                partial_reuse_retained_blocks.extend(request_retained_blocks)
 
                 # KVTransfer: the connector uses this info to determine
                 # if a load is needed. Note that
@@ -1134,12 +1145,19 @@ class Scheduler(SchedulerInterface):
         kv_cache_block_copies, cow_retained_blocks = (
             self.kv_cache_manager.take_kv_cache_block_copies()
         )
+        if partial_reuse_retained_blocks:
+            # Keep CacheSelect sources stable through the step that may consume
+            # them. Synchronous execution can release them after scheduling;
+            # overlapping execution uses the same completion fence as CoW copies.
+            self._free_retained_blocks(
+                partial_reuse_retained_blocks, self.sched_step_seq + 1
+            )
         if kv_cache_block_copies:
             # The copies run with this step's execution; the first non-empty
             # step at or after it gets seq `sched_step_seq + 1` (0-token steps
             # do not advance the seq), and its completion implies the copies
             # have run.
-            self._free_cow_retained_blocks(cow_retained_blocks, self.sched_step_seq + 1)
+            self._free_retained_blocks(cow_retained_blocks, self.sched_step_seq + 1)
         pending_kv_cache_block_copies = kv_cache_block_copies or None
 
         # Dynamic speculative decoding: compute optimal K
@@ -2268,11 +2286,12 @@ class Scheduler(SchedulerInterface):
         if blocks:
             self.deferred_frees.append((self.sched_step_seq, blocks))
 
-    def _free_cow_retained_blocks(
+    # Release temporary block references now or after their GPU-step fence.
+    def _free_retained_blocks(
         self, blocks: list[KVCacheBlock], fence_seq: int
     ) -> None:
-        """Release CoW copy retentions, deferring their return to the block
-        pool while the step that runs the copy may still be in flight.
+        """Release temporary retentions, deferring their return to the block
+        pool while the step that uses them may still be in flight.
         """
         if not self.defer_block_free or fence_seq <= self.processed_step_seq:
             self.kv_cache_manager.block_pool.free_blocks(blocks)
