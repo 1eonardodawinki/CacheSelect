@@ -23,11 +23,14 @@ class ResolvedPartialReuseCandidate:
     requires_repair: bool
 
 
+# Convert logical target positions into physical V2 runner block IDs.
 def resolve_target_block_ids(
     plan: PartialReusePlan,
     target_block_ids: Sequence[Sequence[int]],
 ) -> tuple[ResolvedPartialReuseCandidate, ...]:
     """Resolve logical target positions to physical block IDs."""
+    # The locator currently indexes only the first KV-cache group, so reject
+    # multi-group layouts instead of producing an unsafe cross-group mapping.
     if len(target_block_ids) != 1:
         raise ValueError("partial reuse currently requires one KV cache group")
 

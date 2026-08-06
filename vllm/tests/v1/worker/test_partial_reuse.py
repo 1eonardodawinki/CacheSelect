@@ -11,6 +11,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
 )
 
 
+# Check that one logical target position resolves to its physical block ID.
 def test_resolve_target_block_ids() -> None:
     candidate = SimpleNamespace(
         source_block_index=3,
@@ -35,6 +36,7 @@ def test_resolve_target_block_ids() -> None:
     )
 
 
+# Check that the resolver rejects a target position the request does not own.
 def test_resolve_target_block_ids_rejects_missing_target() -> None:
     candidate = SimpleNamespace(
         source_block_index=3,

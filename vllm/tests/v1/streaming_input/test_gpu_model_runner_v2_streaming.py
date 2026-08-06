@@ -3,6 +3,7 @@
 
 """Unit tests for MRv2 GPUModelRunner.add_requests streaming input support."""
 
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -21,6 +22,7 @@ from vllm.v1.worker.gpu.states import RequestState
 
 
 @pytest.fixture
+# Build a lightweight V2 runner with real request lifecycle bookkeeping.
 def mock_model_runner_with_req_states():
     """Create a mock MRv2 GPUModelRunner with a real RequestState."""
 
@@ -42,6 +44,7 @@ def mock_model_runner_with_req_states():
     runner.prompt_logprobs_worker = None
     runner.is_last_pp_rank = False
     runner.partial_reuse_plans = {}
+    runner.resolved_partial_reuse_candidates = {}
 
     # Mock staged writes — they use Triton kernels that require GPU
     runner.req_states.apply_staged_writes = Mock()
@@ -66,12 +69,20 @@ def _make_scheduler_output(new_reqs):
     )
 
 
+# Check that both unresolved and resolved plans follow the request lifecycle.
 def test_partial_reuse_plan_follows_request_lifecycle(
     mock_model_runner_with_req_states,
 ):
     runner = mock_model_runner_with_req_states
     req_id = "request_with_partial_reuse"
-    plan = object()
+    candidate = SimpleNamespace(
+        source_block_index=3,
+        target_block_index=5,
+        source_block_id=42,
+        source_resident=True,
+        requires_repair=True,
+    )
+    plan = SimpleNamespace(candidates=(candidate,))
     request_data = NewRequestData(
         req_id=req_id,
         prompt_token_ids=[1, 2, 3],
@@ -79,7 +90,7 @@ def test_partial_reuse_plan_follows_request_lifecycle(
         mm_features=[],
         sampling_params=None,
         pooling_params=None,
-        block_ids=([0],),
+        block_ids=([71, 12, 89, 34, 55, 63],),
         num_computed_tokens=0,
         lora_request=None,
         partial_reuse_plan=plan,
@@ -87,9 +98,14 @@ def test_partial_reuse_plan_follows_request_lifecycle(
 
     runner.add_requests(_make_scheduler_output([request_data]))
     assert runner.partial_reuse_plans[req_id] is plan
+    resolved = runner.resolved_partial_reuse_candidates[req_id]
+    assert len(resolved) == 1
+    assert resolved[0].source_block_id == 42
+    assert resolved[0].target_block_id == 63
 
     runner._remove_request(req_id)
     assert req_id not in runner.partial_reuse_plans
+    assert req_id not in runner.resolved_partial_reuse_candidates
 
 
 def test_e2e_streaming_request_update_basic_flow(

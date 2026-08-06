@@ -101,6 +101,10 @@ from vllm.v1.worker.gpu.lora_utils import (
 from vllm.v1.worker.gpu.mm.encoder_cache import EncoderCache
 from vllm.v1.worker.gpu.mm.lora import set_active_mm_loras
 from vllm.v1.worker.gpu.model_states import init_model_state
+from vllm.v1.worker.gpu.partial_reuse import (
+    ResolvedPartialReuseCandidate,
+    resolve_target_block_ids,
+)
 from vllm.v1.worker.gpu.pool.pooling_runner import PoolingRunner
 from vllm.v1.worker.gpu.pp_utils import PPHandler
 from vllm.v1.worker.gpu.sample.output import SamplerOutput
@@ -126,6 +130,7 @@ logger = init_logger(__name__)
 
 
 class GPUModelRunner(LoRAModelRunnerMixin):
+    # Initialize the V2 runner and its request-scoped execution state.
     def __init__(self, vllm_config: VllmConfig, device: torch.device):
         self.vllm_config = vllm_config
         self.model_config = vllm_config.model_config
@@ -138,6 +143,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.speculative_config = vllm_config.speculative_config
         self.observability_config = vllm_config.observability_config
         self.partial_reuse_plans: dict[str, PartialReusePlan] = {}
+        self.resolved_partial_reuse_candidates: dict[
+            str, tuple[ResolvedPartialReuseCandidate, ...]
+        ] = {}
 
         self.device = device
         self.dtype = self.model_config.dtype
@@ -776,8 +784,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         )
         return cuda_graph_size
 
+    # Remove a request and all CacheSelect state retained for it.
     def _remove_request(self, req_id: str) -> bool:
         self.partial_reuse_plans.pop(req_id, None)
+        self.resolved_partial_reuse_candidates.pop(req_id, None)
         # Call model_state.remove_request *before* req_states.remove_request
         # so the model_state can still look up the slot index.
         self.model_state.remove_request(req_id)
@@ -814,6 +824,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             if outputs is not None:
                 self.postprocess_sampled(**outputs)
 
+    # Add newly scheduled requests and retain any resolved CacheSelect mappings.
     def add_requests(self, scheduler_output: SchedulerOutput) -> None:
         for new_req_data in scheduler_output.scheduled_new_reqs:
             assert new_req_data.prompt_token_ids is not None
@@ -825,6 +836,13 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             # with the updated prompt_token_ids and mm_features.
             self._remove_request(req_id)
 
+            plan = new_req_data.partial_reuse_plan
+            resolved_candidates = (
+                resolve_target_block_ids(plan, new_req_data.block_ids)
+                if plan is not None
+                else None
+            )
+
             prompt_len = len(new_req_data.prompt_token_ids)
             sampling_params = new_req_data.sampling_params
             self.req_states.add_request(
@@ -834,8 +852,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 num_computed_tokens=new_req_data.num_computed_tokens,
                 max_tokens=sampling_params.max_tokens if sampling_params else 1,  # type: ignore[arg-type]
             )
-            if new_req_data.partial_reuse_plan is not None:
-                self.partial_reuse_plans[req_id] = new_req_data.partial_reuse_plan
+            if plan is not None:
+                self.partial_reuse_plans[req_id] = plan
+                assert resolved_candidates is not None
+                self.resolved_partial_reuse_candidates[req_id] = resolved_candidates
             req_index = self.req_states.req_id_to_index[req_id]
 
             if self.encoder_cache is not None:
