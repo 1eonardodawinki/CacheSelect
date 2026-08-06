@@ -21,7 +21,7 @@ import functools
 import gc
 import time
 from copy import deepcopy
-from typing import Any, NamedTuple
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import numpy as np
 import torch
@@ -119,6 +119,9 @@ from vllm.v1.worker.gpu.structured_outputs import StructuredOutputsWorker
 from vllm.v1.worker.lora_model_runner_mixin import LoRAModelRunnerMixin
 from vllm.v1.worker.utils import KVBlockZeroer, copy_kv_cache_blocks_inplace
 
+if TYPE_CHECKING:
+    from vllm.v1.core.partial_reuse import PartialReusePlan
+
 logger = init_logger(__name__)
 
 
@@ -134,6 +137,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.scheduler_config = vllm_config.scheduler_config
         self.speculative_config = vllm_config.speculative_config
         self.observability_config = vllm_config.observability_config
+        self.partial_reuse_plans: dict[str, PartialReusePlan] = {}
 
         self.device = device
         self.dtype = self.model_config.dtype
@@ -773,6 +777,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         return cuda_graph_size
 
     def _remove_request(self, req_id: str) -> bool:
+        self.partial_reuse_plans.pop(req_id, None)
         # Call model_state.remove_request *before* req_states.remove_request
         # so the model_state can still look up the slot index.
         self.model_state.remove_request(req_id)
@@ -829,6 +834,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 num_computed_tokens=new_req_data.num_computed_tokens,
                 max_tokens=sampling_params.max_tokens if sampling_params else 1,  # type: ignore[arg-type]
             )
+            if new_req_data.partial_reuse_plan is not None:
+                self.partial_reuse_plans[req_id] = new_req_data.partial_reuse_plan
             req_index = self.req_states.req_id_to_index[req_id]
 
             if self.encoder_cache is not None:

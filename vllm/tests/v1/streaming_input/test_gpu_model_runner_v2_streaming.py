@@ -41,6 +41,7 @@ def mock_model_runner_with_req_states():
     runner.sampler = None
     runner.prompt_logprobs_worker = None
     runner.is_last_pp_rank = False
+    runner.partial_reuse_plans = {}
 
     # Mock staged writes — they use Triton kernels that require GPU
     runner.req_states.apply_staged_writes = Mock()
@@ -63,6 +64,32 @@ def _make_scheduler_output(new_reqs):
         finished_req_ids=set(),
         free_encoder_mm_hashes=[],
     )
+
+
+def test_partial_reuse_plan_follows_request_lifecycle(
+    mock_model_runner_with_req_states,
+):
+    runner = mock_model_runner_with_req_states
+    req_id = "request_with_partial_reuse"
+    plan = object()
+    request_data = NewRequestData(
+        req_id=req_id,
+        prompt_token_ids=[1, 2, 3],
+        prefill_token_ids=[1, 2, 3],
+        mm_features=[],
+        sampling_params=None,
+        pooling_params=None,
+        block_ids=([0],),
+        num_computed_tokens=0,
+        lora_request=None,
+        partial_reuse_plan=plan,
+    )
+
+    runner.add_requests(_make_scheduler_output([request_data]))
+    assert runner.partial_reuse_plans[req_id] is plan
+
+    runner._remove_request(req_id)
+    assert req_id not in runner.partial_reuse_plans
 
 
 def test_e2e_streaming_request_update_basic_flow(
