@@ -3,14 +3,17 @@
 
 """Shadow planning for block-aligned KV reuse beyond an exact prefix."""
 
+from __future__ import annotations
+
 from collections import OrderedDict
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from vllm.v1.core.block_pool import BlockPool
-from vllm.v1.core.kv_cache_utils import BlockHashWithGroupId, KVCacheBlock
-from vllm.v1.request import Request
+if TYPE_CHECKING:
+    from vllm.v1.core.block_pool import BlockPool
+    from vllm.v1.core.kv_cache_utils import BlockHashWithGroupId, KVCacheBlock
+    from vllm.v1.request import Request
 
 
 @dataclass(frozen=True)
@@ -225,6 +228,43 @@ class AlignedBlockReuseLocator:
             block.block_hash,
             block.block_id,
         )
+
+    # Revalidate and pin each unique resident source block used by a plan.
+    def retain_resident_sources(
+        self, plan: PartialReusePlan
+    ) -> tuple[KVCacheBlock, ...]:
+        source = self._sources.get(plan.source_request_id)
+        if source is None:
+            return ()
+
+        indexed_blocks = {
+            (block.block_index, block.block_id): block for block in source.blocks
+        }
+        retained_by_id: dict[int, KVCacheBlock] = {}
+        for candidate in plan.candidates:
+            if not candidate.source_resident:
+                continue
+            source_block = indexed_blocks.get(
+                (candidate.source_block_index, candidate.source_block_id)
+            )
+            if source_block is None or not self._is_resident(source_block):
+                continue
+
+            # BlockPool owns one canonical object per physical block ID. The
+            # hash-and-ID residency check above prevents retaining a reassigned block.
+            retained_by_id[source_block.block_id] = self.block_pool.blocks[
+                source_block.block_id
+            ]
+
+        retained = tuple(retained_by_id.values())
+        if retained:
+            self.block_pool.touch(retained)
+        return retained
+
+    # Release references previously acquired by retain_resident_sources().
+    def release_sources(self, blocks: Sequence[KVCacheBlock]) -> None:
+        if blocks:
+            self.block_pool.free_blocks(reversed(blocks))
 
     def clear(self) -> None:
         self._sources.clear()
