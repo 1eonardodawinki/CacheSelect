@@ -265,6 +265,15 @@ class SchedulerOutput:
     # Number of spec tokens to schedule for the next step.
     num_spec_tokens_to_schedule: int = 0
 
+    @property
+    def partial_reuse_plans(self) -> dict[str, PartialReusePlan]:
+        """Return request-scoped CacheSelect plans scheduled in this step."""
+        return {
+            request.req_id: request.partial_reuse_plan
+            for request in self.scheduled_new_reqs
+            if request.partial_reuse_plan is not None
+        }
+
     @classmethod
     def make_empty(cls) -> "SchedulerOutput":
         return cls(
