@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 from vllm.v1.core.partial_reuse import (
@@ -101,3 +102,21 @@ def test_retain_resident_sources_skips_stale_block() -> None:
 
     assert retained == ()
     assert pool.block.ref_cnt == 0
+
+
+# Check that worker metadata contains only mappings backed by retained blocks.
+def test_plan_filters_candidates_to_retained_source_ids() -> None:
+    _, _, plan = make_locator_and_plan()
+    unretained_candidate = PartialReuseCandidate(
+        source_block_index=4,
+        target_block_index=7,
+        source_block_id=6,
+        source_resident=True,
+    )
+    plan = replace(plan, candidates=(*plan.candidates, unretained_candidate))
+
+    retained_plan = plan.for_retained_source_ids({7})
+
+    assert retained_plan is not None
+    assert retained_plan.candidates == plan.candidates[:2]
+    assert plan.for_retained_source_ids(set()) is None

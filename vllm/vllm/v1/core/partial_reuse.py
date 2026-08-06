@@ -6,8 +6,8 @@
 from __future__ import annotations
 
 from collections import OrderedDict
-from collections.abc import Sequence
-from dataclasses import asdict, dataclass
+from collections.abc import Collection, Sequence
+from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -89,6 +89,19 @@ class PartialReusePlan:
             self.resident_candidate_token_count
         )
         return payload
+
+    # Reduce this plan to candidates backed by source blocks pinned for the step.
+    def for_retained_source_ids(
+        self, source_block_ids: Collection[int]
+    ) -> PartialReusePlan | None:
+        retained_candidates = tuple(
+            candidate
+            for candidate in self.candidates
+            if candidate.source_block_id in source_block_ids
+        )
+        if not retained_candidates:
+            return None
+        return replace(self, candidates=retained_candidates)
 
 
 class AlignedBlockReuseLocator:
