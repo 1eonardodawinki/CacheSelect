@@ -1,0 +1,60 @@
+CacheSelect online locator prompt-length calibration
+calibration_id=270693 task_id=0 target_prompt_tokens=256
+host=gpuvm36.doc.ic.ac.uk port=39860
+project_commit=202330276dad484b3e94bcec381423b9cc575e23
+model=Qwen/Qwen2.5-1.5B-Instruct vllm_version=0.0.0+d6dbdb9b0
+gpu=NVIDIA A16, GPU-714ddbfa-e2f7-b374-49a0-806f1ad5214c, 15356 MiB, 595.71.05
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/locator-calibration-270693/tokens-256-early.json: rendered_prompt_tokens=[256, 256]
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/locator-calibration-270693/tokens-256-middle.json: rendered_prompt_tokens=[256, 256]
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/locator-calibration-270693/tokens-256-late.json: rendered_prompt_tokens=[256, 256]
+Starting condition: tokens-256-early-cacheselect-rep-1
+vLLM is healthy pid=2641987
+Running calibration-early-base...
+Running calibration-early-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-early-cacheselect-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/locator-calibration-270693/locator-calibration-270693-tokens-256-early-cacheselect-rep-1.jsonl
+prompt_tokens=[256, 256]
+cached_tokens=[0, 32]
+candidate_tokens=208 resident_tokens=208 offline_all_candidates=208
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Locator calibration condition completed successfully: tokens-256-early-cacheselect-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-early-cacheselect-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-early-cacheselect-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/locator-calibration-270693/tokens-256-early-cacheselect-rep-1.vllm.log
+Starting condition: tokens-256-middle-cacheselect-rep-1
+vLLM is healthy pid=2643487
+Running calibration-middle-base...
+Running calibration-middle-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-middle-cacheselect-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/locator-calibration-270693/locator-calibration-270693-tokens-256-middle-cacheselect-rep-1.jsonl
+prompt_tokens=[256, 256]
+cached_tokens=[0, 96]
+candidate_tokens=144 resident_tokens=144 offline_all_candidates=144
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Locator calibration condition completed successfully: tokens-256-middle-cacheselect-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-middle-cacheselect-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-middle-cacheselect-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/locator-calibration-270693/tokens-256-middle-cacheselect-rep-1.vllm.log
+Starting condition: tokens-256-late-cacheselect-rep-1
+vLLM is healthy pid=2644157
+Running calibration-late-base...
+Running calibration-late-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-late-cacheselect-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/locator-calibration-270693/locator-calibration-270693-tokens-256-late-cacheselect-rep-1.jsonl
+prompt_tokens=[256, 256]
+cached_tokens=[0, 160]
+candidate_tokens=80 resident_tokens=80 offline_all_candidates=80
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Locator calibration condition completed successfully: tokens-256-late-cacheselect-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-late-cacheselect-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-256-late-cacheselect-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/locator-calibration-270693/tokens-256-late-cacheselect-rep-1.vllm.log
+Online locator calibration task completed successfully: target=256
+results=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693
+request_logs=/vol/bitbucket/lmw25/cacheselect-request-logs/locator-calibration-270693
+server_logs=/vol/bitbucket/lmw25/cacheselect-server-logs/locator-calibration-270693
+generated_traces=/vol/bitbucket/lmw25/cacheselect-generated-traces/locator-calibration-270693

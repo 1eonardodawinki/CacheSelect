@@ -1,0 +1,60 @@
+CacheSelect online locator prompt-length calibration
+calibration_id=270693 task_id=2 target_prompt_tokens=4096
+host=parrot.doc.ic.ac.uk port=39862
+project_commit=202330276dad484b3e94bcec381423b9cc575e23
+model=Qwen/Qwen2.5-1.5B-Instruct vllm_version=0.0.0+d6dbdb9b0
+gpu=NVIDIA A16, GPU-993d30e0-3321-0df4-43f1-2911291e7797, 15356 MiB, 595.71.05
+Warning: You are sending unauthenticated requests to the HF Hub. Please set a HF_TOKEN to enable higher rate limits and faster downloads.
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/locator-calibration-270693/tokens-4096-early.json: rendered_prompt_tokens=[4096, 4096]
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/locator-calibration-270693/tokens-4096-middle.json: rendered_prompt_tokens=[4096, 4096]
+Saved /vol/bitbucket/lmw25/cacheselect-generated-traces/locator-calibration-270693/tokens-4096-late.json: rendered_prompt_tokens=[4096, 4096]
+Starting condition: tokens-4096-early-cacheselect-rep-1
+vLLM is healthy pid=3020291
+Running calibration-early-base...
+Running calibration-early-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-early-cacheselect-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/locator-calibration-270693/locator-calibration-270693-tokens-4096-early-cacheselect-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 32]
+candidate_tokens=4048 resident_tokens=4048 offline_all_candidates=4048
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Locator calibration condition completed successfully: tokens-4096-early-cacheselect-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-early-cacheselect-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-early-cacheselect-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/locator-calibration-270693/tokens-4096-early-cacheselect-rep-1.vllm.log
+Starting condition: tokens-4096-middle-cacheselect-rep-1
+vLLM is healthy pid=3020634
+Running calibration-middle-base...
+Running calibration-middle-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-middle-cacheselect-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/locator-calibration-270693/locator-calibration-270693-tokens-4096-middle-cacheselect-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 1376]
+candidate_tokens=2704 resident_tokens=2704 offline_all_candidates=2704
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Locator calibration condition completed successfully: tokens-4096-middle-cacheselect-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-middle-cacheselect-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-middle-cacheselect-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/locator-calibration-270693/tokens-4096-middle-cacheselect-rep-1.vllm.log
+Starting condition: tokens-4096-late-cacheselect-rep-1
+vLLM is healthy pid=3020959
+Running calibration-late-base...
+Running calibration-late-edited...
+Saved /vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-late-cacheselect-rep-1.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/locator-calibration-270693/locator-calibration-270693-tokens-4096-late-cacheselect-rep-1.jsonl
+prompt_tokens=[4096, 4096]
+cached_tokens=[0, 2720]
+candidate_tokens=1360 resident_tokens=1360 offline_all_candidates=1360
+finish_reasons=['stop', 'stop']
+quality_passed=[True, True]
+Locator calibration condition completed successfully: tokens-4096-late-cacheselect-rep-1
+result=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-late-cacheselect-rep-1.json
+manifest=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693/tokens-4096-late-cacheselect-rep-1.manifest.json
+server_log=/vol/bitbucket/lmw25/cacheselect-server-logs/locator-calibration-270693/tokens-4096-late-cacheselect-rep-1.vllm.log
+Online locator calibration task completed successfully: target=4096
+results=/vol/bitbucket/lmw25/cacheselect-results/locator-calibration-270693
+request_logs=/vol/bitbucket/lmw25/cacheselect-request-logs/locator-calibration-270693
+server_logs=/vol/bitbucket/lmw25/cacheselect-server-logs/locator-calibration-270693
+generated_traces=/vol/bitbucket/lmw25/cacheselect-generated-traces/locator-calibration-270693

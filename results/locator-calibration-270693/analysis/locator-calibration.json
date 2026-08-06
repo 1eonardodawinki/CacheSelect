@@ -1,0 +1,4258 @@
+{
+  "schema_version": 1,
+  "experiment": "online_locator_length_calibration",
+  "provenance": {
+    "calibration_job_ids": [
+      "270693"
+    ],
+    "project_commits": [
+      "202330276dad484b3e94bcec381423b9cc575e23"
+    ],
+    "models": [
+      "Qwen/Qwen2.5-1.5B-Instruct"
+    ],
+    "vllm_versions": [
+      "0.0.0+d6dbdb9b0"
+    ],
+    "gpus": [
+      "NVIDIA A16, GPU-17e19f52-cd93-db24-f6f9-1fe6e0ff7159, 15356 MiB, 595.71.05",
+      "NVIDIA A16, GPU-714ddbfa-e2f7-b374-49a0-806f1ad5214c, 15356 MiB, 595.71.05",
+      "NVIDIA A16, GPU-993d30e0-3321-0df4-43f1-2911291e7797, 15356 MiB, 595.71.05"
+    ],
+    "hosts": [
+      "gpuvm36.doc.ic.ac.uk",
+      "parrot.doc.ic.ac.uk"
+    ],
+    "condition_count": 9,
+    "ledger_count": 9
+  },
+  "summary": {
+    "overall": {
+      "condition_count": 9,
+      "native_recomputed_tokens": 10656,
+      "offline_all_candidate_tokens": 10512,
+      "online_candidate_tokens": 10512,
+      "resident_candidate_tokens": 10512,
+      "online_candidate_share_of_native_recompute": 0.9864864864864865,
+      "resident_candidate_share_of_native_recompute": 0.9864864864864865
+    },
+    "by_target_prompt_tokens": {
+      "256": {
+        "condition_count": 3,
+        "native_recomputed_tokens": 480,
+        "offline_all_candidate_tokens": 432,
+        "online_candidate_tokens": 432,
+        "resident_candidate_tokens": 432,
+        "online_candidate_share_of_native_recompute": 0.9,
+        "resident_candidate_share_of_native_recompute": 0.9
+      },
+      "1024": {
+        "condition_count": 3,
+        "native_recomputed_tokens": 2016,
+        "offline_all_candidate_tokens": 1968,
+        "online_candidate_tokens": 1968,
+        "resident_candidate_tokens": 1968,
+        "online_candidate_share_of_native_recompute": 0.9761904761904762,
+        "resident_candidate_share_of_native_recompute": 0.9761904761904762
+      },
+      "4096": {
+        "condition_count": 3,
+        "native_recomputed_tokens": 8160,
+        "offline_all_candidate_tokens": 8112,
+        "online_candidate_tokens": 8112,
+        "resident_candidate_tokens": 8112,
+        "online_candidate_share_of_native_recompute": 0.9941176470588236,
+        "resident_candidate_share_of_native_recompute": 0.9941176470588236
+      }
+    },
+    "by_edit_position": {
+      "early": {
+        "condition_count": 3,
+        "native_recomputed_tokens": 5280,
+        "offline_all_candidate_tokens": 5232,
+        "online_candidate_tokens": 5232,
+        "resident_candidate_tokens": 5232,
+        "online_candidate_share_of_native_recompute": 0.990909090909091,
+        "resident_candidate_share_of_native_recompute": 0.990909090909091
+      },
+      "middle": {
+        "condition_count": 3,
+        "native_recomputed_tokens": 3552,
+        "offline_all_candidate_tokens": 3504,
+        "online_candidate_tokens": 3504,
+        "resident_candidate_tokens": 3504,
+        "online_candidate_share_of_native_recompute": 0.9864864864864865,
+        "resident_candidate_share_of_native_recompute": 0.9864864864864865
+      },
+      "late": {
+        "condition_count": 3,
+        "native_recomputed_tokens": 1824,
+        "offline_all_candidate_tokens": 1776,
+        "online_candidate_tokens": 1776,
+        "resident_candidate_tokens": 1776,
+        "online_candidate_share_of_native_recompute": 0.9736842105263158,
+        "resident_candidate_share_of_native_recompute": 0.9736842105263158
+      }
+    }
+  },
+  "conditions": [
+    {
+      "target_prompt_tokens": 256,
+      "edit_position": "early",
+      "source_prompt_tokens": 256,
+      "edited_prompt_tokens": 256,
+      "native_cached_tokens": 32,
+      "native_recomputed_tokens": 224,
+      "native_cache_hit_fraction": 0.125,
+      "offline_all_candidate_tokens": 208,
+      "offline_aligned_candidate_tokens": 208,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 208,
+      "resident_candidate_tokens": 208,
+      "online_candidate_share_of_native_recompute": 0.9285714285714286,
+      "resident_candidate_share_of_native_recompute": 0.9285714285714286,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 3,
+          "target_block_index": 3,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 4,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 5,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 6,
+          "target_block_index": 6,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 7,
+          "target_block_index": 7,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 7,
+          "target_block_index": 8,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 7,
+          "target_block_index": 9,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 10,
+          "target_block_index": 10,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 11,
+          "target_block_index": 11,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 11,
+          "target_block_index": 12,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 11,
+          "target_block_index": 13,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 14,
+          "target_block_index": 14,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 15,
+          "target_block_index": 15,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 62.27920763194561,
+      "quality_passed": true,
+      "result_file": "tokens-256-early-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-256-early-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    },
+    {
+      "target_prompt_tokens": 256,
+      "edit_position": "middle",
+      "source_prompt_tokens": 256,
+      "edited_prompt_tokens": 256,
+      "native_cached_tokens": 96,
+      "native_recomputed_tokens": 160,
+      "native_cache_hit_fraction": 0.375,
+      "offline_all_candidate_tokens": 144,
+      "offline_aligned_candidate_tokens": 144,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 144,
+      "resident_candidate_tokens": 144,
+      "online_candidate_share_of_native_recompute": 0.9,
+      "resident_candidate_share_of_native_recompute": 0.9,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 7,
+          "target_block_index": 7,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 7,
+          "target_block_index": 8,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 7,
+          "target_block_index": 9,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 10,
+          "target_block_index": 10,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 11,
+          "target_block_index": 11,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 11,
+          "target_block_index": 12,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 11,
+          "target_block_index": 13,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 14,
+          "target_block_index": 14,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 15,
+          "target_block_index": 15,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 50.703746266663074,
+      "quality_passed": true,
+      "result_file": "tokens-256-middle-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-256-middle-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    },
+    {
+      "target_prompt_tokens": 256,
+      "edit_position": "late",
+      "source_prompt_tokens": 256,
+      "edited_prompt_tokens": 256,
+      "native_cached_tokens": 160,
+      "native_recomputed_tokens": 96,
+      "native_cache_hit_fraction": 0.625,
+      "offline_all_candidate_tokens": 80,
+      "offline_aligned_candidate_tokens": 80,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 80,
+      "resident_candidate_tokens": 80,
+      "online_candidate_share_of_native_recompute": 0.8333333333333334,
+      "resident_candidate_share_of_native_recompute": 0.8333333333333334,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 11,
+          "target_block_index": 11,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 11,
+          "target_block_index": 12,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 11,
+          "target_block_index": 13,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 14,
+          "target_block_index": 14,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 15,
+          "target_block_index": 15,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 36.366852931678295,
+      "quality_passed": true,
+      "result_file": "tokens-256-late-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-256-late-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    },
+    {
+      "target_prompt_tokens": 1024,
+      "edit_position": "early",
+      "source_prompt_tokens": 1024,
+      "edited_prompt_tokens": 1024,
+      "native_cached_tokens": 32,
+      "native_recomputed_tokens": 992,
+      "native_cache_hit_fraction": 0.03125,
+      "offline_all_candidate_tokens": 976,
+      "offline_aligned_candidate_tokens": 976,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 976,
+      "resident_candidate_tokens": 976,
+      "online_candidate_share_of_native_recompute": 0.9838709677419355,
+      "resident_candidate_share_of_native_recompute": 0.9838709677419355,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 3,
+          "target_block_index": 3,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 4,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 5,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 6,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 7,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 8,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 9,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 10,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 11,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 12,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 13,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 14,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 15,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 16,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 17,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 18,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 19,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 20,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 21,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 22,
+          "target_block_index": 22,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 23,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 24,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 25,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 26,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 27,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 28,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 29,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 30,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 31,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 32,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 33,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 34,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 35,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 36,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 37,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 38,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 39,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 40,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 41,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 42,
+          "target_block_index": 42,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 43,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 44,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 45,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 46,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 47,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 48,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 49,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 50,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 51,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 52,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 53,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 54,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 55,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 56,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 57,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 58,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 59,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 60,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 61,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 62,
+          "target_block_index": 62,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 63,
+          "target_block_index": 63,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 224.18628260493279,
+      "quality_passed": true,
+      "result_file": "tokens-1024-early-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-1024-early-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    },
+    {
+      "target_prompt_tokens": 1024,
+      "edit_position": "middle",
+      "source_prompt_tokens": 1024,
+      "edited_prompt_tokens": 1024,
+      "native_cached_tokens": 352,
+      "native_recomputed_tokens": 672,
+      "native_cache_hit_fraction": 0.34375,
+      "offline_all_candidate_tokens": 656,
+      "offline_aligned_candidate_tokens": 656,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 656,
+      "resident_candidate_tokens": 656,
+      "online_candidate_share_of_native_recompute": 0.9761904761904762,
+      "resident_candidate_share_of_native_recompute": 0.9761904761904762,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 23,
+          "target_block_index": 23,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 24,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 25,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 26,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 27,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 28,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 29,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 30,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 31,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 32,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 33,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 34,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 35,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 36,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 37,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 38,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 39,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 40,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 23,
+          "target_block_index": 41,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 42,
+          "target_block_index": 42,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 43,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 44,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 45,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 46,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 47,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 48,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 49,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 50,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 51,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 52,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 53,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 54,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 55,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 56,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 57,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 58,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 59,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 60,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 61,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 62,
+          "target_block_index": 62,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 63,
+          "target_block_index": 63,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 165.60949850827456,
+      "quality_passed": true,
+      "result_file": "tokens-1024-middle-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-1024-middle-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    },
+    {
+      "target_prompt_tokens": 1024,
+      "edit_position": "late",
+      "source_prompt_tokens": 1024,
+      "edited_prompt_tokens": 1024,
+      "native_cached_tokens": 672,
+      "native_recomputed_tokens": 352,
+      "native_cache_hit_fraction": 0.65625,
+      "offline_all_candidate_tokens": 336,
+      "offline_aligned_candidate_tokens": 336,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 336,
+      "resident_candidate_tokens": 336,
+      "online_candidate_share_of_native_recompute": 0.9545454545454546,
+      "resident_candidate_share_of_native_recompute": 0.9545454545454546,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 43,
+          "target_block_index": 43,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 44,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 45,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 46,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 47,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 48,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 49,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 50,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 51,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 52,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 53,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 54,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 55,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 56,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 57,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 58,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 59,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 60,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 43,
+          "target_block_index": 61,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 62,
+          "target_block_index": 62,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 63,
+          "target_block_index": 63,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 89.6820891648531,
+      "quality_passed": true,
+      "result_file": "tokens-1024-late-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-1024-late-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    },
+    {
+      "target_prompt_tokens": 4096,
+      "edit_position": "early",
+      "source_prompt_tokens": 4096,
+      "edited_prompt_tokens": 4096,
+      "native_cached_tokens": 32,
+      "native_recomputed_tokens": 4064,
+      "native_cache_hit_fraction": 0.0078125,
+      "offline_all_candidate_tokens": 4048,
+      "offline_aligned_candidate_tokens": 4048,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 4048,
+      "resident_candidate_tokens": 4048,
+      "online_candidate_share_of_native_recompute": 0.9960629921259843,
+      "resident_candidate_share_of_native_recompute": 0.9960629921259843,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 3,
+          "target_block_index": 3,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 4,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 5,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 6,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 7,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 8,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 9,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 10,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 11,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 12,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 13,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 14,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 15,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 16,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 17,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 18,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 19,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 20,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 21,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 22,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 23,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 24,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 25,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 26,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 27,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 28,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 29,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 30,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 31,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 32,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 33,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 34,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 35,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 36,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 37,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 38,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 39,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 40,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 41,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 42,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 43,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 44,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 45,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 46,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 47,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 48,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 49,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 50,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 51,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 52,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 53,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 54,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 55,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 56,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 57,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 58,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 59,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 60,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 61,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 62,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 63,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 64,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 65,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 66,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 67,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 68,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 69,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 70,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 71,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 72,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 73,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 74,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 75,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 76,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 77,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 78,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 79,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 80,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 81,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 82,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 83,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 84,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 3,
+          "target_block_index": 85,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 86,
+          "target_block_index": 86,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 87,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 88,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 89,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 90,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 91,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 92,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 93,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 94,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 95,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 96,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 97,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 98,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 99,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 100,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 101,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 102,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 103,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 104,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 105,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 106,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 107,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 108,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 109,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 110,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 111,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 112,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 113,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 114,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 115,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 116,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 117,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 118,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 119,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 120,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 121,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 122,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 123,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 124,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 125,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 126,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 127,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 128,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 129,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 130,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 131,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 132,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 133,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 134,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 135,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 136,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 137,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 138,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 139,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 140,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 141,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 142,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 143,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 144,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 145,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 146,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 147,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 148,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 149,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 150,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 151,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 152,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 153,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 154,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 155,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 156,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 157,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 158,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 159,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 160,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 161,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 162,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 163,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 164,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 165,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 166,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 167,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 168,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 169,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 170,
+          "target_block_index": 170,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 171,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 172,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 173,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 174,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 175,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 176,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 177,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 178,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 179,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 180,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 181,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 182,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 183,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 184,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 185,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 186,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 187,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 188,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 189,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 190,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 191,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 192,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 193,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 194,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 195,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 196,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 197,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 198,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 199,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 200,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 201,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 202,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 203,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 204,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 205,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 206,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 207,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 208,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 209,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 210,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 211,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 212,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 213,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 214,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 215,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 216,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 217,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 218,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 219,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 220,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 221,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 222,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 223,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 224,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 225,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 226,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 227,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 228,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 229,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 230,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 231,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 232,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 233,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 234,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 235,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 236,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 237,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 238,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 239,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 240,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 241,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 242,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 243,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 244,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 245,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 246,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 247,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 248,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 249,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 250,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 251,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 252,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 253,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 254,
+          "target_block_index": 254,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 255,
+          "target_block_index": 255,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 999.4767010211945,
+      "quality_passed": true,
+      "result_file": "tokens-4096-early-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-4096-early-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    },
+    {
+      "target_prompt_tokens": 4096,
+      "edit_position": "middle",
+      "source_prompt_tokens": 4096,
+      "edited_prompt_tokens": 4096,
+      "native_cached_tokens": 1376,
+      "native_recomputed_tokens": 2720,
+      "native_cache_hit_fraction": 0.3359375,
+      "offline_all_candidate_tokens": 2704,
+      "offline_aligned_candidate_tokens": 2704,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 2704,
+      "resident_candidate_tokens": 2704,
+      "online_candidate_share_of_native_recompute": 0.9941176470588236,
+      "resident_candidate_share_of_native_recompute": 0.9941176470588236,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 87,
+          "target_block_index": 87,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 88,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 89,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 90,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 91,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 92,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 93,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 94,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 95,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 96,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 97,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 98,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 99,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 100,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 101,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 102,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 103,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 104,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 105,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 106,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 107,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 108,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 109,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 110,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 111,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 112,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 113,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 114,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 115,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 116,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 117,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 118,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 119,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 120,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 121,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 122,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 123,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 124,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 125,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 126,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 127,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 128,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 129,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 130,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 131,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 132,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 133,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 134,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 135,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 136,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 137,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 138,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 139,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 140,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 141,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 142,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 143,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 144,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 145,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 146,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 147,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 148,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 149,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 150,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 151,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 152,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 153,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 154,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 155,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 156,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 157,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 158,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 159,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 160,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 161,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 162,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 163,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 164,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 165,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 166,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 167,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 168,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 87,
+          "target_block_index": 169,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 170,
+          "target_block_index": 170,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 171,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 172,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 173,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 174,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 175,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 176,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 177,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 178,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 179,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 180,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 181,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 182,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 183,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 184,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 185,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 186,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 187,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 188,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 189,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 190,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 191,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 192,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 193,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 194,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 195,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 196,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 197,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 198,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 199,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 200,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 201,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 202,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 203,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 204,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 205,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 206,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 207,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 208,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 209,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 210,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 211,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 212,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 213,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 214,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 215,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 216,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 217,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 218,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 219,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 220,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 221,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 222,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 223,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 224,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 225,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 226,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 227,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 228,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 229,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 230,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 231,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 232,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 233,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 234,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 235,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 236,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 237,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 238,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 239,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 240,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 241,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 242,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 243,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 244,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 245,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 246,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 247,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 248,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 249,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 250,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 251,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 252,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 253,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 254,
+          "target_block_index": 254,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 255,
+          "target_block_index": 255,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 707.4122438207269,
+      "quality_passed": true,
+      "result_file": "tokens-4096-middle-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-4096-middle-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    },
+    {
+      "target_prompt_tokens": 4096,
+      "edit_position": "late",
+      "source_prompt_tokens": 4096,
+      "edited_prompt_tokens": 4096,
+      "native_cached_tokens": 2720,
+      "native_recomputed_tokens": 1376,
+      "native_cache_hit_fraction": 0.6640625,
+      "offline_all_candidate_tokens": 1360,
+      "offline_aligned_candidate_tokens": 1360,
+      "offline_repacking_candidate_tokens": 0,
+      "online_candidate_tokens": 1360,
+      "resident_candidate_tokens": 1360,
+      "online_candidate_share_of_native_recompute": 0.9883720930232558,
+      "resident_candidate_share_of_native_recompute": 0.9883720930232558,
+      "online_reason": "aligned_candidates",
+      "online_block_mappings": [
+        {
+          "source_block_index": 171,
+          "target_block_index": 171,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 172,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 173,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 174,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 175,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 176,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 177,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 178,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 179,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 180,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 181,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 182,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 183,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 184,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 185,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 186,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 187,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 188,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 189,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 190,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 191,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 192,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 193,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 194,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 195,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 196,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 197,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 198,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 199,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 200,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 201,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 202,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 203,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 204,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 205,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 206,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 207,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 208,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 209,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 210,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 211,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 212,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 213,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 214,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 215,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 216,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 217,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 218,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 219,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 220,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 221,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 222,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 223,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 224,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 225,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 226,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 227,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 228,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 229,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 230,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 231,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 232,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 233,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 234,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 235,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 236,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 237,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 238,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 239,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 240,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 241,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 242,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 243,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 244,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 245,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 246,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 247,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 248,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 249,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 250,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 251,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 252,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 171,
+          "target_block_index": 253,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 254,
+          "target_block_index": 254,
+          "source_resident": true,
+          "requires_repair": true
+        },
+        {
+          "source_block_index": 255,
+          "target_block_index": 255,
+          "source_resident": true,
+          "requires_repair": true
+        }
+      ],
+      "edited_ttft_ms": 364.2299957573414,
+      "quality_passed": true,
+      "result_file": "tokens-4096-late-cacheselect-rep-1.json",
+      "ledger_file": "locator-calibration-270693-tokens-4096-late-cacheselect-rep-1.jsonl",
+      "calibration_job_id": "270693"
+    }
+  ]
+}
