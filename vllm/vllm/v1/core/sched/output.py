@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from vllm.pooling_params import PoolingParams
     from vllm.sampling_params import SamplingParams
     from vllm.v1.core.kv_cache_utils import KVCacheBlockCopy
+    from vllm.v1.core.partial_reuse import PartialReusePlan
     from vllm.v1.request import Request
 else:
     ECConnectorMetadata = object
@@ -25,6 +26,7 @@ else:
     LoRARequest = object
     MultiModalFeatureSpec = object
     PoolingParams = object
+    PartialReusePlan = object
     SamplingParams = object
     Request = object
 
@@ -45,6 +47,9 @@ class NewRequestData:
     # Only used for v2 model runner.
     prefill_token_ids: list[int] | None = None
 
+    # Shadow-only CacheSelect plan forwarded to the model runner.
+    partial_reuse_plan: PartialReusePlan | None = None
+
     @classmethod
     def from_request(
         cls,
@@ -64,6 +69,7 @@ class NewRequestData:
             prompt_embeds=request.prompt_embeds,
             prompt_is_token_ids=request.prompt_is_token_ids,
             prefill_token_ids=prefill_token_ids,
+            partial_reuse_plan=request.partial_reuse_plan,
         )
 
     def __repr__(self) -> str:

@@ -1,5 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
+from types import SimpleNamespace
+
 import torch
 
 from vllm.v1.core.sched.output import NewRequestData
@@ -34,3 +36,23 @@ def test_repr_with_multi_element_tensor() -> None:
 
     assert "prompt_embeds_shape=torch.Size([10, 768])" in repr(new_requests_data)
     assert "prompt_embeds_shape=torch.Size([10, 768])" in new_requests_data.anon_repr()
+
+
+def test_from_request_forwards_partial_reuse_plan() -> None:
+    plan = object()
+    request = SimpleNamespace(
+        request_id="test_req",
+        prompt_token_ids=[1, 2, 3],
+        mm_features=[],
+        sampling_params=None,
+        pooling_params=None,
+        lora_request=None,
+        prompt_embeds=None,
+        prompt_is_token_ids=None,
+        num_computed_tokens=0,
+        partial_reuse_plan=plan,
+    )
+
+    request_data = NewRequestData.from_request(request, block_ids=([],))
+
+    assert request_data.partial_reuse_plan is plan
