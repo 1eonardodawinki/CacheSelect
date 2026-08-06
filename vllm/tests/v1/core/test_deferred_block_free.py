@@ -481,6 +481,9 @@ def test_partial_reuse_retentions_follow_step_fence():
     scheduler = _create_deferring_scheduler()
     pool = scheduler.kv_cache_manager.block_pool
     source_block = pool.get_new_blocks(1)[0]
+    retained_plan = object()
+    original_plan = Mock()
+    original_plan.for_retained_source_ids.return_value = retained_plan
     scheduler.kv_cache_manager.retain_partial_reuse_sources = Mock(
         return_value=(source_block,)
     )
@@ -490,9 +493,14 @@ def test_partial_reuse_retentions_follow_step_fence():
         num_tokens=NUM_PROMPT_TOKENS,
         max_tokens=5,
     )[0]
+    request.partial_reuse_plan = original_plan
     scheduler.add_request(request)
 
     output = scheduler.schedule()
+    original_plan.for_retained_source_ids.assert_called_once_with(
+        {source_block.block_id}
+    )
+    assert output.scheduled_new_reqs[0].partial_reuse_plan is retained_plan
     assert source_block.ref_cnt == 1
     assert scheduler.deferred_frees
 

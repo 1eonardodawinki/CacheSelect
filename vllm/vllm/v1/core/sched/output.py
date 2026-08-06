@@ -50,12 +50,14 @@ class NewRequestData:
     # Shadow-only CacheSelect plan forwarded to the model runner.
     partial_reuse_plan: PartialReusePlan | None = None
 
+    # Build worker-facing request data with an explicitly approved reuse plan.
     @classmethod
     def from_request(
         cls,
         request: Request,
         block_ids: tuple[list[int], ...],
         prefill_token_ids: list[int] | None = None,
+        partial_reuse_plan: PartialReusePlan | None = None,
     ) -> "NewRequestData":
         return cls(
             req_id=request.request_id,
@@ -69,7 +71,7 @@ class NewRequestData:
             prompt_embeds=request.prompt_embeds,
             prompt_is_token_ids=request.prompt_is_token_ids,
             prefill_token_ids=prefill_token_ids,
-            partial_reuse_plan=request.partial_reuse_plan,
+            partial_reuse_plan=partial_reuse_plan,
         )
 
     def __repr__(self) -> str:

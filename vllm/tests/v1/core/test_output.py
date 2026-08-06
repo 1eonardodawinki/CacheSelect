@@ -38,7 +38,8 @@ def test_repr_with_multi_element_tensor() -> None:
     assert "prompt_embeds_shape=torch.Size([10, 768])" in new_requests_data.anon_repr()
 
 
-def test_from_request_forwards_partial_reuse_plan() -> None:
+# Check that only the explicitly approved plan enters the worker payload.
+def test_from_request_uses_explicit_partial_reuse_plan() -> None:
     plan = object()
     request = SimpleNamespace(
         request_id="test_req",
@@ -53,9 +54,15 @@ def test_from_request_forwards_partial_reuse_plan() -> None:
         partial_reuse_plan=plan,
     )
 
-    request_data = NewRequestData.from_request(request, block_ids=([],))
+    request_data = NewRequestData.from_request(
+        request,
+        block_ids=([],),
+        partial_reuse_plan=plan,
+    )
 
     assert request_data.partial_reuse_plan is plan
+    unapproved_request_data = NewRequestData.from_request(request, block_ids=([],))
+    assert unapproved_request_data.partial_reuse_plan is None
 
 
 def test_scheduler_output_exposes_partial_reuse_plans() -> None:

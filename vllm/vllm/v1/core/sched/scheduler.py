@@ -39,6 +39,7 @@ from vllm.v1.core.kv_cache_coordinator import HybridKVCacheCoordinator
 from vllm.v1.core.kv_cache_manager import KVCacheBlocks, KVCacheManager
 from vllm.v1.core.kv_cache_metrics import KVCacheMetricsCollector
 from vllm.v1.core.kv_cache_utils import KVCacheBlock
+from vllm.v1.core.partial_reuse import PartialReusePlan
 from vllm.v1.core.sched.interface import PauseState, SchedulerInterface
 from vllm.v1.core.sched.output import (
     CachedRequestData,
@@ -438,6 +439,7 @@ class Scheduler(SchedulerInterface):
         scheduled_running_reqs: list[Request] = []
         preempted_reqs: list[Request] = []
         partial_reuse_retained_blocks: list[KVCacheBlock] = []
+        partial_reuse_plans_for_step: dict[str, PartialReusePlan] = {}
 
         req_to_new_blocks: dict[str, KVCacheBlocks] = {}
         num_scheduled_tokens: dict[str, int] = {}
@@ -972,6 +974,18 @@ class Scheduler(SchedulerInterface):
                     break
 
                 partial_reuse_retained_blocks.extend(request_retained_blocks)
+                if request.partial_reuse_plan is not None:
+                    # Forward only mappings whose physical sources are pinned.
+                    retained_source_ids = {
+                        block.block_id for block in request_retained_blocks
+                    }
+                    retained_plan = (
+                        request.partial_reuse_plan.for_retained_source_ids(
+                            retained_source_ids
+                        )
+                    )
+                    if retained_plan is not None:
+                        partial_reuse_plans_for_step[request_id] = retained_plan
 
                 # KVTransfer: the connector uses this info to determine
                 # if a load is needed. Note that
@@ -1117,13 +1131,20 @@ class Scheduler(SchedulerInterface):
                     req,
                     req_to_new_blocks[req.request_id].get_block_ids(),
                     req._all_token_ids,
+                    partial_reuse_plan=partial_reuse_plans_for_step.get(
+                        req.request_id
+                    ),
                 )
                 for req in scheduled_new_reqs
             ]
         else:
             new_reqs_data = [
                 NewRequestData.from_request(
-                    req, req_to_new_blocks[req.request_id].get_block_ids()
+                    req,
+                    req_to_new_blocks[req.request_id].get_block_ids(),
+                    partial_reuse_plan=partial_reuse_plans_for_step.get(
+                        req.request_id
+                    ),
                 )
                 for req in scheduled_new_reqs
             ]
