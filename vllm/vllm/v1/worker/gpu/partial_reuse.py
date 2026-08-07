@@ -31,6 +31,14 @@ class PartialReuseCopyInstruction:
     requires_repair: bool
 
 
+@dataclass(frozen=True)
+class PartialReuseRepairInstruction:
+    source_block_id: int
+    target_block_id: int
+    target_block_index: int
+    target_token_indices: tuple[int, ...]
+
+
 # Convert logical target positions into physical V2 runner block IDs.
 def resolve_target_block_ids(
     plan: PartialReusePlan,
@@ -77,3 +85,30 @@ def build_partial_reuse_copy_instructions(
         )
         for candidate in candidates
     )
+
+
+# Build a safe fallback that repairs every token in each affected target block.
+def build_full_block_repair_instructions(
+    candidates: Sequence[ResolvedPartialReuseCandidate],
+    block_size: int,
+) -> tuple[PartialReuseRepairInstruction, ...]:
+    """Represent conservative repair without scheduling recomputation."""
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
+
+    instructions = []
+    for candidate in candidates:
+        if not candidate.requires_repair:
+            continue
+        token_start = candidate.target_block_index * block_size
+        instructions.append(
+            PartialReuseRepairInstruction(
+                source_block_id=candidate.source_block_id,
+                target_block_id=candidate.target_block_id,
+                target_block_index=candidate.target_block_index,
+                target_token_indices=tuple(
+                    range(token_start, token_start + block_size)
+                ),
+            )
+        )
+    return tuple(instructions)
