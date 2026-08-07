@@ -103,7 +103,9 @@ from vllm.v1.worker.gpu.mm.lora import set_active_mm_loras
 from vllm.v1.worker.gpu.model_states import init_model_state
 from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseCopyInstruction,
+    PartialReuseRepairInstruction,
     ResolvedPartialReuseCandidate,
+    build_full_block_repair_instructions,
     build_partial_reuse_copy_instructions,
     resolve_target_block_ids,
 )
@@ -150,6 +152,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         ] = {}
         self.partial_reuse_copy_instructions: dict[
             str, tuple[PartialReuseCopyInstruction, ...]
+        ] = {}
+        self.partial_reuse_repair_instructions: dict[
+            str, tuple[PartialReuseRepairInstruction, ...]
         ] = {}
 
         self.device = device
@@ -794,6 +799,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.partial_reuse_plans.pop(req_id, None)
         self.resolved_partial_reuse_candidates.pop(req_id, None)
         self.partial_reuse_copy_instructions.pop(req_id, None)
+        self.partial_reuse_repair_instructions.pop(req_id, None)
         # Call model_state.remove_request *before* req_states.remove_request
         # so the model_state can still look up the slot index.
         self.model_state.remove_request(req_id)
@@ -853,6 +859,13 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 if resolved_candidates is not None
                 else None
             )
+            repair_instructions = (
+                build_full_block_repair_instructions(
+                    resolved_candidates, plan.block_size
+                )
+                if resolved_candidates is not None and plan is not None
+                else None
+            )
 
             prompt_len = len(new_req_data.prompt_token_ids)
             sampling_params = new_req_data.sampling_params
@@ -869,6 +882,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.resolved_partial_reuse_candidates[req_id] = resolved_candidates
                 assert copy_instructions is not None
                 self.partial_reuse_copy_instructions[req_id] = copy_instructions
+                assert repair_instructions is not None
+                self.partial_reuse_repair_instructions[req_id] = repair_instructions
             req_index = self.req_states.req_id_to_index[req_id]
 
             if self.encoder_cache is not None:
