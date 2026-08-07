@@ -67,6 +67,7 @@ from vllm.config import (
 )
 from vllm.config.cache import (
     CacheDType,
+    CacheSelectRepairSelector,
     KVOffloadingBackend,
     MambaCacheMode,
     MambaDType,
@@ -512,6 +513,10 @@ class EngineArgs:
     block_size: int | None = None
     enable_prefix_caching: bool | None = None
     enable_cacheselect: bool = CacheConfig.enable_cacheselect
+    cacheselect_repair_selector: CacheSelectRepairSelector = (
+        CacheConfig.cacheselect_repair_selector
+    )
+    cacheselect_edit_radius: int = CacheConfig.cacheselect_edit_radius
     prefix_caching_hash_algo: PrefixCachingHashAlgo = (
         CacheConfig.prefix_caching_hash_algo
     )
@@ -1178,6 +1183,14 @@ class EngineArgs:
         cache_group.add_argument(
             "--enable-cacheselect",
             **cache_kwargs["enable_cacheselect"],
+        )
+        cache_group.add_argument(
+            "--cacheselect-repair-selector",
+            **cache_kwargs["cacheselect_repair_selector"],
+        )
+        cache_group.add_argument(
+            "--cacheselect-edit-radius",
+            **cache_kwargs["cacheselect_edit_radius"],
         )
         cache_group.add_argument(
             "--prefix-caching-hash-algo", **cache_kwargs["prefix_caching_hash_algo"]
@@ -1907,6 +1920,8 @@ class EngineArgs:
             sliding_window=sliding_window,
             enable_prefix_caching=self.enable_prefix_caching,
             enable_cacheselect=self.enable_cacheselect,
+            cacheselect_repair_selector=self.cacheselect_repair_selector,
+            cacheselect_edit_radius=self.cacheselect_edit_radius,
             prefix_caching_hash_algo=self.prefix_caching_hash_algo,
             calculate_kv_scales=self.calculate_kv_scales,
             kv_cache_dtype_skip_layers=self.kv_cache_dtype_skip_layers,

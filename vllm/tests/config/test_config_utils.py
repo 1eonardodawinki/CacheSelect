@@ -215,6 +215,11 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
     assert CacheConfig(kv_cache_memory_bytes=1 << 30).compute_hash() == base_hash
     assert CacheConfig(gpu_memory_utilization=0.5).compute_hash() == base_hash
     assert CacheConfig(enable_cacheselect=True).compute_hash() == base_hash
+    assert (
+        CacheConfig(cacheselect_repair_selector="edit_proximity").compute_hash()
+        == base_hash
+    )
+    assert CacheConfig(cacheselect_edit_radius=2).compute_hash() == base_hash
 
 
 def test_cacheselect_requires_prefix_caching():
@@ -223,3 +228,9 @@ def test_cacheselect_requires_prefix_caching():
             enable_prefix_caching=False,
             enable_cacheselect=True,
         )
+
+
+# Check that CacheSelect rejects an invalid edit-proximity radius.
+def test_cacheselect_rejects_negative_edit_radius():
+    with pytest.raises(ValueError, match="greater than or equal to 0"):
+        CacheConfig(cacheselect_edit_radius=-1)

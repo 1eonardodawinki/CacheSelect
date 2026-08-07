@@ -49,16 +49,35 @@ def test_prefix_caching_from_cli():
         args = parser.parse_args(["--prefix-caching-hash-algo", "invalid"])
 
 
+# Check CacheSelect repair-policy defaults and explicit CLI overrides.
 def test_cacheselect_from_cli():
     parser = EngineArgs.add_cli_args(FlexibleArgumentParser())
 
     args = parser.parse_args([])
     engine_args = EngineArgs.from_cli_args(args=args)
     assert not engine_args.enable_cacheselect
+    assert engine_args.cacheselect_repair_selector == "full_block"
+    assert engine_args.cacheselect_edit_radius == 1
 
-    args = parser.parse_args(["--enable-cacheselect"])
+    args = parser.parse_args(
+        [
+            "--enable-cacheselect",
+            "--cacheselect-repair-selector",
+            "edit_proximity",
+            "--cacheselect-edit-radius",
+            "2",
+        ]
+    )
     engine_args = EngineArgs.from_cli_args(args=args)
     assert engine_args.enable_cacheselect
+    assert engine_args.cacheselect_repair_selector == "edit_proximity"
+    assert engine_args.cacheselect_edit_radius == 2
+
+    parser.exit_on_error = False
+    with pytest.raises(ArgumentError):
+        parser.parse_args(
+            ["--cacheselect-repair-selector", "invalid_selector"]
+        )
 
 
 @pytest.mark.skipif(_xxhash is None, reason="xxhash not installed")
