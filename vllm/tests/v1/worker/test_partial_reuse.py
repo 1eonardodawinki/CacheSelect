@@ -6,7 +6,9 @@ from types import SimpleNamespace
 import pytest
 
 from vllm.v1.worker.gpu.partial_reuse import (
+    PartialReuseCopyInstruction,
     ResolvedPartialReuseCandidate,
+    build_partial_reuse_copy_instructions,
     resolve_target_block_ids,
 )
 
@@ -49,3 +51,26 @@ def test_resolve_target_block_ids_rejects_missing_target() -> None:
 
     with pytest.raises(ValueError, match="outside the request block table"):
         resolve_target_block_ids(plan, ([71, 12],))
+
+
+# Check that resolved mappings become explicit but inert copy instructions.
+def test_build_partial_reuse_copy_instructions() -> None:
+    candidate = ResolvedPartialReuseCandidate(
+        source_block_index=3,
+        target_block_index=5,
+        source_block_id=42,
+        target_block_id=63,
+        source_resident=True,
+        requires_repair=True,
+    )
+
+    instructions = build_partial_reuse_copy_instructions((candidate,))
+
+    assert instructions == (
+        PartialReuseCopyInstruction(
+            source_block_id=42,
+            target_block_id=63,
+            target_block_index=5,
+            requires_repair=True,
+        ),
+    )

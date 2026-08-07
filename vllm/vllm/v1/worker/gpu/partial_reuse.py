@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
-"""Resolve CacheSelect plans against V2 runner block allocations."""
+"""Resolve CacheSelect mappings and build inert worker copy plans."""
 
 from __future__ import annotations
 
@@ -20,6 +20,14 @@ class ResolvedPartialReuseCandidate:
     source_block_id: int
     target_block_id: int
     source_resident: bool
+    requires_repair: bool
+
+
+@dataclass(frozen=True)
+class PartialReuseCopyInstruction:
+    source_block_id: int
+    target_block_id: int
+    target_block_index: int
     requires_repair: bool
 
 
@@ -53,3 +61,19 @@ def resolve_target_block_ids(
             )
         )
     return tuple(resolved)
+
+
+# Convert approved mappings into inert source-to-destination copy instructions.
+def build_partial_reuse_copy_instructions(
+    candidates: Sequence[ResolvedPartialReuseCandidate],
+) -> tuple[PartialReuseCopyInstruction, ...]:
+    """Build a copy plan without applying it to GPU memory."""
+    return tuple(
+        PartialReuseCopyInstruction(
+            source_block_id=candidate.source_block_id,
+            target_block_id=candidate.target_block_id,
+            target_block_index=candidate.target_block_index,
+            requires_repair=candidate.requires_repair,
+        )
+        for candidate in candidates
+    )
