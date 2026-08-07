@@ -49,6 +49,10 @@ def mock_model_runner_with_req_states():
     runner.partial_reuse_copy_instructions = {}
     runner.partial_reuse_repair_instructions = {}
     runner.partial_reuse_repair_selector = FullBlockRepairSelector()
+    runner.cache_config = SimpleNamespace(
+        cacheselect_repair_selector="full_block"
+    )
+    runner.pending_cacheselect_repair_metrics = {}
 
     # Mock staged writes — they use Triton kernels that require GPU
     runner.req_states.apply_staged_writes = Mock()
@@ -118,12 +122,18 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert len(repair_instructions) == 1
     assert repair_instructions[0].target_block_id == 63
     assert repair_instructions[0].target_token_indices == (5,)
+    metrics = runner.pending_cacheselect_repair_metrics[req_id]
+    assert metrics.selector == "full_block"
+    assert metrics.candidate_tokens == 1
+    assert metrics.repair_tokens == 1
+    assert metrics.skipped_repair_tokens == 0
 
     runner._remove_request(req_id)
     assert req_id not in runner.partial_reuse_plans
     assert req_id not in runner.resolved_partial_reuse_candidates
     assert req_id not in runner.partial_reuse_copy_instructions
     assert req_id not in runner.partial_reuse_repair_instructions
+    assert req_id not in runner.pending_cacheselect_repair_metrics
 
 
 def test_e2e_streaming_request_update_basic_flow(

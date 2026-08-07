@@ -52,6 +52,7 @@ from vllm.tasks import SupportedTask
 from vllm.utils.math_utils import cdiv
 from vllm.utils.mem_utils import DeviceMemoryProfiler, format_gib
 from vllm.utils.torch_utils import PIN_MEMORY, STR_DTYPE_TO_TORCH_DTYPE
+from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 from vllm.v1.core.sched.output import GrammarOutput, SchedulerOutput
 from vllm.v1.kv_cache_interface import KVCacheConfig, MambaSpec
 from vllm.v1.outputs import DraftTokenIds, ModelRunnerOutput
@@ -109,6 +110,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_copy_instructions,
     create_repair_selector,
     resolve_target_block_ids,
+    summarize_repair_selection,
 )
 from vllm.v1.worker.gpu.pool.pooling_runner import PoolingRunner
 from vllm.v1.worker.gpu.pp_utils import PPHandler
@@ -163,6 +165,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.cache_config.cacheselect_edit_radius,
             )
         )
+        self.pending_cacheselect_repair_metrics: dict[
+            str, CacheSelectRepairMetrics
+        ] = {}
 
         self.device = device
         self.dtype = self.model_config.dtype
@@ -807,6 +812,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.resolved_partial_reuse_candidates.pop(req_id, None)
         self.partial_reuse_copy_instructions.pop(req_id, None)
         self.partial_reuse_repair_instructions.pop(req_id, None)
+        self.pending_cacheselect_repair_metrics.pop(req_id, None)
         # Call model_state.remove_request *before* req_states.remove_request
         # so the model_state can still look up the slot index.
         self.model_state.remove_request(req_id)
@@ -891,6 +897,14 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.partial_reuse_copy_instructions[req_id] = copy_instructions
                 assert repair_instructions is not None
                 self.partial_reuse_repair_instructions[req_id] = repair_instructions
+                self.pending_cacheselect_repair_metrics[req_id] = (
+                    summarize_repair_selection(
+                        self.cache_config.cacheselect_repair_selector,
+                        resolved_candidates,
+                        repair_instructions,
+                        plan.block_size,
+                    )
+                )
             req_index = self.req_states.req_id_to_index[req_id]
 
             if self.encoder_cache is not None:
