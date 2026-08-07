@@ -137,3 +137,33 @@ class FullBlockRepairSelector:
         block_size: int,
     ) -> tuple[PartialReuseRepairInstruction, ...]:
         return build_full_block_repair_instructions(candidates, block_size)
+
+
+class EditProximityRepairSelector:
+    """Repair whole blocks near edits and experimentally reuse farther blocks."""
+
+    # Configure the largest edit distance that still triggers block repair.
+    def __init__(self, max_block_distance: int) -> None:
+        if max_block_distance < 0:
+            raise ValueError("max_block_distance must be non-negative")
+        self.max_block_distance = max_block_distance
+
+    # Select nearby candidates, while treating missing geometry conservatively.
+    def select(
+        self,
+        candidates: Sequence[ResolvedPartialReuseCandidate],
+        block_size: int,
+    ) -> tuple[PartialReuseRepairInstruction, ...]:
+        selected_candidates = tuple(
+            candidate
+            for candidate in candidates
+            if candidate.requires_repair
+            and (
+                candidate.nearest_changed_block_distance is None
+                or candidate.nearest_changed_block_distance
+                <= self.max_block_distance
+            )
+        )
+        return build_full_block_repair_instructions(
+            selected_candidates, block_size
+        )

@@ -1,11 +1,13 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
 
 from vllm.v1.worker.gpu.partial_reuse import (
+    EditProximityRepairSelector,
     FullBlockRepairSelector,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
@@ -119,3 +121,45 @@ def test_full_block_repair_selector() -> None:
 def test_build_full_block_repair_rejects_invalid_block_size() -> None:
     with pytest.raises(ValueError, match="block_size must be positive"):
         build_full_block_repair_instructions((), block_size=0)
+
+
+# Check that edit proximity repairs nearby and unknown blocks but skips far ones.
+def test_edit_proximity_repair_selector() -> None:
+    nearby_candidate = ResolvedPartialReuseCandidate(
+        source_block_index=3,
+        target_block_index=5,
+        source_block_id=42,
+        target_block_id=63,
+        source_resident=True,
+        requires_repair=True,
+        nearest_changed_block_distance=1,
+    )
+    far_candidate = replace(
+        nearby_candidate,
+        target_block_index=6,
+        target_block_id=64,
+        nearest_changed_block_distance=2,
+    )
+    unknown_candidate = replace(
+        nearby_candidate,
+        target_block_index=7,
+        target_block_id=65,
+        nearest_changed_block_distance=None,
+    )
+
+    selector = EditProximityRepairSelector(max_block_distance=1)
+    instructions = selector.select(
+        (nearby_candidate, far_candidate, unknown_candidate), block_size=2
+    )
+
+    assert [instruction.target_block_id for instruction in instructions] == [63, 65]
+    assert [instruction.target_token_indices for instruction in instructions] == [
+        (10, 11),
+        (14, 15),
+    ]
+
+
+# Check that an invalid edit radius cannot configure the experimental selector.
+def test_edit_proximity_repair_selector_rejects_negative_radius() -> None:
+    with pytest.raises(ValueError, match="max_block_distance must be non-negative"):
+        EditProximityRepairSelector(max_block_distance=-1)
