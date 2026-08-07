@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from vllm.v1.worker.gpu.partial_reuse import (
+    FullBlockRepairSelector,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
     ResolvedPartialReuseCandidate,
@@ -78,8 +79,8 @@ def test_build_partial_reuse_copy_instructions() -> None:
     )
 
 
-# Check that the fallback repair plan selects every token in affected blocks.
-def test_build_full_block_repair_instructions() -> None:
+# Check that the fallback selector chooses every token in affected blocks.
+def test_full_block_repair_selector() -> None:
     repaired_candidate = ResolvedPartialReuseCandidate(
         source_block_index=3,
         target_block_index=5,
@@ -97,9 +98,8 @@ def test_build_full_block_repair_instructions() -> None:
         requires_repair=False,
     )
 
-    instructions = build_full_block_repair_instructions(
-        (repaired_candidate, exact_candidate), block_size=4
-    )
+    selector = FullBlockRepairSelector()
+    instructions = selector.select((repaired_candidate, exact_candidate), block_size=4)
 
     assert instructions == (
         PartialReuseRepairInstruction(

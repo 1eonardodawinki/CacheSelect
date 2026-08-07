@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
     from vllm.v1.core.partial_reuse import PartialReusePlan
@@ -37,6 +37,15 @@ class PartialReuseRepairInstruction:
     target_block_id: int
     target_block_index: int
     target_token_indices: tuple[int, ...]
+
+
+class PartialReuseRepairSelector(Protocol):
+    # Select target tokens that must be recomputed after block reuse.
+    def select(
+        self,
+        candidates: Sequence[ResolvedPartialReuseCandidate],
+        block_size: int,
+    ) -> tuple[PartialReuseRepairInstruction, ...]: ...
 
 
 # Convert logical target positions into physical V2 runner block IDs.
@@ -112,3 +121,13 @@ def build_full_block_repair_instructions(
             )
         )
     return tuple(instructions)
+
+
+class FullBlockRepairSelector:
+    # Select every token in blocks whose reused KV may depend on changed context.
+    def select(
+        self,
+        candidates: Sequence[ResolvedPartialReuseCandidate],
+        block_size: int,
+    ) -> tuple[PartialReuseRepairInstruction, ...]:
+        return build_full_block_repair_instructions(candidates, block_size)
