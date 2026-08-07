@@ -85,6 +85,8 @@ def test_partial_reuse_plan_follows_request_lifecycle(
         source_block_id=42,
         source_resident=True,
         requires_repair=True,
+        block_displacement=0,
+        nearest_changed_block_distance=1,
     )
     plan = SimpleNamespace(candidates=(candidate,), block_size=1)
     request_data = NewRequestData(
@@ -106,6 +108,7 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert len(resolved) == 1
     assert resolved[0].source_block_id == 42
     assert resolved[0].target_block_id == 63
+    assert resolved[0].nearest_changed_block_distance == 1
     instructions = runner.partial_reuse_copy_instructions[req_id]
     assert len(instructions) == 1
     assert instructions[0].source_block_id == 42

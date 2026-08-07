@@ -24,6 +24,8 @@ def test_resolve_target_block_ids() -> None:
         source_block_id=42,
         source_resident=True,
         requires_repair=True,
+        block_displacement=2,
+        nearest_changed_block_distance=1,
     )
     plan = SimpleNamespace(candidates=(candidate,))
 
@@ -37,6 +39,8 @@ def test_resolve_target_block_ids() -> None:
             target_block_id=63,
             source_resident=True,
             requires_repair=True,
+            block_displacement=2,
+            nearest_changed_block_distance=1,
         ),
     )
 

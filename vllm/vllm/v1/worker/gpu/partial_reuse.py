@@ -21,6 +21,8 @@ class ResolvedPartialReuseCandidate:
     target_block_id: int
     source_resident: bool
     requires_repair: bool
+    block_displacement: int = 0
+    nearest_changed_block_distance: int | None = None
 
 
 @dataclass(frozen=True)
@@ -75,6 +77,10 @@ def resolve_target_block_ids(
                 target_block_id=target_group[target_index],
                 source_resident=candidate.source_resident,
                 requires_repair=candidate.requires_repair,
+                block_displacement=candidate.block_displacement,
+                nearest_changed_block_distance=(
+                    candidate.nearest_changed_block_distance
+                ),
             )
         )
     return tuple(resolved)
