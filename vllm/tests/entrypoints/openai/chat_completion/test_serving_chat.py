@@ -701,6 +701,7 @@ def test_build_per_request_timing_metrics_valid_timestamps():
     assert metrics.tokens_per_second == pytest.approx(10.0 / 1.5, rel=1e-4)
 
 
+# Check that response timing metadata includes the complete CacheSelect decision.
 def test_build_per_request_timing_metrics_includes_cacheselect_decision():
     partial_reuse_plan = {
         "source_request_id": "source",
@@ -711,6 +712,10 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
         cacheselect_reason="reusable_native_prefix",
         cacheselect_native_cached_tokens=48,
         cacheselect_partial_reuse_plan=partial_reuse_plan,
+        cacheselect_repair_selector="edit_proximity",
+        cacheselect_candidate_tokens=48,
+        cacheselect_repair_tokens=16,
+        cacheselect_skipped_repair_tokens=32,
     )
 
     metrics = build_per_request_timing_metrics(request_stats, num_generation_tokens=1)
@@ -719,6 +724,10 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
     assert metrics.cacheselect_reason == "reusable_native_prefix"
     assert metrics.cacheselect_native_cached_tokens == 48
     assert metrics.cacheselect_partial_reuse_plan == partial_reuse_plan
+    assert metrics.cacheselect_repair_selector == "edit_proximity"
+    assert metrics.cacheselect_candidate_tokens == 48
+    assert metrics.cacheselect_repair_tokens == 16
+    assert metrics.cacheselect_skipped_repair_tokens == 32
 
 
 @pytest.mark.asyncio

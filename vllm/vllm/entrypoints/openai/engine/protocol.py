@@ -129,6 +129,10 @@ class PerRequestTimingMetrics(OpenAIBaseModel):
     cacheselect_reason: str | None = None
     cacheselect_native_cached_tokens: int | None = None
     cacheselect_partial_reuse_plan: dict[str, Any] | None = None
+    cacheselect_repair_selector: str | None = None
+    cacheselect_candidate_tokens: int | None = None
+    cacheselect_repair_tokens: int | None = None
+    cacheselect_skipped_repair_tokens: int | None = None
 
 
 class RequestResponseMetadata(BaseModel):

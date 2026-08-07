@@ -656,6 +656,18 @@ class OutputProcessor:
                         req_state.stats.cacheselect_partial_reuse_plan = (
                             prefill_stats.cacheselect_partial_reuse_plan
                         )
+                        req_state.stats.cacheselect_repair_selector = (
+                            prefill_stats.cacheselect_repair_selector
+                        )
+                        req_state.stats.cacheselect_candidate_tokens = (
+                            prefill_stats.cacheselect_candidate_tokens
+                        )
+                        req_state.stats.cacheselect_repair_tokens = (
+                            prefill_stats.cacheselect_repair_tokens
+                        )
+                        req_state.stats.cacheselect_skipped_repair_tokens = (
+                            prefill_stats.cacheselect_skipped_repair_tokens
+                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:
