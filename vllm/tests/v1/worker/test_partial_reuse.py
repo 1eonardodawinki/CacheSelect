@@ -14,6 +14,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     ResolvedPartialReuseCandidate,
     build_full_block_repair_instructions,
     build_partial_reuse_copy_instructions,
+    create_repair_selector,
     resolve_target_block_ids,
 )
 
@@ -163,3 +164,20 @@ def test_edit_proximity_repair_selector() -> None:
 def test_edit_proximity_repair_selector_rejects_negative_radius() -> None:
     with pytest.raises(ValueError, match="max_block_distance must be non-negative"):
         EditProximityRepairSelector(max_block_distance=-1)
+
+
+# Check that configuration names construct the expected repair policies.
+def test_create_repair_selector() -> None:
+    assert isinstance(
+        create_repair_selector("full_block", edit_radius=3),
+        FullBlockRepairSelector,
+    )
+    edit_selector = create_repair_selector("edit_proximity", edit_radius=3)
+    assert isinstance(edit_selector, EditProximityRepairSelector)
+    assert edit_selector.max_block_distance == 3
+
+
+# Check that the selector factory rejects unknown policy names defensively.
+def test_create_repair_selector_rejects_unknown_name() -> None:
+    with pytest.raises(ValueError, match="unknown CacheSelect repair selector"):
+        create_repair_selector("unknown", edit_radius=1)  # type: ignore[arg-type]

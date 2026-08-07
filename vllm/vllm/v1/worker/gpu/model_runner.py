@@ -102,12 +102,12 @@ from vllm.v1.worker.gpu.mm.encoder_cache import EncoderCache
 from vllm.v1.worker.gpu.mm.lora import set_active_mm_loras
 from vllm.v1.worker.gpu.model_states import init_model_state
 from vllm.v1.worker.gpu.partial_reuse import (
-    FullBlockRepairSelector,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
     PartialReuseRepairSelector,
     ResolvedPartialReuseCandidate,
     build_partial_reuse_copy_instructions,
+    create_repair_selector,
     resolve_target_block_ids,
 )
 from vllm.v1.worker.gpu.pool.pooling_runner import PoolingRunner
@@ -158,7 +158,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             str, tuple[PartialReuseRepairInstruction, ...]
         ] = {}
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
-            FullBlockRepairSelector()
+            create_repair_selector(
+                self.cache_config.cacheselect_repair_selector,
+                self.cache_config.cacheselect_edit_radius,
+            )
         )
 
         self.device = device

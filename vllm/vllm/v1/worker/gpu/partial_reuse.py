@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
+    from vllm.config.cache import CacheSelectRepairSelector
     from vllm.v1.core.partial_reuse import PartialReusePlan
 
 
@@ -167,3 +168,15 @@ class EditProximityRepairSelector:
         return build_full_block_repair_instructions(
             selected_candidates, block_size
         )
+
+
+# Construct the configured repair selector while keeping policy wiring centralized.
+def create_repair_selector(
+    selector_name: CacheSelectRepairSelector,
+    edit_radius: int,
+) -> PartialReuseRepairSelector:
+    if selector_name == "full_block":
+        return FullBlockRepairSelector()
+    if selector_name == "edit_proximity":
+        return EditProximityRepairSelector(edit_radius)
+    raise ValueError(f"unknown CacheSelect repair selector: {selector_name}")
