@@ -1649,6 +1649,9 @@ class Scheduler(SchedulerInterface):
         num_scheduled_tokens = scheduler_output.num_scheduled_tokens
         pooler_outputs = model_runner_output.pooler_output
         num_nans_in_logits = model_runner_output.num_nans_in_logits
+        cacheselect_repair_metrics = (
+            model_runner_output.cacheselect_repair_metrics or {}
+        )
         kv_connector_output = model_runner_output.kv_connector_output
         cudagraph_stats = model_runner_output.cudagraph_stats
 
@@ -1718,6 +1721,21 @@ class Scheduler(SchedulerInterface):
                 # be set to None (in order to finish async KV transfer).
                 # In this case, we use is_finished() to check.
                 continue
+
+            repair_metrics = cacheselect_repair_metrics.get(req_id)
+            if repair_metrics is not None and request.prefill_stats is not None:
+                request.prefill_stats.cacheselect_repair_selector = (
+                    repair_metrics.selector
+                )
+                request.prefill_stats.cacheselect_candidate_tokens = (
+                    repair_metrics.candidate_tokens
+                )
+                request.prefill_stats.cacheselect_repair_tokens = (
+                    repair_metrics.repair_tokens
+                )
+                request.prefill_stats.cacheselect_skipped_repair_tokens = (
+                    repair_metrics.skipped_repair_tokens
+                )
 
             req_index = model_runner_output.req_id_to_index[req_id]
             generated_token_ids = (

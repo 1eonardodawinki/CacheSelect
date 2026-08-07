@@ -276,6 +276,10 @@ class PrefillStats:
         cacheselect_reason: Machine-readable reason for that policy.
         cacheselect_native_cached_tokens: Candidate native hit before policy filtering.
         cacheselect_partial_reuse_plan: Shadow plan for post-prefix block reuse.
+        cacheselect_repair_selector: Repair selector evaluated by the worker.
+        cacheselect_candidate_tokens: Tokens considered for partial reuse.
+        cacheselect_repair_tokens: Candidate tokens selected for repair.
+        cacheselect_skipped_repair_tokens: Repair-required tokens left unrepaired.
     """
 
     num_prompt_tokens: int = 0
@@ -288,6 +292,10 @@ class PrefillStats:
     cacheselect_reason: str | None = None
     cacheselect_native_cached_tokens: int | None = None
     cacheselect_partial_reuse_plan: dict[str, Any] | None = None
+    cacheselect_repair_selector: str | None = None
+    cacheselect_candidate_tokens: int | None = None
+    cacheselect_repair_tokens: int | None = None
+    cacheselect_skipped_repair_tokens: int | None = None
 
     def set(
         self,
