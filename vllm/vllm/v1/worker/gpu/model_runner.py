@@ -932,6 +932,17 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if self.sampler is not None:
             self.sampler.apply_staged_writes()
 
+    # Return and clear one-shot CacheSelect summaries for this worker output.
+    def _take_cacheselect_repair_metrics(
+        self, req_ids: list[str]
+    ) -> dict[str, CacheSelectRepairMetrics] | None:
+        metrics = {
+            req_id: self.pending_cacheselect_repair_metrics.pop(req_id)
+            for req_id in req_ids
+            if req_id in self.pending_cacheselect_repair_metrics
+        }
+        return metrics or None
+
     def update_requests(self, scheduler_output: SchedulerOutput) -> None:
         # Add new blocks and update num_computed_tokens for the existing requests.
         reqs = scheduler_output.scheduled_cached_reqs
@@ -1558,6 +1569,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             req_id_to_index={req_id: i for i, req_id in enumerate(input_batch.req_ids)},
             sampled_token_ids=None,  # type: ignore
             prompt_logprobs_dict=prompt_logprobs_dict,  # type: ignore[arg-type]
+            cacheselect_repair_metrics=self._take_cacheselect_repair_metrics(
+                input_batch.req_ids
+            ),
         )
         # Start async output copy here so that it can overlap with speculator proposal.
         async_output = AsyncOutput(
@@ -1663,6 +1677,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             req_ids=input_batch.req_ids,
             req_id_to_index={req_id: i for i, req_id in enumerate(input_batch.req_ids)},
             kv_connector_output=kv_connector_output,
+            cacheselect_repair_metrics=self._take_cacheselect_repair_metrics(
+                input_batch.req_ids
+            ),
         )
         async_output = AsyncPoolingOutput(
             model_runner_output=model_runner_output,

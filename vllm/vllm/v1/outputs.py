@@ -18,7 +18,9 @@ if TYPE_CHECKING:
         KVConnectorWorkerMetadata,
     )
     from vllm.distributed.kv_transfer.kv_connector.v1.metrics import KVConnectorStats
+    from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 else:
+    CacheSelectRepairMetrics = object
     KVConnectorStats = object
     KVConnectorWorkerMetadata = object
     KVConnectorKVEvents = object
@@ -279,6 +281,9 @@ class ModelRunnerOutput:
     # its slot buffer via ``slot_buffer[slot_mapping] = routing_data``.
     # ``None`` when ``enable_return_routed_experts`` is off.
     routed_experts: RoutedExpertsLists | None = None
+
+    # One-shot CacheSelect selector summaries keyed by request ID.
+    cacheselect_repair_metrics: dict[str, CacheSelectRepairMetrics] | None = None
 
     @staticmethod
     def with_kv_conn_output_only(

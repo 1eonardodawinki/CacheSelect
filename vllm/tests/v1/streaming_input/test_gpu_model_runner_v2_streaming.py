@@ -60,6 +60,9 @@ def mock_model_runner_with_req_states():
     # Bind the real methods to our mock
     runner._remove_request = GPUModelRunner._remove_request.__get__(runner)
     runner.add_requests = GPUModelRunner.add_requests.__get__(runner)
+    runner._take_cacheselect_repair_metrics = (
+        GPUModelRunner._take_cacheselect_repair_metrics.__get__(runner)
+    )
     return runner
 
 
@@ -127,6 +130,9 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert metrics.candidate_tokens == 1
     assert metrics.repair_tokens == 1
     assert metrics.skipped_repair_tokens == 0
+    emitted_metrics = runner._take_cacheselect_repair_metrics([req_id])
+    assert emitted_metrics == {req_id: metrics}
+    assert req_id not in runner.pending_cacheselect_repair_metrics
 
     runner._remove_request(req_id)
     assert req_id not in runner.partial_reuse_plans
