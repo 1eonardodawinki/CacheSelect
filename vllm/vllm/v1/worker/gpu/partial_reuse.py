@@ -13,6 +13,8 @@ if TYPE_CHECKING:
     from vllm.config.cache import CacheSelectRepairSelector
     from vllm.v1.core.partial_reuse import PartialReusePlan
 
+from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
+
 
 @dataclass(frozen=True)
 class ResolvedPartialReuseCandidate:
@@ -180,3 +182,30 @@ def create_repair_selector(
     if selector_name == "edit_proximity":
         return EditProximityRepairSelector(edit_radius)
     raise ValueError(f"unknown CacheSelect repair selector: {selector_name}")
+
+
+# Summarize one selector decision for request-level observability.
+def summarize_repair_selection(
+    selector_name: str,
+    candidates: Sequence[ResolvedPartialReuseCandidate],
+    repair_instructions: Sequence[PartialReuseRepairInstruction],
+    block_size: int,
+) -> CacheSelectRepairMetrics:
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
+    candidate_tokens = len(candidates) * block_size
+    repair_required_tokens = (
+        sum(candidate.requires_repair for candidate in candidates) * block_size
+    )
+    repair_tokens = sum(
+        len(instruction.target_token_indices)
+        for instruction in repair_instructions
+    )
+    if repair_tokens > repair_required_tokens:
+        raise ValueError("repair plan exceeds tokens marked for repair")
+    return CacheSelectRepairMetrics(
+        selector=selector_name,
+        candidate_tokens=candidate_tokens,
+        repair_tokens=repair_tokens,
+        skipped_repair_tokens=repair_required_tokens - repair_tokens,
+    )

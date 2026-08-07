@@ -108,6 +108,14 @@ class PartialReusePlan:
         return replace(self, candidates=retained_candidates)
 
 
+@dataclass(frozen=True)
+class CacheSelectRepairMetrics:
+    selector: str
+    candidate_tokens: int
+    repair_tokens: int
+    skipped_repair_tokens: int
+
+
 class AlignedBlockReuseLocator:
     """Locate content-identical source blocks without applying KV reuse."""
 

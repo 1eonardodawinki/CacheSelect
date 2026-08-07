@@ -16,6 +16,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_copy_instructions,
     create_repair_selector,
     resolve_target_block_ids,
+    summarize_repair_selection,
 )
 
 
@@ -181,3 +182,30 @@ def test_create_repair_selector() -> None:
 def test_create_repair_selector_rejects_unknown_name() -> None:
     with pytest.raises(ValueError, match="unknown CacheSelect repair selector"):
         create_repair_selector("unknown", edit_radius=1)  # type: ignore[arg-type]
+
+
+# Check that repair summaries distinguish selected from skipped repair tokens.
+def test_summarize_repair_selection() -> None:
+    candidate = ResolvedPartialReuseCandidate(
+        source_block_index=3,
+        target_block_index=5,
+        source_block_id=42,
+        target_block_id=63,
+        source_resident=True,
+        requires_repair=True,
+    )
+    instruction = PartialReuseRepairInstruction(
+        source_block_id=42,
+        target_block_id=63,
+        target_block_index=5,
+        target_token_indices=(20, 21),
+    )
+
+    metrics = summarize_repair_selection(
+        "edit_proximity", (candidate,), (instruction,), block_size=4
+    )
+
+    assert metrics.selector == "edit_proximity"
+    assert metrics.candidate_tokens == 4
+    assert metrics.repair_tokens == 2
+    assert metrics.skipped_repair_tokens == 2
