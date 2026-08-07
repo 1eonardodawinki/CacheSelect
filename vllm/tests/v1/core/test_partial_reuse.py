@@ -120,3 +120,37 @@ def test_plan_filters_candidates_to_retained_source_ids() -> None:
     assert retained_plan is not None
     assert retained_plan.candidates == plan.candidates[:2]
     assert plan.for_retained_source_ids(set()) is None
+
+
+# Check that insertion geometry measures candidates from the unmatched block.
+def test_change_geometry_for_inserted_block() -> None:
+    candidates = (
+        PartialReuseCandidate(1, 2, 6, True),
+        PartialReuseCandidate(2, 3, 7, True),
+    )
+
+    annotated = AlignedBlockReuseLocator._annotate_change_geometry(
+        candidates, first_target_block=1, num_target_blocks=4
+    )
+
+    assert [candidate.block_displacement for candidate in annotated] == [1, 1]
+    assert [
+        candidate.nearest_changed_block_distance for candidate in annotated
+    ] == [1, 2]
+
+
+# Check that a deletion creates a virtual change boundary in the target layout.
+def test_change_geometry_for_deleted_block() -> None:
+    candidates = (
+        PartialReuseCandidate(2, 1, 6, True),
+        PartialReuseCandidate(3, 2, 7, True),
+    )
+
+    annotated = AlignedBlockReuseLocator._annotate_change_geometry(
+        candidates, first_target_block=1, num_target_blocks=3
+    )
+
+    assert [candidate.block_displacement for candidate in annotated] == [-1, -1]
+    assert [
+        candidate.nearest_changed_block_distance for candidate in annotated
+    ] == [0, 1]

@@ -39,6 +39,8 @@ class PartialReuseCandidate:
     source_block_id: int
     source_resident: bool
     requires_repair: bool = True
+    block_displacement: int = 0
+    nearest_changed_block_distance: int | None = None
 
     def to_public_dict(self) -> dict[str, Any]:
         return {
@@ -46,6 +48,8 @@ class PartialReuseCandidate:
             "target_block_index": self.target_block_index,
             "source_resident": self.source_resident,
             "requires_repair": self.requires_repair,
+            "block_displacement": self.block_displacement,
+            "nearest_changed_block_distance": self.nearest_changed_block_distance,
         }
 
 
@@ -210,11 +214,74 @@ class AlignedBlockReuseLocator:
                 )
             )
 
+        annotated_candidates = self._annotate_change_geometry(
+            tuple(candidates), first_target_block, num_full_blocks
+        )
         return self._plan(
             request,
             native_cached_tokens,
             reason="aligned_candidates" if candidates else "no_aligned_candidates",
-            candidates=tuple(candidates),
+            candidates=annotated_candidates,
+        )
+
+    # Add cheap edit-proximity signals to each content-identical block match.
+    @staticmethod
+    def _annotate_change_geometry(
+        candidates: tuple[PartialReuseCandidate, ...],
+        first_target_block: int,
+        num_target_blocks: int,
+    ) -> tuple[PartialReuseCandidate, ...]:
+        if not candidates:
+            return ()
+
+        matched_targets = {
+            candidate.target_block_index for candidate in candidates
+        }
+        changed_targets = set(range(first_target_block, num_target_blocks))
+        changed_targets.difference_update(matched_targets)
+
+        previous_candidate: PartialReuseCandidate | None = None
+        for candidate in candidates:
+            if previous_candidate is None:
+                source_discontinuity = (
+                    candidate.source_block_index != candidate.target_block_index
+                )
+            else:
+                targets_are_adjacent = (
+                    previous_candidate.target_block_index + 1
+                    == candidate.target_block_index
+                )
+                sources_are_adjacent = (
+                    previous_candidate.source_block_index + 1
+                    == candidate.source_block_index
+                )
+                source_discontinuity = targets_are_adjacent and not sources_are_adjacent
+
+            # With no unmatched target block, a source-index discontinuity marks
+            # the target-side boundary of a deletion or reordered block run.
+            if (
+                source_discontinuity
+                and candidate.target_block_index - 1 not in changed_targets
+            ):
+                changed_targets.add(candidate.target_block_index)
+            previous_candidate = candidate
+
+        return tuple(
+            replace(
+                candidate,
+                block_displacement=(
+                    candidate.target_block_index - candidate.source_block_index
+                ),
+                nearest_changed_block_distance=(
+                    min(
+                        abs(candidate.target_block_index - changed_target)
+                        for changed_target in changed_targets
+                    )
+                    if changed_targets
+                    else None
+                ),
+            )
+            for candidate in candidates
         )
 
     def _plan(
