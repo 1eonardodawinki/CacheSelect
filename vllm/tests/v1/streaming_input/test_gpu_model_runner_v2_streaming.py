@@ -15,6 +15,7 @@ from vllm.v1.core.sched.output import (
     SchedulerOutput,
 )
 from vllm.v1.worker.gpu.model_runner import GPUModelRunner
+from vllm.v1.worker.gpu.partial_reuse import FullBlockRepairSelector
 from vllm.v1.worker.gpu.states import RequestState
 
 # Not cpu_test: RequestState allocates pinned (UVA) memory, which requires a
@@ -47,6 +48,7 @@ def mock_model_runner_with_req_states():
     runner.resolved_partial_reuse_candidates = {}
     runner.partial_reuse_copy_instructions = {}
     runner.partial_reuse_repair_instructions = {}
+    runner.partial_reuse_repair_selector = FullBlockRepairSelector()
 
     # Mock staged writes — they use Triton kernels that require GPU
     runner.req_states.apply_staged_writes = Mock()

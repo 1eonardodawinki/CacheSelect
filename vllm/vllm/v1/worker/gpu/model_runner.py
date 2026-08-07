@@ -102,10 +102,11 @@ from vllm.v1.worker.gpu.mm.encoder_cache import EncoderCache
 from vllm.v1.worker.gpu.mm.lora import set_active_mm_loras
 from vllm.v1.worker.gpu.model_states import init_model_state
 from vllm.v1.worker.gpu.partial_reuse import (
+    FullBlockRepairSelector,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
+    PartialReuseRepairSelector,
     ResolvedPartialReuseCandidate,
-    build_full_block_repair_instructions,
     build_partial_reuse_copy_instructions,
     resolve_target_block_ids,
 )
@@ -156,6 +157,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.partial_reuse_repair_instructions: dict[
             str, tuple[PartialReuseRepairInstruction, ...]
         ] = {}
+        self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
+            FullBlockRepairSelector()
+        )
 
         self.device = device
         self.dtype = self.model_config.dtype
@@ -860,7 +864,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 else None
             )
             repair_instructions = (
-                build_full_block_repair_instructions(
+                self.partial_reuse_repair_selector.select(
                     resolved_candidates, plan.block_size
                 )
                 if resolved_candidates is not None and plan is not None
