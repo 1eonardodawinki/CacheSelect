@@ -58,6 +58,7 @@ def test_cacheselect_from_cli():
     assert not engine_args.enable_cacheselect
     assert engine_args.cacheselect_repair_selector == "full_block"
     assert engine_args.cacheselect_edit_radius == 1
+    assert not engine_args.cacheselect_execute_partial_reuse
 
     args = parser.parse_args(
         [
@@ -66,18 +67,20 @@ def test_cacheselect_from_cli():
             "edit_proximity",
             "--cacheselect-edit-radius",
             "2",
+            "--cacheselect-execute-partial-reuse",
         ]
     )
     engine_args = EngineArgs.from_cli_args(args=args)
     assert engine_args.enable_cacheselect
     assert engine_args.cacheselect_repair_selector == "edit_proximity"
     assert engine_args.cacheselect_edit_radius == 2
+    assert engine_args.cacheselect_execute_partial_reuse
+    cache_config = engine_args.create_engine_config().cache_config
+    assert cache_config.cacheselect_execute_partial_reuse
 
     parser.exit_on_error = False
     with pytest.raises(ArgumentError):
-        parser.parse_args(
-            ["--cacheselect-repair-selector", "invalid_selector"]
-        )
+        parser.parse_args(["--cacheselect-repair-selector", "invalid_selector"])
 
 
 @pytest.mark.skipif(_xxhash is None, reason="xxhash not installed")

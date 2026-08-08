@@ -204,6 +204,7 @@ print(hash_factors(envs.compile_factors()))
     )
 
 
+# Check that runtime-only cache settings do not alter the compilation key.
 def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
     """kv_cache_memory_bytes only sizes the KV cache allocation (like
     gpu_memory_utilization, which is already ignored); it does not affect
@@ -220,14 +221,28 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
         == base_hash
     )
     assert CacheConfig(cacheselect_edit_radius=2).compute_hash() == base_hash
+    assert (
+        CacheConfig(
+            enable_cacheselect=True,
+            cacheselect_execute_partial_reuse=True,
+        ).compute_hash()
+        == base_hash
+    )
 
 
+# Check that CacheSelect cannot run without native prefix caching.
 def test_cacheselect_requires_prefix_caching():
     with pytest.raises(ValueError, match="requires prefix caching"):
         CacheConfig(
             enable_prefix_caching=False,
             enable_cacheselect=True,
         )
+
+
+# Check that partial-reuse execution cannot bypass the CacheSelect planner.
+def test_cacheselect_execution_requires_planner():
+    with pytest.raises(ValueError, match="requires CacheSelect to be enabled"):
+        CacheConfig(cacheselect_execute_partial_reuse=True)
 
 
 # Check that CacheSelect rejects an invalid edit-proximity radius.

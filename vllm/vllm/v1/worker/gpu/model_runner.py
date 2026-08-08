@@ -165,6 +165,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.cache_config.cacheselect_edit_radius,
             )
         )
+        self.cacheselect_execute_partial_reuse = (
+            self.cache_config.cacheselect_execute_partial_reuse
+        )
         self.pending_cacheselect_repair_metrics: dict[
             str, CacheSelectRepairMetrics
         ] = {}

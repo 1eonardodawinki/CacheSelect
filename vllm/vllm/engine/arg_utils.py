@@ -517,6 +517,9 @@ class EngineArgs:
         CacheConfig.cacheselect_repair_selector
     )
     cacheselect_edit_radius: int = CacheConfig.cacheselect_edit_radius
+    cacheselect_execute_partial_reuse: bool = (
+        CacheConfig.cacheselect_execute_partial_reuse
+    )
     prefix_caching_hash_algo: PrefixCachingHashAlgo = (
         CacheConfig.prefix_caching_hash_algo
     )
@@ -797,6 +800,7 @@ class EngineArgs:
                         self.tokenizer,
                     )
 
+    # Add engine configuration fields to the command-line parser.
     @staticmethod
     def add_cli_args(parser: FlexibleArgumentParser) -> FlexibleArgumentParser:
         """Shared CLI arguments for vLLM engine."""
@@ -1191,6 +1195,10 @@ class EngineArgs:
         cache_group.add_argument(
             "--cacheselect-edit-radius",
             **cache_kwargs["cacheselect_edit_radius"],
+        )
+        cache_group.add_argument(
+            "--cacheselect-execute-partial-reuse",
+            **cache_kwargs["cacheselect_execute_partial_reuse"],
         )
         cache_group.add_argument(
             "--prefix-caching-hash-algo", **cache_kwargs["prefix_caching_hash_algo"]
@@ -1853,6 +1861,7 @@ class EngineArgs:
             jit_monitor_verbose=self.jit_monitor_verbose,
         )
 
+    # Resolve engine arguments into the complete runtime configuration.
     def create_engine_config(
         self,
         usage_context: UsageContext | None = None,
@@ -1922,6 +1931,7 @@ class EngineArgs:
             enable_cacheselect=self.enable_cacheselect,
             cacheselect_repair_selector=self.cacheselect_repair_selector,
             cacheselect_edit_radius=self.cacheselect_edit_radius,
+            cacheselect_execute_partial_reuse=(self.cacheselect_execute_partial_reuse),
             prefix_caching_hash_algo=self.prefix_caching_hash_algo,
             calculate_kv_scales=self.calculate_kv_scales,
             kv_cache_dtype_skip_layers=self.kv_cache_dtype_skip_layers,

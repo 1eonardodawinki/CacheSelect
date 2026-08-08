@@ -104,6 +104,10 @@ class CacheConfig:
     cacheselect_edit_radius: int = Field(default=1, ge=0)
     """Largest block distance from a structural edit repaired by the
     experimental edit-proximity selector."""
+    cacheselect_execute_partial_reuse: bool = False
+    """Allow CacheSelect to execute partial KV reuse. This default-off switch
+    is currently propagated to the GPU worker but does not yet change model
+    execution."""
     prefix_caching_hash_algo: PrefixCachingHashAlgo = "sha256"
     """Set the hash algorithm for prefix caching:
 
@@ -200,6 +204,7 @@ class CacheConfig:
     'native' (vLLM native CPU offloading), 'lmcache'.
     KV offloading is only activated when kv_offloading_size is set."""
 
+    # Compute the compilation cache key from graph-affecting configuration.
     def compute_hash(self) -> str:
         """
         WARNING: Whenever a new field is added to this config,
@@ -222,6 +227,7 @@ class CacheConfig:
             "enable_cacheselect",
             "cacheselect_repair_selector",
             "cacheselect_edit_radius",
+            "cacheselect_execute_partial_reuse",
             "prefix_caching_hash_algo",
             # Prefix-caching implementation detail (doesn't affect compiled graph).
             "prefix_match_unit",
@@ -278,6 +284,15 @@ class CacheConfig:
     def _validate_cacheselect_requires_prefix_caching(self) -> "CacheConfig":
         if self.enable_cacheselect and not self.enable_prefix_caching:
             raise ValueError("CacheSelect requires prefix caching to be enabled")
+        return self
+
+    # Require the CacheSelect planner before permitting its execution switch.
+    @model_validator(mode="after")
+    def _validate_cacheselect_execution_requires_planner(self) -> "CacheConfig":
+        if self.cacheselect_execute_partial_reuse and not self.enable_cacheselect:
+            raise ValueError(
+                "CacheSelect partial-reuse execution requires CacheSelect to be enabled"
+            )
         return self
 
     @field_validator("calculate_kv_scales", mode="after")
