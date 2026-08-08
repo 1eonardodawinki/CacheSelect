@@ -116,6 +116,55 @@ identical block can have context-dependent KV state and may require selective
 repair. It also distinguishes whole source blocks from candidates that need
 token gathering or repacking.
 
+## Shadow repair-policy matrix
+
+The next experiment compares four repair policies on the controlled RAG trace:
+full-block repair and edit-proximity repair with radii 0, 1 and 2. These policies
+currently run in shadow mode. They record which candidate tokens would be
+repaired or skipped, while vLLM still performs its normal exact computation.
+Consequently, this experiment validates policy decisions and unchanged output
+quality; it does not yet measure a CacheSelect speedup.
+
+Submit the four-condition Slurm array from the Imperial submission host:
+
+```bash
+cd ~/DeltaCache
+git pull --ff-only
+REPAIR_JOB_ID=$(sbatch --parsable benchmarks/run_repair_policy_shadow.slurm)
+echo "$REPAIR_JOB_ID"
+```
+
+Check the queue and count successful conditions:
+
+```bash
+squeue -j "$REPAIR_JOB_ID"
+grep -h "Repair policy shadow condition completed successfully" \
+  /vol/bitbucket/$USER/cacheselect-server-logs/repair-shadow-"$REPAIR_JOB_ID"_*.out \
+  2>/dev/null | wc -l
+```
+
+The count reaches 4 when the array finishes. The controlled trace expects the
+following shadow decisions:
+
+| Condition | Candidate tokens | Repair tokens | Skipped tokens |
+| --- | ---: | ---: | ---: |
+| `full-block` | 80 | 80 | 0 |
+| `edit-radius-0` | 80 | 0 | 80 |
+| `edit-radius-1` | 80 | 48 | 32 |
+| `edit-radius-2` | 80 | 80 | 0 |
+
+Artifacts are written to
+`/vol/bitbucket/$USER/cacheselect-results/repair-shadow-$REPAIR_JOB_ID`. Once
+all four conditions have passed their individual checks, one array task writes
+`repair-policy-summary.json` there. If that final aggregation is interrupted,
+rerun it manually:
+
+```bash
+python -m benchmarks.analyze_repair_policy_shadow \
+  --input-dir /vol/bitbucket/$USER/cacheselect-results/repair-shadow-"$REPAIR_JOB_ID" \
+  --output /vol/bitbucket/$USER/cacheselect-results/repair-shadow-"$REPAIR_JOB_ID"/repair-policy-summary.json
+```
+
 ## Full baseline matrix
 
 After the smoke experiment passes, submit the complete controlled baseline as
