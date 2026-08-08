@@ -13,6 +13,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseRepairInstruction,
     ResolvedPartialReuseCandidate,
     build_full_block_repair_instructions,
+    build_kv_cache_block_copies,
     build_partial_reuse_copy_instructions,
     create_repair_selector,
     resolve_target_block_ids,
@@ -64,7 +65,7 @@ def test_resolve_target_block_ids_rejects_missing_target() -> None:
         resolve_target_block_ids(plan, ([71, 12],))
 
 
-# Check that resolved mappings become explicit but inert copy instructions.
+# Check that resolved mappings become explicit worker copy instructions.
 def test_build_partial_reuse_copy_instructions() -> None:
     candidate = ResolvedPartialReuseCandidate(
         source_block_index=3,
@@ -85,6 +86,26 @@ def test_build_partial_reuse_copy_instructions() -> None:
             requires_repair=True,
         ),
     )
+
+
+# Check that worker instructions become vLLM physical block-copy pairs.
+def test_build_kv_cache_block_copies() -> None:
+    instructions = (
+        PartialReuseCopyInstruction(
+            source_block_id=42,
+            target_block_id=63,
+            target_block_index=5,
+            requires_repair=True,
+        ),
+        PartialReuseCopyInstruction(
+            source_block_id=43,
+            target_block_id=64,
+            target_block_index=6,
+            requires_repair=False,
+        ),
+    )
+
+    assert build_kv_cache_block_copies(instructions) == ((42, 63), (43, 64))
 
 
 # Check that the fallback selector chooses every token in affected blocks.

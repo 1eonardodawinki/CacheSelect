@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
-"""Resolve CacheSelect mappings and build inert worker copy plans."""
+"""Resolve CacheSelect mappings and build worker copy and repair plans."""
 
 from __future__ import annotations
 
@@ -13,6 +13,7 @@ if TYPE_CHECKING:
     from vllm.config.cache import CacheSelectRepairSelector
     from vllm.v1.core.partial_reuse import PartialReusePlan
 
+from vllm.v1.core.kv_cache_utils import KVCacheBlockCopy
 from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 
 
@@ -89,7 +90,7 @@ def resolve_target_block_ids(
     return tuple(resolved)
 
 
-# Convert approved mappings into inert source-to-destination copy instructions.
+# Convert approved mappings into source-to-destination copy instructions.
 def build_partial_reuse_copy_instructions(
     candidates: Sequence[ResolvedPartialReuseCandidate],
 ) -> tuple[PartialReuseCopyInstruction, ...]:
@@ -102,6 +103,19 @@ def build_partial_reuse_copy_instructions(
             requires_repair=candidate.requires_repair,
         )
         for candidate in candidates
+    )
+
+
+# Convert CacheSelect instructions into vLLM's physical block-copy format.
+def build_kv_cache_block_copies(
+    instructions: Sequence[PartialReuseCopyInstruction],
+) -> tuple[KVCacheBlockCopy, ...]:
+    return tuple(
+        KVCacheBlockCopy(
+            src_block_id=instruction.source_block_id,
+            dst_block_id=instruction.target_block_id,
+        )
+        for instruction in instructions
     )
 
 

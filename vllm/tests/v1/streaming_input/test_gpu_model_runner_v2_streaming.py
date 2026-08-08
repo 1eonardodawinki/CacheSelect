@@ -4,7 +4,7 @@
 """Unit tests for MRv2 GPUModelRunner.add_requests streaming input support."""
 
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 import pytest
 import torch
@@ -15,7 +15,10 @@ from vllm.v1.core.sched.output import (
     SchedulerOutput,
 )
 from vllm.v1.worker.gpu.model_runner import GPUModelRunner
-from vllm.v1.worker.gpu.partial_reuse import FullBlockRepairSelector
+from vllm.v1.worker.gpu.partial_reuse import (
+    FullBlockRepairSelector,
+    PartialReuseCopyInstruction,
+)
 from vllm.v1.worker.gpu.states import RequestState
 
 # Not cpu_test: RequestState allocates pinned (UVA) memory, which requires a
@@ -49,6 +52,7 @@ def mock_model_runner_with_req_states():
     runner.partial_reuse_copy_instructions = {}
     runner.partial_reuse_repair_instructions = {}
     runner.partial_reuse_repair_selector = FullBlockRepairSelector()
+    runner.cacheselect_execute_partial_reuse = False
     runner.cache_config = SimpleNamespace(
         cacheselect_repair_selector="full_block"
     )
@@ -64,6 +68,42 @@ def mock_model_runner_with_req_states():
         GPUModelRunner._take_cacheselect_repair_metrics.__get__(runner)
     )
     return runner
+
+
+# Check that only the explicit execution switch allows physical KV copies.
+def test_cacheselect_block_copy_execution_is_guarded() -> None:
+    request_id = "partial-reuse-request"
+    runner = SimpleNamespace(
+        cacheselect_execute_partial_reuse=False,
+        partial_reuse_copy_instructions={
+            request_id: (
+                PartialReuseCopyInstruction(
+                    source_block_id=42,
+                    target_block_id=63,
+                    target_block_index=5,
+                    requires_repair=True,
+                ),
+            )
+        },
+        kv_caches=[Mock()],
+        kv_cache_config=SimpleNamespace(num_blocks=128),
+    )
+    scheduler_output = SimpleNamespace(
+        scheduled_new_reqs=(SimpleNamespace(req_id=request_id),)
+    )
+
+    copy_target = "vllm.v1.worker.gpu.model_runner.copy_kv_cache_blocks_inplace"
+    with patch(copy_target) as copy_blocks:
+        GPUModelRunner._apply_cacheselect_block_copies(runner, scheduler_output)
+        copy_blocks.assert_not_called()
+
+        runner.cacheselect_execute_partial_reuse = True
+        GPUModelRunner._apply_cacheselect_block_copies(runner, scheduler_output)
+        copy_blocks.assert_called_once_with(
+            runner.kv_caches,
+            128,
+            ((42, 63),),
+        )
 
 
 def _make_scheduler_output(new_reqs):
