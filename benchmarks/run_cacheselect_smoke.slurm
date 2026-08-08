@@ -104,9 +104,11 @@ wait_for_server() {
   return 1
 }
 
+# Run one isolated server condition with optional CacheSelect copy execution.
 run_condition() {
   local condition="$1"
   local planner_mode="$2"
+  local execute_partial_reuse="$3"
   local server_log="$SERVER_LOG_DIR/vllm-$condition.log"
   local result_path="$RESULT_DIR/rag-$condition.json"
   local run_id="native-smoke-$JOB_TAG-$condition"
@@ -114,6 +116,9 @@ run_condition() {
 
   if [[ "$planner_mode" == "vllm" ]]; then
     cacheselect_args=(--enable-cacheselect)
+  fi
+  if [[ "$execute_partial_reuse" == "true" ]]; then
+    cacheselect_args+=(--cacheselect-execute-partial-reuse)
   fi
 
   echo "Starting fresh vLLM server: condition=$condition"
@@ -146,20 +151,31 @@ run_condition() {
 }
 
 # Each condition gets a fresh vLLM process so it cannot inherit GPU KV state.
-run_condition native-apc off
-run_condition cacheselect vllm
+run_condition native-apc off false
+run_condition cacheselect vllm false
+run_condition cacheselect-copy vllm true
 
-python - "$RESULT_DIR/rag-native-apc.json" "$RESULT_DIR/rag-cacheselect.json" <<'PY'
+python - \
+  "$RESULT_DIR/rag-native-apc.json" \
+  "$RESULT_DIR/rag-cacheselect.json" \
+  "$RESULT_DIR/rag-cacheselect-copy.json" <<'PY'
 import json
 import sys
 from pathlib import Path
 
 native_path = Path(sys.argv[1])
 cacheselect_path = Path(sys.argv[2])
+copy_path = Path(sys.argv[3])
 native = json.loads(native_path.read_text())
 cacheselect = json.loads(cacheselect_path.read_text())
+copy_enabled = json.loads(copy_path.read_text())
 
-for path, result in ((native_path, native), (cacheselect_path, cacheselect)):
+results = (
+    (native_path, native),
+    (cacheselect_path, cacheselect),
+    (copy_path, copy_enabled),
+)
+for path, result in results:
     observations = result["observations"]
     ledger = result["request_ledger_summary"]
     if len(observations) != 4:
@@ -206,6 +222,35 @@ if selected != native_cached:
         f"CacheSelect changed APC hits: native={native_cached}, selected={selected}"
     )
 
+copy_cached = [item["cached_tokens"] for item in copy_enabled["observations"]]
+if copy_cached != native_cached:
+    raise SystemExit(
+        f"CacheSelect copies changed APC hits: native={native_cached}, "
+        f"copy={copy_cached}"
+    )
+
+behavior = [
+    (
+        item["prompt_token_ids"],
+        item["cached_tokens"],
+        item["output_text"],
+        item["quality"],
+    )
+    for item in native["observations"]
+]
+for path, result in ((cacheselect_path, cacheselect), (copy_path, copy_enabled)):
+    observed_behavior = [
+        (
+            item["prompt_token_ids"],
+            item["cached_tokens"],
+            item["output_text"],
+            item["quality"],
+        )
+        for item in result["observations"]
+    ]
+    if observed_behavior != behavior:
+        raise SystemExit(f"{path}: CacheSelect changed request behavior")
+
 transition_observations = observations[1:]
 plans = [
     (item.get("runtime_policy") or {}).get("partial_reuse_plan")
@@ -250,7 +295,39 @@ if actual_mappings != expected_mappings:
 if "source_block_id" in json.dumps(plans):
     raise SystemExit(f"{cacheselect_path}: internal GPU block IDs leaked")
 
-for path, result in ((native_path, native), (cacheselect_path, cacheselect)):
+shadow_metrics = cacheselect["observations"][2]["server_metrics"]
+copy_metrics = copy_enabled["observations"][2]["server_metrics"]
+expected_repair_metrics = {
+    "cacheselect_candidate_tokens": 80,
+    "cacheselect_repair_tokens": 80,
+    "cacheselect_skipped_repair_tokens": 0,
+}
+for name, expected in expected_repair_metrics.items():
+    if shadow_metrics.get(name) != expected:
+        raise SystemExit(
+            f"{cacheselect_path}: expected {name}={expected}, "
+            f"got {shadow_metrics.get(name)}"
+        )
+    if copy_metrics.get(name) != expected:
+        raise SystemExit(
+            f"{copy_path}: expected {name}={expected}, "
+            f"got {copy_metrics.get(name)}"
+        )
+
+expected_copy_counts = {
+    cacheselect_path: (shadow_metrics, 0, 0),
+    copy_path: (copy_metrics, 5, 80),
+}
+for path, (metrics, expected_blocks, expected_tokens) in expected_copy_counts.items():
+    actual = (
+        metrics.get("cacheselect_copied_blocks"),
+        metrics.get("cacheselect_copied_tokens"),
+    )
+    expected = (expected_blocks, expected_tokens)
+    if actual != expected:
+        raise SystemExit(f"{path}: expected copy counts {expected}, got {actual}")
+
+for path, result in results:
     observations = result["observations"]
     cached = [item["cached_tokens"] for item in observations]
     ttft = [
@@ -264,6 +341,7 @@ print(
     f"{candidate_tokens} resident_tokens={resident_tokens} "
     f"mappings={actual_mappings}"
 )
+print("copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens")
 PY
 
 echo "CacheSelect native execution smoke completed successfully"
