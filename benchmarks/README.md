@@ -74,25 +74,37 @@ completed successfully`.
 ## Native CacheSelect smoke experiment
 
 After the baseline smoke passes, test the planner that now executes inside
-vLLM. This job compares a fresh native-APC server with a fresh
-CacheSelect-enabled server:
+vLLM. This job starts three fresh servers: native APC, CacheSelect shadow mode,
+and CacheSelect with guarded physical KV copying enabled:
 
 ```bash
 mkdir -p /vol/bitbucket/$USER/cacheselect-server-logs
 cd ~/DeltaCache
 git pull --ff-only
-sbatch benchmarks/run_cacheselect_smoke.slurm
+COPY_SMOKE_JOB_ID=$(sbatch --parsable benchmarks/run_cacheselect_smoke.slurm)
+echo "$COPY_SMOKE_JOB_ID"
+```
+
+Monitor it with:
+
+```bash
+squeue -j "$COPY_SMOKE_JOB_ID"
+tail -f /vol/bitbucket/$USER/cacheselect-server-logs/native-smoke-"$COPY_SMOKE_JOB_ID".out
 ```
 
 The job checks that every request records a runtime decision, every non-zero
-native hit is preserved, CacheSelect and native APC report identical cache-hit
-counts, all ledgers complete, and answer quality still passes. It also passes
-each transition's previous request ID to vLLM and verifies the online shadow
-locator's aligned block mappings. For the current RAG trace it expects 80
-resident candidate tokens in the document-reorder transition and none in the
-other two transitions. This is a correctness and observability smoke test, not
-an expected speedup: every candidate is marked as requiring KV repair and is
-still recomputed by native vLLM.
+native hit is preserved, and all three conditions have identical cache hits,
+prompts, outputs and quality results. It also passes each transition's previous
+request ID to vLLM and verifies the online locator's aligned block mappings.
+For the document-reorder transition, shadow mode must report zero executed
+copies, while execution mode must report five copied blocks representing 80
+tokens. The other two transitions have no aligned candidates.
+
+This remains a correctness and observability smoke test, not an expected
+speedup. The execution-enabled server physically copies the five candidate KV
+blocks, but normal full prefill still recomputes and overwrites them before
+generation. Success is reported as `CacheSelect native execution smoke
+completed successfully`.
 
 The online locator currently covers the deliberately narrow first milestone:
 one full-attention KV group where scheduler, hash and physical block sizes are
