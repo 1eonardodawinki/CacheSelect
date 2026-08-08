@@ -78,6 +78,44 @@ def _behavior_signature(result: dict[str, Any]) -> list[dict[str, Any]]:
     ]
 
 
+# Validate one matrix condition and return its normalized selector metrics.
+def validate_repair_policy_condition(
+    result: dict[str, Any], condition: str
+) -> dict[str, Any]:
+    expected = CONDITIONS.get(condition)
+    if expected is None:
+        raise ValueError(f"unknown repair-policy condition: {condition}")
+
+    observations = result.get("observations") or []
+    ledger = result.get("request_ledger_summary")
+    if len(observations) != 4:
+        raise ValueError(
+            f"{condition}: expected 4 observations, got {len(observations)}"
+        )
+    if ledger != {"started": 4, "completed": 4, "failed": 0}:
+        raise ValueError(f"{condition}: incomplete request ledger {ledger}")
+    if not all(
+        observation["quality"]["passed"] for observation in observations
+    ):
+        raise ValueError(f"{condition}: at least one quality check failed")
+
+    observation = _candidate_observation(result, condition)
+    metrics = observation["server_metrics"]
+    actual = {
+        "selector": metrics.get("cacheselect_repair_selector"),
+        "candidate_tokens": metrics.get("cacheselect_candidate_tokens"),
+        "repair_tokens": metrics.get("cacheselect_repair_tokens"),
+        "skipped_repair_tokens": metrics.get(
+            "cacheselect_skipped_repair_tokens"
+        ),
+    }
+    if actual != expected:
+        raise ValueError(
+            f"{condition}: expected repair metrics {expected}, got {actual}"
+        )
+    return actual
+
+
 # Validate all four policy conditions and return a compact experiment summary.
 def analyze_repair_policy_shadow(input_dir: Path) -> dict[str, Any]:
     results = {
@@ -87,37 +125,11 @@ def analyze_repair_policy_shadow(input_dir: Path) -> dict[str, Any]:
     reference_signature = _behavior_signature(results["full-block"])
     summary: dict[str, Any] = {"conditions": {}}
 
-    for condition, expected in CONDITIONS.items():
+    for condition in CONDITIONS:
         result = results[condition]
-        observations = result.get("observations") or []
-        ledger = result.get("request_ledger_summary")
-        if len(observations) != 4:
-            raise ValueError(
-                f"{condition}: expected 4 observations, got {len(observations)}"
-            )
-        if ledger != {"started": 4, "completed": 4, "failed": 0}:
-            raise ValueError(f"{condition}: incomplete request ledger {ledger}")
-        if not all(
-            observation["quality"]["passed"] for observation in observations
-        ):
-            raise ValueError(f"{condition}: at least one quality check failed")
+        actual = validate_repair_policy_condition(result, condition)
         if _behavior_signature(result) != reference_signature:
             raise ValueError(f"{condition}: shadow policy changed request behavior")
-
-        observation = _candidate_observation(result, condition)
-        metrics = observation["server_metrics"]
-        actual = {
-            "selector": metrics.get("cacheselect_repair_selector"),
-            "candidate_tokens": metrics.get("cacheselect_candidate_tokens"),
-            "repair_tokens": metrics.get("cacheselect_repair_tokens"),
-            "skipped_repair_tokens": metrics.get(
-                "cacheselect_skipped_repair_tokens"
-            ),
-        }
-        if actual != expected:
-            raise ValueError(
-                f"{condition}: expected repair metrics {expected}, got {actual}"
-            )
         summary["conditions"][condition] = actual
 
     summary["behavior_identical"] = True
