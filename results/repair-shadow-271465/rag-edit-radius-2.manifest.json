@@ -1,0 +1,14 @@
+{
+  "matrix_job_id": "271465",
+  "array_task_id": 3,
+  "slurm_job_id": "271465",
+  "host": "parrot.doc.ic.ac.uk",
+  "project_commit": "cec6e9d60e54c694a21666984a6ad9e122d65153",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "vllm_version": "0.0.0+d6dbdb9b0",
+  "gpu": "NVIDIA A16, GPU-85bd0ec3-bfda-f59c-663f-48f7f0ab16da, 15356 MiB, 595.71.05",
+  "condition": "edit-radius-2",
+  "repair_selector": "edit_proximity",
+  "edit_radius": 2,
+  "port": 26653
+}

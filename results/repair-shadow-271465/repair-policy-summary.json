@@ -1,0 +1,30 @@
+{
+  "conditions": {
+    "full-block": {
+      "selector": "full_block",
+      "candidate_tokens": 80,
+      "repair_tokens": 80,
+      "skipped_repair_tokens": 0
+    },
+    "edit-radius-0": {
+      "selector": "edit_proximity",
+      "candidate_tokens": 80,
+      "repair_tokens": 0,
+      "skipped_repair_tokens": 80
+    },
+    "edit-radius-1": {
+      "selector": "edit_proximity",
+      "candidate_tokens": 80,
+      "repair_tokens": 48,
+      "skipped_repair_tokens": 32
+    },
+    "edit-radius-2": {
+      "selector": "edit_proximity",
+      "candidate_tokens": 80,
+      "repair_tokens": 80,
+      "skipped_repair_tokens": 0
+    }
+  },
+  "behavior_identical": true,
+  "quality_passed": true
+}

@@ -1,0 +1,14 @@
+{
+  "matrix_job_id": "271465",
+  "array_task_id": 2,
+  "slurm_job_id": "271468",
+  "host": "gpuvm36.doc.ic.ac.uk",
+  "project_commit": "cec6e9d60e54c694a21666984a6ad9e122d65153",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "vllm_version": "0.0.0+d6dbdb9b0",
+  "gpu": "NVIDIA A16, GPU-cab520a7-c43e-f6ba-0666-35886819c267, 15356 MiB, 595.71.05",
+  "condition": "edit-radius-1",
+  "repair_selector": "edit_proximity",
+  "edit_radius": 1,
+  "port": 26652
+}
