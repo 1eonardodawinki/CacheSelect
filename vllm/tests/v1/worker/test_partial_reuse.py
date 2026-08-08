@@ -16,6 +16,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_kv_cache_block_copies,
     build_partial_reuse_copy_instructions,
     create_repair_selector,
+    record_copy_execution,
     resolve_target_block_ids,
     summarize_repair_selection,
 )
@@ -230,3 +231,9 @@ def test_summarize_repair_selection() -> None:
     assert metrics.candidate_tokens == 4
     assert metrics.repair_tokens == 2
     assert metrics.skipped_repair_tokens == 2
+    assert metrics.copied_blocks == 0
+    assert metrics.copied_tokens == 0
+
+    executed_metrics = record_copy_execution(metrics, copied_blocks=1, block_size=4)
+    assert executed_metrics.copied_blocks == 1
+    assert executed_metrics.copied_tokens == 4

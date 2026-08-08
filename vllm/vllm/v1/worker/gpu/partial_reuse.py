@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -116,6 +116,26 @@ def build_kv_cache_block_copies(
             dst_block_id=instruction.target_block_id,
         )
         for instruction in instructions
+    )
+
+
+# Record block copies that were actually submitted by the GPU worker.
+def record_copy_execution(
+    metrics: CacheSelectRepairMetrics,
+    copied_blocks: int,
+    block_size: int,
+) -> CacheSelectRepairMetrics:
+    if copied_blocks < 0:
+        raise ValueError("copied_blocks must be non-negative")
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
+    copied_tokens = copied_blocks * block_size
+    if copied_tokens > metrics.candidate_tokens:
+        raise ValueError("copied tokens exceed candidate tokens")
+    return replace(
+        metrics,
+        copied_blocks=copied_blocks,
+        copied_tokens=copied_tokens,
     )
 
 

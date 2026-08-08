@@ -1638,6 +1638,7 @@ class Scheduler(SchedulerInterface):
         )
         return GrammarOutput(structured_output_request_ids, bitmask)
 
+    # Merge one worker step into scheduler request state and public outputs.
     def update_from_output(
         self,
         scheduler_output: SchedulerOutput,
@@ -1735,6 +1736,12 @@ class Scheduler(SchedulerInterface):
                 )
                 request.prefill_stats.cacheselect_skipped_repair_tokens = (
                     repair_metrics.skipped_repair_tokens
+                )
+                request.prefill_stats.cacheselect_copied_blocks = (
+                    repair_metrics.copied_blocks
+                )
+                request.prefill_stats.cacheselect_copied_tokens = (
+                    repair_metrics.copied_tokens
                 )
 
             req_index = model_runner_output.req_id_to_index[req_id]

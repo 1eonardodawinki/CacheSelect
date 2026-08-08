@@ -114,6 +114,8 @@ class CacheSelectRepairMetrics:
     candidate_tokens: int
     repair_tokens: int
     skipped_repair_tokens: int
+    copied_blocks: int = 0
+    copied_tokens: int = 0
 
 
 class AlignedBlockReuseLocator:

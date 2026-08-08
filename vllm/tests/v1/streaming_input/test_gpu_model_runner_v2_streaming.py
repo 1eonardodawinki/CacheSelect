@@ -9,6 +9,7 @@ from unittest.mock import Mock, patch
 import pytest
 import torch
 
+from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 from vllm.v1.core.sched.output import (
     CachedRequestData,
     NewRequestData,
@@ -87,6 +88,15 @@ def test_cacheselect_block_copy_execution_is_guarded() -> None:
         },
         kv_caches=[Mock()],
         kv_cache_config=SimpleNamespace(num_blocks=128),
+        partial_reuse_plans={request_id: SimpleNamespace(block_size=16)},
+        pending_cacheselect_repair_metrics={
+            request_id: CacheSelectRepairMetrics(
+                selector="full_block",
+                candidate_tokens=16,
+                repair_tokens=16,
+                skipped_repair_tokens=0,
+            )
+        },
     )
     scheduler_output = SimpleNamespace(
         scheduled_new_reqs=(SimpleNamespace(req_id=request_id),)
@@ -104,6 +114,9 @@ def test_cacheselect_block_copy_execution_is_guarded() -> None:
             128,
             ((42, 63),),
         )
+        metrics = runner.pending_cacheselect_repair_metrics[request_id]
+        assert metrics.copied_blocks == 1
+        assert metrics.copied_tokens == 16
 
 
 def _make_scheduler_output(new_reqs):
@@ -170,6 +183,8 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert metrics.candidate_tokens == 1
     assert metrics.repair_tokens == 1
     assert metrics.skipped_repair_tokens == 0
+    assert metrics.copied_blocks == 0
+    assert metrics.copied_tokens == 0
     emitted_metrics = runner._take_cacheselect_repair_metrics([req_id])
     assert emitted_metrics == {req_id: metrics}
     assert req_id not in runner.pending_cacheselect_repair_metrics

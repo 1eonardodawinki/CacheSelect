@@ -133,6 +133,8 @@ class PerRequestTimingMetrics(OpenAIBaseModel):
     cacheselect_candidate_tokens: int | None = None
     cacheselect_repair_tokens: int | None = None
     cacheselect_skipped_repair_tokens: int | None = None
+    cacheselect_copied_blocks: int | None = None
+    cacheselect_copied_tokens: int | None = None
 
 
 class RequestResponseMetadata(BaseModel):

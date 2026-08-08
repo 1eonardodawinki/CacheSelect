@@ -244,6 +244,8 @@ class RequestStateStats:
     cacheselect_candidate_tokens: int | None = None
     cacheselect_repair_tokens: int | None = None
     cacheselect_skipped_repair_tokens: int | None = None
+    cacheselect_copied_blocks: int | None = None
+    cacheselect_copied_tokens: int | None = None
 
 
 @dataclass
@@ -284,6 +286,8 @@ class PrefillStats:
         cacheselect_candidate_tokens: Tokens considered for partial reuse.
         cacheselect_repair_tokens: Candidate tokens selected for repair.
         cacheselect_skipped_repair_tokens: Repair-required tokens left unrepaired.
+        cacheselect_copied_blocks: Candidate KV blocks physically copied.
+        cacheselect_copied_tokens: Tokens represented by physically copied blocks.
     """
 
     num_prompt_tokens: int = 0
@@ -300,6 +304,8 @@ class PrefillStats:
     cacheselect_candidate_tokens: int | None = None
     cacheselect_repair_tokens: int | None = None
     cacheselect_skipped_repair_tokens: int | None = None
+    cacheselect_copied_blocks: int | None = None
+    cacheselect_copied_tokens: int | None = None
 
     def set(
         self,

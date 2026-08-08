@@ -583,6 +583,7 @@ class OutputProcessor:
             # Queue the streaming update otherwise.
             req_state.input_chunk_queue.append(update)
 
+    # Convert engine-core outputs into user responses and request statistics.
     def process_outputs(
         self,
         engine_core_outputs: list[EngineCoreOutput],
@@ -667,6 +668,12 @@ class OutputProcessor:
                         )
                         req_state.stats.cacheselect_skipped_repair_tokens = (
                             prefill_stats.cacheselect_skipped_repair_tokens
+                        )
+                        req_state.stats.cacheselect_copied_blocks = (
+                            prefill_stats.cacheselect_copied_blocks
+                        )
+                        req_state.stats.cacheselect_copied_tokens = (
+                            prefill_stats.cacheselect_copied_tokens
                         )
                 req_state.is_prefilling = False
 

@@ -43,6 +43,7 @@ RequestT = TypeVar("RequestT", bound=AnyRequest)
 _T = TypeVar("_T")
 
 
+# Build public timing and CacheSelect metadata for one completed request.
 def build_per_request_timing_metrics(
     metrics: RequestStateStats | None,
     num_generation_tokens: int,
@@ -105,6 +106,8 @@ def build_per_request_timing_metrics(
         cacheselect_skipped_repair_tokens=(
             metrics.cacheselect_skipped_repair_tokens
         ),
+        cacheselect_copied_blocks=metrics.cacheselect_copied_blocks,
+        cacheselect_copied_tokens=metrics.cacheselect_copied_tokens,
     )
 
 

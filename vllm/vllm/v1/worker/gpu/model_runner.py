@@ -110,6 +110,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_kv_cache_block_copies,
     build_partial_reuse_copy_instructions,
     create_repair_selector,
+    record_copy_execution,
     resolve_target_block_ids,
     summarize_repair_selection,
 )
@@ -954,12 +955,16 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if not self.cacheselect_execute_partial_reuse:
             return
 
-        instructions = tuple(
-            instruction
-            for request in scheduler_output.scheduled_new_reqs
-            for instruction in self.partial_reuse_copy_instructions.get(
+        instructions_by_request = {
+            request.req_id: self.partial_reuse_copy_instructions.get(
                 request.req_id, ()
             )
+            for request in scheduler_output.scheduled_new_reqs
+        }
+        instructions = tuple(
+            instruction
+            for request_instructions in instructions_by_request.values()
+            for instruction in request_instructions
         )
         block_copies = build_kv_cache_block_copies(instructions)
         if block_copies:
@@ -970,6 +975,18 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.kv_cache_config.num_blocks,
                 block_copies,
             )
+            for req_id, request_instructions in instructions_by_request.items():
+                if not request_instructions:
+                    continue
+                metrics = self.pending_cacheselect_repair_metrics[req_id]
+                plan = self.partial_reuse_plans[req_id]
+                self.pending_cacheselect_repair_metrics[req_id] = (
+                    record_copy_execution(
+                        metrics,
+                        len(request_instructions),
+                        plan.block_size,
+                    )
+                )
 
     # Update worker request state and perform all pre-forward KV memory writes.
     def update_requests(self, scheduler_output: SchedulerOutput) -> None:
