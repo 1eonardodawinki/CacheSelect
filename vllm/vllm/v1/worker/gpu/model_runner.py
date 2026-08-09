@@ -111,6 +111,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
     create_repair_selector,
+    map_reused_tokens_to_batch_rows,
     record_copy_execution,
     resolve_target_block_ids,
     summarize_repair_selection,
@@ -163,6 +164,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             str, tuple[PartialReuseRepairInstruction, ...]
         ] = {}
         self.partial_reuse_reused_token_indices: dict[str, tuple[int, ...]] = {}
+        self.partial_reuse_reused_batch_rows: dict[str, tuple[int, ...]] = {}
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -820,6 +822,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.partial_reuse_copy_instructions.pop(req_id, None)
         self.partial_reuse_repair_instructions.pop(req_id, None)
         self.partial_reuse_reused_token_indices.pop(req_id, None)
+        self.partial_reuse_reused_batch_rows.pop(req_id, None)
         self.pending_cacheselect_repair_metrics.pop(req_id, None)
         # Call model_state.remove_request *before* req_states.remove_request
         # so the model_state can still look up the slot index.
@@ -1043,6 +1046,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
         self._apply_cacheselect_block_copies(scheduler_output)
 
+    # Prepare the flattened model batch and translate CacheSelect token positions.
     def prepare_inputs(
         self, scheduler_output: SchedulerOutput, batch_desc: BatchExecutionDescriptor
     ) -> InputBatch:
@@ -1172,6 +1176,13 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
         # CPU upper bound on seq_lens; padded entries left at zero.
         num_computed_tokens_np = self.req_states.num_computed_tokens_np[idx_mapping_np]
+        self.partial_reuse_reused_batch_rows = map_reused_tokens_to_batch_rows(
+            req_ids,
+            query_start_loc_np[: num_reqs + 1],
+            num_computed_tokens_np,
+            num_scheduled_tokens,
+            self.partial_reuse_reused_token_indices,
+        )
         seq_lens_cpu_upper_bound_np = np.zeros(num_reqs_padded, dtype=np.int32)
         np.add(
             num_computed_tokens_np,

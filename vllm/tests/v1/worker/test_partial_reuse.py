@@ -17,6 +17,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
     create_repair_selector,
+    map_reused_tokens_to_batch_rows,
     record_copy_execution,
     resolve_target_block_ids,
     summarize_repair_selection,
@@ -190,6 +191,21 @@ def test_edit_proximity_repair_selector() -> None:
         instructions,
         block_size=2,
     ) == (12, 13)
+
+
+# Check prompt positions map into the correct request slice of a flat batch.
+def test_map_reused_tokens_to_batch_rows() -> None:
+    rows = map_reused_tokens_to_batch_rows(
+        req_ids=("decode", "rag"),
+        query_start_locations=(0, 4, 148),
+        num_computed_tokens=(200, 32),
+        num_scheduled_tokens=(4, 144),
+        reused_token_indices={
+            "rag": (*range(96, 128), 200),
+        },
+    )
+
+    assert rows == {"rag": tuple(range(68, 100))}
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.

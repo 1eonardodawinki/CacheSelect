@@ -5,7 +5,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
 
@@ -176,6 +176,50 @@ def build_reused_token_indices(
         repair_tokens.update(instruction.target_token_indices)
 
     return tuple(sorted(candidate_tokens - repair_tokens))
+
+
+# Translate reusable prompt positions into rows of one flattened input batch.
+def map_reused_tokens_to_batch_rows(
+    req_ids: Sequence[str],
+    query_start_locations: Sequence[int],
+    num_computed_tokens: Sequence[int],
+    num_scheduled_tokens: Sequence[int],
+    reused_token_indices: Mapping[str, Sequence[int]],
+) -> dict[str, tuple[int, ...]]:
+    num_reqs = len(req_ids)
+    if len(query_start_locations) != num_reqs + 1:
+        raise ValueError(
+            "query_start_locations must contain one boundary per request"
+        )
+    if len(num_computed_tokens) != num_reqs:
+        raise ValueError("num_computed_tokens must match req_ids")
+    if len(num_scheduled_tokens) != num_reqs:
+        raise ValueError("num_scheduled_tokens must match req_ids")
+
+    rows_by_request: dict[str, tuple[int, ...]] = {}
+    for index, req_id in enumerate(req_ids):
+        batch_start = int(query_start_locations[index])
+        batch_end = int(query_start_locations[index + 1])
+        scheduled_tokens = int(num_scheduled_tokens[index])
+        if batch_end - batch_start != scheduled_tokens:
+            raise ValueError("query boundaries disagree with scheduled token counts")
+
+        prompt_start = int(num_computed_tokens[index])
+        prompt_end = prompt_start + scheduled_tokens
+        prompt_indices = tuple(reused_token_indices.get(req_id, ()))
+        if prompt_indices != tuple(sorted(set(prompt_indices))):
+            raise ValueError("reused token indices must be sorted and unique")
+        if any(prompt_index < 0 for prompt_index in prompt_indices):
+            raise ValueError("reused token indices must be non-negative")
+
+        rows = tuple(
+            batch_start + prompt_index - prompt_start
+            for prompt_index in prompt_indices
+            if prompt_start <= prompt_index < prompt_end
+        )
+        if rows:
+            rows_by_request[req_id] = rows
+    return rows_by_request
 
 
 # Build a safe fallback that repairs every token in each affected target block.
