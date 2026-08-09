@@ -1,0 +1,45 @@
+CacheSelect native execution smoke experiment
+job_id=271757
+host=gpuvm36.doc.ic.ac.uk
+project_root=/homes/lmw25/DeltaCache
+project_commit=7b04478401803dfa5067236d794a150004520619
+model=Qwen/Qwen2.5-1.5B-Instruct
+vllm=/vol/bitbucket/lmw25/cacheselect-env/bin/vllm
+vllm_version=0.0.0+d6dbdb9b0
+NVIDIA A16, GPU-714ddbfa-e2f7-b374-49a0-806f1ad5214c, 15356 MiB, 595.71.05
+Starting fresh vLLM server: condition=native-apc
+vLLM is healthy: condition=native-apc pid=3042564
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/native-smoke-271757/rag-native-apc.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/native-smoke-271757/native-smoke-271757-native-apc.jsonl
+Completed condition: condition=native-apc result=/vol/bitbucket/lmw25/cacheselect-results/native-smoke-271757/rag-native-apc.json
+Starting fresh vLLM server: condition=cacheselect
+vLLM is healthy: condition=cacheselect pid=3044159
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/native-smoke-271757/rag-cacheselect.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/native-smoke-271757/native-smoke-271757-cacheselect.jsonl
+Completed condition: condition=cacheselect result=/vol/bitbucket/lmw25/cacheselect-results/native-smoke-271757/rag-cacheselect.json
+Starting fresh vLLM server: condition=cacheselect-copy
+vLLM is healthy: condition=cacheselect-copy pid=3044587
+Running rag-00...
+Running rag-01...
+Running rag-02...
+Running rag-03...
+Saved /vol/bitbucket/lmw25/cacheselect-results/native-smoke-271757/rag-cacheselect-copy.json
+Saved request ledger /vol/bitbucket/lmw25/cacheselect-request-logs/native-smoke-271757/native-smoke-271757-cacheselect-copy.jsonl
+Completed condition: condition=cacheselect-copy result=/vol/bitbucket/lmw25/cacheselect-results/native-smoke-271757/rag-cacheselect-copy.json
+rag-native-apc.json: cached_tokens=[0, 80, 32, 160] ttft_ms=[49.676038324832916, 37.08215616643429, 49.80705864727497, 25.62860120087862] runtime=[None, None, None, None]
+rag-cacheselect.json: cached_tokens=[0, 80, 32, 160] ttft_ms=[50.1397829502821, 36.851474083960056, 49.65551383793354, 25.525161065161228] runtime=[{'policy': 'FULL_RECOMPUTE', 'reason': 'no_native_prefix', 'native_cached_tokens': 0}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 80, 'partial_reuse_plan': {'transition_id': 'rag-00-to-01', 'source_request_id': 'rag-00', 'target_request_id': 'rag-01', 'block_size': 16, 'native_cached_tokens': 80, 'reason': 'no_aligned_candidates', 'candidates': [], 'candidate_block_count': 0, 'candidate_token_count': 0, 'resident_candidate_block_count': 0, 'resident_candidate_token_count': 0}}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 32, 'partial_reuse_plan': {'transition_id': 'rag-01-to-02', 'source_request_id': 'rag-01', 'target_request_id': 'rag-02', 'block_size': 16, 'native_cached_tokens': 32, 'reason': 'aligned_candidates', 'candidates': [{'source_block_index': 3, 'target_block_index': 5, 'source_resident': True, 'requires_repair': True, 'block_displacement': 2, 'nearest_changed_block_distance': 1}, {'source_block_index': 4, 'target_block_index': 6, 'source_resident': True, 'requires_repair': True, 'block_displacement': 2, 'nearest_changed_block_distance': 2}, {'source_block_index': 5, 'target_block_index': 7, 'source_resident': True, 'requires_repair': True, 'block_displacement': 2, 'nearest_changed_block_distance': 2}, {'source_block_index': 6, 'target_block_index': 8, 'source_resident': True, 'requires_repair': True, 'block_displacement': 2, 'nearest_changed_block_distance': 1}, {'source_block_index': 10, 'target_block_index': 10, 'source_resident': True, 'requires_repair': True, 'block_displacement': 0, 'nearest_changed_block_distance': 1}], 'candidate_block_count': 5, 'candidate_token_count': 80, 'resident_candidate_block_count': 5, 'resident_candidate_token_count': 80}}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 160, 'partial_reuse_plan': {'transition_id': 'rag-02-to-03', 'source_request_id': 'rag-02', 'target_request_id': 'rag-03', 'block_size': 16, 'native_cached_tokens': 160, 'reason': 'no_aligned_candidates', 'candidates': [], 'candidate_block_count': 0, 'candidate_token_count': 0, 'resident_candidate_block_count': 0, 'resident_candidate_token_count': 0}}]
+rag-cacheselect-copy.json: cached_tokens=[0, 80, 32, 160] ttft_ms=[50.06921011954546, 36.88767272979021, 57.13293235749006, 25.417200289666653] runtime=[{'policy': 'FULL_RECOMPUTE', 'reason': 'no_native_prefix', 'native_cached_tokens': 0}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 80, 'partial_reuse_plan': {'transition_id': 'rag-00-to-01', 'source_request_id': 'rag-00', 'target_request_id': 'rag-01', 'block_size': 16, 'native_cached_tokens': 80, 'reason': 'no_aligned_candidates', 'candidates': [], 'candidate_block_count': 0, 'candidate_token_count': 0, 'resident_candidate_block_count': 0, 'resident_candidate_token_count': 0}}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 32, 'partial_reuse_plan': {'transition_id': 'rag-01-to-02', 'source_request_id': 'rag-01', 'target_request_id': 'rag-02', 'block_size': 16, 'native_cached_tokens': 32, 'reason': 'aligned_candidates', 'candidates': [{'source_block_index': 3, 'target_block_index': 5, 'source_resident': True, 'requires_repair': True, 'block_displacement': 2, 'nearest_changed_block_distance': 1}, {'source_block_index': 4, 'target_block_index': 6, 'source_resident': True, 'requires_repair': True, 'block_displacement': 2, 'nearest_changed_block_distance': 2}, {'source_block_index': 5, 'target_block_index': 7, 'source_resident': True, 'requires_repair': True, 'block_displacement': 2, 'nearest_changed_block_distance': 2}, {'source_block_index': 6, 'target_block_index': 8, 'source_resident': True, 'requires_repair': True, 'block_displacement': 2, 'nearest_changed_block_distance': 1}, {'source_block_index': 10, 'target_block_index': 10, 'source_resident': True, 'requires_repair': True, 'block_displacement': 0, 'nearest_changed_block_distance': 1}], 'candidate_block_count': 5, 'candidate_token_count': 80, 'resident_candidate_block_count': 5, 'resident_candidate_token_count': 80}}, {'policy': 'VLLM_NATIVE_APC', 'reason': 'reusable_native_prefix', 'native_cached_tokens': 160, 'partial_reuse_plan': {'transition_id': 'rag-02-to-03', 'source_request_id': 'rag-02', 'target_request_id': 'rag-03', 'block_size': 16, 'native_cached_tokens': 160, 'reason': 'no_aligned_candidates', 'candidates': [], 'candidate_block_count': 0, 'candidate_token_count': 0, 'resident_candidate_block_count': 0, 'resident_candidate_token_count': 0}}]
+online_aligned_candidates=[0, 80, 0] resident_tokens=[0, 80, 0] mappings=[[], [(3, 5), (4, 6), (5, 7), (6, 8), (10, 10)], []]
+copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens
+CacheSelect native execution smoke completed successfully
+results=/vol/bitbucket/lmw25/cacheselect-results/native-smoke-271757
+request_logs=/vol/bitbucket/lmw25/cacheselect-request-logs/native-smoke-271757
+server_logs=/vol/bitbucket/lmw25/cacheselect-server-logs/native-smoke-271757
