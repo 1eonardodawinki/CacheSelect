@@ -52,6 +52,7 @@ def mock_model_runner_with_req_states():
     runner.resolved_partial_reuse_candidates = {}
     runner.partial_reuse_copy_instructions = {}
     runner.partial_reuse_repair_instructions = {}
+    runner.partial_reuse_reused_token_indices = {}
     runner.partial_reuse_repair_selector = FullBlockRepairSelector()
     runner.cacheselect_execute_partial_reuse = False
     runner.cache_config = SimpleNamespace(
@@ -178,6 +179,7 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert len(repair_instructions) == 1
     assert repair_instructions[0].target_block_id == 63
     assert repair_instructions[0].target_token_indices == (5,)
+    assert runner.partial_reuse_reused_token_indices[req_id] == ()
     metrics = runner.pending_cacheselect_repair_metrics[req_id]
     assert metrics.selector == "full_block"
     assert metrics.candidate_tokens == 1
@@ -194,6 +196,7 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert req_id not in runner.resolved_partial_reuse_candidates
     assert req_id not in runner.partial_reuse_copy_instructions
     assert req_id not in runner.partial_reuse_repair_instructions
+    assert req_id not in runner.partial_reuse_reused_token_indices
     assert req_id not in runner.pending_cacheselect_repair_metrics
 
 

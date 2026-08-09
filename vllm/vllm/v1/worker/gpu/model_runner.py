@@ -109,6 +109,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     ResolvedPartialReuseCandidate,
     build_kv_cache_block_copies,
     build_partial_reuse_copy_instructions,
+    build_reused_token_indices,
     create_repair_selector,
     record_copy_execution,
     resolve_target_block_ids,
@@ -161,6 +162,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.partial_reuse_repair_instructions: dict[
             str, tuple[PartialReuseRepairInstruction, ...]
         ] = {}
+        self.partial_reuse_reused_token_indices: dict[str, tuple[int, ...]] = {}
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -817,6 +819,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.resolved_partial_reuse_candidates.pop(req_id, None)
         self.partial_reuse_copy_instructions.pop(req_id, None)
         self.partial_reuse_repair_instructions.pop(req_id, None)
+        self.partial_reuse_reused_token_indices.pop(req_id, None)
         self.pending_cacheselect_repair_metrics.pop(req_id, None)
         # Call model_state.remove_request *before* req_states.remove_request
         # so the model_state can still look up the slot index.
@@ -884,6 +887,17 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 if resolved_candidates is not None and plan is not None
                 else None
             )
+            reused_token_indices = (
+                build_reused_token_indices(
+                    copy_instructions,
+                    repair_instructions,
+                    plan.block_size,
+                )
+                if copy_instructions is not None
+                and repair_instructions is not None
+                and plan is not None
+                else None
+            )
 
             prompt_len = len(new_req_data.prompt_token_ids)
             sampling_params = new_req_data.sampling_params
@@ -902,6 +916,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.partial_reuse_copy_instructions[req_id] = copy_instructions
                 assert repair_instructions is not None
                 self.partial_reuse_repair_instructions[req_id] = repair_instructions
+                assert reused_token_indices is not None
+                self.partial_reuse_reused_token_indices[req_id] = reused_token_indices
                 self.pending_cacheselect_repair_metrics[req_id] = (
                     summarize_repair_selection(
                         self.cache_config.cacheselect_repair_selector,

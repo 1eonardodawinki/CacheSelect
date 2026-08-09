@@ -139,6 +139,45 @@ def record_copy_execution(
     )
 
 
+# Select copied prompt-token positions that the repair policy leaves reusable.
+def build_reused_token_indices(
+    copy_instructions: Sequence[PartialReuseCopyInstruction],
+    repair_instructions: Sequence[PartialReuseRepairInstruction],
+    block_size: int,
+) -> tuple[int, ...]:
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
+
+    target_block_indices = [
+        instruction.target_block_index for instruction in copy_instructions
+    ]
+    if len(target_block_indices) != len(set(target_block_indices)):
+        raise ValueError("copy plan contains duplicate target blocks")
+
+    candidate_tokens = {
+        token_index
+        for block_index in target_block_indices
+        for token_index in range(
+            block_index * block_size,
+            (block_index + 1) * block_size,
+        )
+    }
+    repair_tokens: set[int] = set()
+    for instruction in repair_instructions:
+        if instruction.target_block_index not in target_block_indices:
+            raise ValueError("repair plan references a non-candidate block")
+        block_start = instruction.target_block_index * block_size
+        block_end = block_start + block_size
+        if any(
+            token_index < block_start or token_index >= block_end
+            for token_index in instruction.target_token_indices
+        ):
+            raise ValueError("repair token lies outside its target block")
+        repair_tokens.update(instruction.target_token_indices)
+
+    return tuple(sorted(candidate_tokens - repair_tokens))
+
+
 # Build a safe fallback that repairs every token in each affected target block.
 def build_full_block_repair_instructions(
     candidates: Sequence[ResolvedPartialReuseCandidate],

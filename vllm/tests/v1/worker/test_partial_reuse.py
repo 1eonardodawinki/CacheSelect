@@ -15,6 +15,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_full_block_repair_instructions,
     build_kv_cache_block_copies,
     build_partial_reuse_copy_instructions,
+    build_reused_token_indices,
     create_repair_selector,
     record_copy_execution,
     resolve_target_block_ids,
@@ -181,6 +182,14 @@ def test_edit_proximity_repair_selector() -> None:
         (10, 11),
         (14, 15),
     ]
+    copy_instructions = build_partial_reuse_copy_instructions(
+        (nearby_candidate, far_candidate, unknown_candidate)
+    )
+    assert build_reused_token_indices(
+        copy_instructions,
+        instructions,
+        block_size=2,
+    ) == (12, 13)
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.
