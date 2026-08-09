@@ -45,6 +45,14 @@ class PartialReuseRepairInstruction:
     target_token_indices: tuple[int, ...]
 
 
+@dataclass(frozen=True)
+class PartialReuseBatchDecision:
+    eligible: bool
+    reason: str
+    request_id: str | None = None
+    reused_batch_rows: tuple[int, ...] = ()
+
+
 class PartialReuseRepairSelector(Protocol):
     # Select target tokens that must be recomputed after block reuse.
     def select(
@@ -220,6 +228,56 @@ def map_reused_tokens_to_batch_rows(
         if rows:
             rows_by_request[req_id] = rows
     return rows_by_request
+
+
+# Decide whether one batch fits the deliberately narrow first execution scope.
+def assess_partial_reuse_batch(
+    *,
+    execution_enabled: bool,
+    req_ids: Sequence[str],
+    is_prefilling: Sequence[bool],
+    reused_batch_rows: Mapping[str, Sequence[int]],
+    single_gpu: bool,
+    supported_kv_layout: bool,
+    speculative_decoding: bool,
+    multimodal_model: bool,
+    encoder_decoder_model: bool,
+    pooling_model: bool,
+) -> PartialReuseBatchDecision:
+    if len(is_prefilling) != len(req_ids):
+        raise ValueError("is_prefilling must match req_ids")
+    if not execution_enabled:
+        return PartialReuseBatchDecision(False, "execution_disabled")
+    if not reused_batch_rows:
+        return PartialReuseBatchDecision(False, "no_reusable_rows")
+    if len(reused_batch_rows) != 1:
+        return PartialReuseBatchDecision(False, "multiple_reuse_requests")
+    if len(req_ids) != 1:
+        return PartialReuseBatchDecision(False, "batched_requests_unsupported")
+
+    request_id, rows = next(iter(reused_batch_rows.items()))
+    if request_id != req_ids[0]:
+        raise ValueError("reused rows reference a request outside the batch")
+    if not bool(is_prefilling[0]):
+        return PartialReuseBatchDecision(False, "non_prefill_request")
+    if not single_gpu:
+        return PartialReuseBatchDecision(False, "parallelism_unsupported")
+    if not supported_kv_layout:
+        return PartialReuseBatchDecision(False, "kv_layout_unsupported")
+    if speculative_decoding:
+        return PartialReuseBatchDecision(False, "speculative_decoding_unsupported")
+    if multimodal_model:
+        return PartialReuseBatchDecision(False, "multimodal_unsupported")
+    if encoder_decoder_model:
+        return PartialReuseBatchDecision(False, "encoder_decoder_unsupported")
+    if pooling_model:
+        return PartialReuseBatchDecision(False, "pooling_unsupported")
+    return PartialReuseBatchDecision(
+        True,
+        "eligible",
+        request_id=request_id,
+        reused_batch_rows=tuple(rows),
+    )
 
 
 # Build a safe fallback that repairs every token in each affected target block.

@@ -54,7 +54,7 @@ from vllm.utils.mem_utils import DeviceMemoryProfiler, format_gib
 from vllm.utils.torch_utils import PIN_MEMORY, STR_DTYPE_TO_TORCH_DTYPE
 from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 from vllm.v1.core.sched.output import GrammarOutput, SchedulerOutput
-from vllm.v1.kv_cache_interface import KVCacheConfig, MambaSpec
+from vllm.v1.kv_cache_interface import FullAttentionSpec, KVCacheConfig, MambaSpec
 from vllm.v1.outputs import DraftTokenIds, ModelRunnerOutput
 from vllm.v1.worker.cp_utils import check_attention_cp_compatibility
 from vllm.v1.worker.gpu import pcp_manager as pcp
@@ -103,10 +103,12 @@ from vllm.v1.worker.gpu.mm.encoder_cache import EncoderCache
 from vllm.v1.worker.gpu.mm.lora import set_active_mm_loras
 from vllm.v1.worker.gpu.model_states import init_model_state
 from vllm.v1.worker.gpu.partial_reuse import (
+    PartialReuseBatchDecision,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
     PartialReuseRepairSelector,
     ResolvedPartialReuseCandidate,
+    assess_partial_reuse_batch,
     build_kv_cache_block_copies,
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
@@ -165,6 +167,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         ] = {}
         self.partial_reuse_reused_token_indices: dict[str, tuple[int, ...]] = {}
         self.partial_reuse_reused_batch_rows: dict[str, tuple[int, ...]] = {}
+        self.partial_reuse_batch_decision = PartialReuseBatchDecision(
+            False, "not_evaluated"
+        )
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -1182,6 +1187,30 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             num_computed_tokens_np,
             num_scheduled_tokens,
             self.partial_reuse_reused_token_indices,
+        )
+        kv_groups = self.kv_cache_config.kv_cache_groups
+        supported_kv_layout = len(kv_groups) == 1 and isinstance(
+            kv_groups[0].kv_cache_spec,
+            FullAttentionSpec,
+        )
+        single_gpu = (
+            self.parallel_config.tensor_parallel_size == 1
+            and self.parallel_config.pipeline_parallel_size == 1
+            and self.parallel_config.data_parallel_size == 1
+            and self.parallel_config.decode_context_parallel_size == 1
+            and self.parallel_config.prefill_context_parallel_size == 1
+        )
+        self.partial_reuse_batch_decision = assess_partial_reuse_batch(
+            execution_enabled=self.cacheselect_execute_partial_reuse,
+            req_ids=req_ids,
+            is_prefilling=is_prefilling_np,
+            reused_batch_rows=self.partial_reuse_reused_batch_rows,
+            single_gpu=single_gpu,
+            supported_kv_layout=supported_kv_layout,
+            speculative_decoding=self.speculative_config is not None,
+            multimodal_model=self.supports_mm_inputs,
+            encoder_decoder_model=self.is_encoder_decoder,
+            pooling_model=self.is_pooling_model,
         )
         seq_lens_cpu_upper_bound_np = np.zeros(num_reqs_padded, dtype=np.int32)
         np.add(

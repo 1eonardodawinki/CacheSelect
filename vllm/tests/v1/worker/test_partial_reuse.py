@@ -9,9 +9,11 @@ import pytest
 from vllm.v1.worker.gpu.partial_reuse import (
     EditProximityRepairSelector,
     FullBlockRepairSelector,
+    PartialReuseBatchDecision,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
     ResolvedPartialReuseCandidate,
+    assess_partial_reuse_batch,
     build_full_block_repair_instructions,
     build_kv_cache_block_copies,
     build_partial_reuse_copy_instructions,
@@ -206,6 +208,50 @@ def test_map_reused_tokens_to_batch_rows() -> None:
     )
 
     assert rows == {"rag": tuple(range(68, 100))}
+
+
+# Check that the narrow first execution scope accepts a simple prefill batch.
+def test_assess_partial_reuse_batch_accepts_supported_prefill() -> None:
+    decision = assess_partial_reuse_batch(
+        execution_enabled=True,
+        req_ids=("rag",),
+        is_prefilling=(True,),
+        reused_batch_rows={"rag": tuple(range(64, 96))},
+        single_gpu=True,
+        supported_kv_layout=True,
+        speculative_decoding=False,
+        multimodal_model=False,
+        encoder_decoder_model=False,
+        pooling_model=False,
+    )
+
+    assert decision == PartialReuseBatchDecision(
+        True,
+        "eligible",
+        request_id="rag",
+        reused_batch_rows=tuple(range(64, 96)),
+    )
+
+
+# Check that an otherwise valid reuse plan falls back for a mixed request batch.
+def test_assess_partial_reuse_batch_rejects_batched_requests() -> None:
+    decision = assess_partial_reuse_batch(
+        execution_enabled=True,
+        req_ids=("decode", "rag"),
+        is_prefilling=(False, True),
+        reused_batch_rows={"rag": tuple(range(64, 96))},
+        single_gpu=True,
+        supported_kv_layout=True,
+        speculative_decoding=False,
+        multimodal_model=False,
+        encoder_decoder_model=False,
+        pooling_model=False,
+    )
+
+    assert decision == PartialReuseBatchDecision(
+        False,
+        "batched_requests_unsupported",
+    )
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.
