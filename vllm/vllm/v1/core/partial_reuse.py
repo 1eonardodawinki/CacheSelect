@@ -116,6 +116,9 @@ class CacheSelectRepairMetrics:
     skipped_repair_tokens: int
     copied_blocks: int = 0
     copied_tokens: int = 0
+    execution_eligible: bool = False
+    execution_reason: str = "not_evaluated"
+    reused_batch_rows: int = 0
 
 
 class AlignedBlockReuseLocator:

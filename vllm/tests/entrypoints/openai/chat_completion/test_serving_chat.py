@@ -718,6 +718,9 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
         cacheselect_skipped_repair_tokens=32,
         cacheselect_copied_blocks=3,
         cacheselect_copied_tokens=48,
+        cacheselect_execution_eligible=True,
+        cacheselect_execution_reason="eligible",
+        cacheselect_reused_batch_rows=32,
     )
 
     metrics = build_per_request_timing_metrics(request_stats, num_generation_tokens=1)
@@ -732,6 +735,9 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
     assert metrics.cacheselect_skipped_repair_tokens == 32
     assert metrics.cacheselect_copied_blocks == 3
     assert metrics.cacheselect_copied_tokens == 48
+    assert metrics.cacheselect_execution_eligible
+    assert metrics.cacheselect_execution_reason == "eligible"
+    assert metrics.cacheselect_reused_batch_rows == 32
 
 
 @pytest.mark.asyncio

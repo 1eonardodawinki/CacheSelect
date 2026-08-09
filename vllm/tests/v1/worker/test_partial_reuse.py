@@ -20,6 +20,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_reused_token_indices,
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
+    record_batch_execution_decision,
     record_copy_execution,
     resolve_target_block_ids,
     summarize_repair_selection,
@@ -251,6 +252,8 @@ def test_assess_partial_reuse_batch_rejects_batched_requests() -> None:
     assert decision == PartialReuseBatchDecision(
         False,
         "batched_requests_unsupported",
+        request_id="rag",
+        reused_batch_rows=tuple(range(64, 96)),
     )
 
 
@@ -304,7 +307,20 @@ def test_summarize_repair_selection() -> None:
     assert metrics.skipped_repair_tokens == 2
     assert metrics.copied_blocks == 0
     assert metrics.copied_tokens == 0
+    assert not metrics.execution_eligible
+    assert metrics.execution_reason == "not_evaluated"
+    assert metrics.reused_batch_rows == 0
 
     executed_metrics = record_copy_execution(metrics, copied_blocks=1, block_size=4)
     assert executed_metrics.copied_blocks == 1
     assert executed_metrics.copied_tokens == 4
+
+    eligible_metrics = record_batch_execution_decision(
+        executed_metrics,
+        eligible=True,
+        reason="eligible",
+        reused_batch_rows=2,
+    )
+    assert eligible_metrics.execution_eligible
+    assert eligible_metrics.execution_reason == "eligible"
+    assert eligible_metrics.reused_batch_rows == 2

@@ -1743,6 +1743,15 @@ class Scheduler(SchedulerInterface):
                 request.prefill_stats.cacheselect_copied_tokens = (
                     repair_metrics.copied_tokens
                 )
+                request.prefill_stats.cacheselect_execution_eligible = (
+                    repair_metrics.execution_eligible
+                )
+                request.prefill_stats.cacheselect_execution_reason = (
+                    repair_metrics.execution_reason
+                )
+                request.prefill_stats.cacheselect_reused_batch_rows = (
+                    repair_metrics.reused_batch_rows
+                )
 
             req_index = model_runner_output.req_id_to_index[req_id]
             generated_token_ids = (

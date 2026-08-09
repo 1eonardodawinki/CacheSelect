@@ -675,6 +675,15 @@ class OutputProcessor:
                         req_state.stats.cacheselect_copied_tokens = (
                             prefill_stats.cacheselect_copied_tokens
                         )
+                        req_state.stats.cacheselect_execution_eligible = (
+                            prefill_stats.cacheselect_execution_eligible
+                        )
+                        req_state.stats.cacheselect_execution_reason = (
+                            prefill_stats.cacheselect_execution_reason
+                        )
+                        req_state.stats.cacheselect_reused_batch_rows = (
+                            prefill_stats.cacheselect_reused_batch_rows
+                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:

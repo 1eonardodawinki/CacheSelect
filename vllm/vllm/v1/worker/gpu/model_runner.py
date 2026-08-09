@@ -114,6 +114,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_reused_token_indices,
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
+    record_batch_execution_decision,
     record_copy_execution,
     resolve_target_block_ids,
     summarize_repair_selection,
@@ -1212,6 +1213,24 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             encoder_decoder_model=self.is_encoder_decoder,
             pooling_model=self.is_pooling_model,
         )
+        for req_id in req_ids:
+            metrics = self.pending_cacheselect_repair_metrics.get(req_id)
+            if metrics is None:
+                continue
+            decision = self.partial_reuse_batch_decision
+            decision_applies = decision.request_id in (None, req_id)
+            self.pending_cacheselect_repair_metrics[req_id] = (
+                record_batch_execution_decision(
+                    metrics,
+                    eligible=decision.eligible and decision.request_id == req_id,
+                    reason=(
+                        decision.reason if decision_applies else "request_not_selected"
+                    ),
+                    reused_batch_rows=len(
+                        self.partial_reuse_reused_batch_rows.get(req_id, ())
+                    ),
+                )
+            )
         seq_lens_cpu_upper_bound_np = np.zeros(num_reqs_padded, dtype=np.int32)
         np.add(
             num_computed_tokens_np,

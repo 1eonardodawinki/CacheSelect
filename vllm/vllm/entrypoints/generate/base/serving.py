@@ -108,6 +108,9 @@ def build_per_request_timing_metrics(
         ),
         cacheselect_copied_blocks=metrics.cacheselect_copied_blocks,
         cacheselect_copied_tokens=metrics.cacheselect_copied_tokens,
+        cacheselect_execution_eligible=metrics.cacheselect_execution_eligible,
+        cacheselect_execution_reason=metrics.cacheselect_execution_reason,
+        cacheselect_reused_batch_rows=metrics.cacheselect_reused_batch_rows,
     )
 
 

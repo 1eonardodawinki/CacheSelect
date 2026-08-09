@@ -246,6 +246,9 @@ class RequestStateStats:
     cacheselect_skipped_repair_tokens: int | None = None
     cacheselect_copied_blocks: int | None = None
     cacheselect_copied_tokens: int | None = None
+    cacheselect_execution_eligible: bool | None = None
+    cacheselect_execution_reason: str | None = None
+    cacheselect_reused_batch_rows: int | None = None
 
 
 @dataclass
@@ -288,6 +291,9 @@ class PrefillStats:
         cacheselect_skipped_repair_tokens: Repair-required tokens left unrepaired.
         cacheselect_copied_blocks: Candidate KV blocks physically copied.
         cacheselect_copied_tokens: Tokens represented by physically copied blocks.
+        cacheselect_execution_eligible: Whether this batch passed the safety gate.
+        cacheselect_execution_reason: Safety-gate decision or fallback reason.
+        cacheselect_reused_batch_rows: Reusable rows located in the current batch.
     """
 
     num_prompt_tokens: int = 0
@@ -306,6 +312,9 @@ class PrefillStats:
     cacheselect_skipped_repair_tokens: int | None = None
     cacheselect_copied_blocks: int | None = None
     cacheselect_copied_tokens: int | None = None
+    cacheselect_execution_eligible: bool | None = None
+    cacheselect_execution_reason: str | None = None
+    cacheselect_reused_batch_rows: int | None = None
 
     def set(
         self,

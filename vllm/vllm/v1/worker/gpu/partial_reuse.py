@@ -147,6 +147,26 @@ def record_copy_execution(
     )
 
 
+# Record one advisory batch decision in request-level worker metrics.
+def record_batch_execution_decision(
+    metrics: CacheSelectRepairMetrics,
+    *,
+    eligible: bool,
+    reason: str,
+    reused_batch_rows: int,
+) -> CacheSelectRepairMetrics:
+    if reused_batch_rows < 0:
+        raise ValueError("reused_batch_rows must be non-negative")
+    if eligible and reused_batch_rows == 0:
+        raise ValueError("eligible execution requires reusable batch rows")
+    return replace(
+        metrics,
+        execution_eligible=eligible,
+        execution_reason=reason,
+        reused_batch_rows=reused_batch_rows,
+    )
+
+
 # Select copied prompt-token positions that the repair policy leaves reusable.
 def build_reused_token_indices(
     copy_instructions: Sequence[PartialReuseCopyInstruction],
@@ -246,37 +266,79 @@ def assess_partial_reuse_batch(
 ) -> PartialReuseBatchDecision:
     if len(is_prefilling) != len(req_ids):
         raise ValueError("is_prefilling must match req_ids")
-    if not execution_enabled:
-        return PartialReuseBatchDecision(False, "execution_disabled")
     if not reused_batch_rows:
-        return PartialReuseBatchDecision(False, "no_reusable_rows")
+        reason = "execution_disabled" if not execution_enabled else "no_reusable_rows"
+        return PartialReuseBatchDecision(False, reason)
     if len(reused_batch_rows) != 1:
         return PartialReuseBatchDecision(False, "multiple_reuse_requests")
-    if len(req_ids) != 1:
-        return PartialReuseBatchDecision(False, "batched_requests_unsupported")
 
     request_id, rows = next(iter(reused_batch_rows.items()))
-    if request_id != req_ids[0]:
+    decision_details = {
+        "request_id": request_id,
+        "reused_batch_rows": tuple(rows),
+    }
+    if request_id not in req_ids:
         raise ValueError("reused rows reference a request outside the batch")
+    if not execution_enabled:
+        return PartialReuseBatchDecision(
+            False,
+            "execution_disabled",
+            **decision_details,
+        )
+    if len(req_ids) != 1:
+        return PartialReuseBatchDecision(
+            False,
+            "batched_requests_unsupported",
+            **decision_details,
+        )
+    if not rows:
+        raise ValueError("reused batch row selection cannot be empty")
     if not bool(is_prefilling[0]):
-        return PartialReuseBatchDecision(False, "non_prefill_request")
+        return PartialReuseBatchDecision(
+            False,
+            "non_prefill_request",
+            **decision_details,
+        )
     if not single_gpu:
-        return PartialReuseBatchDecision(False, "parallelism_unsupported")
+        return PartialReuseBatchDecision(
+            False,
+            "parallelism_unsupported",
+            **decision_details,
+        )
     if not supported_kv_layout:
-        return PartialReuseBatchDecision(False, "kv_layout_unsupported")
+        return PartialReuseBatchDecision(
+            False,
+            "kv_layout_unsupported",
+            **decision_details,
+        )
     if speculative_decoding:
-        return PartialReuseBatchDecision(False, "speculative_decoding_unsupported")
+        return PartialReuseBatchDecision(
+            False,
+            "speculative_decoding_unsupported",
+            **decision_details,
+        )
     if multimodal_model:
-        return PartialReuseBatchDecision(False, "multimodal_unsupported")
+        return PartialReuseBatchDecision(
+            False,
+            "multimodal_unsupported",
+            **decision_details,
+        )
     if encoder_decoder_model:
-        return PartialReuseBatchDecision(False, "encoder_decoder_unsupported")
+        return PartialReuseBatchDecision(
+            False,
+            "encoder_decoder_unsupported",
+            **decision_details,
+        )
     if pooling_model:
-        return PartialReuseBatchDecision(False, "pooling_unsupported")
+        return PartialReuseBatchDecision(
+            False,
+            "pooling_unsupported",
+            **decision_details,
+        )
     return PartialReuseBatchDecision(
         True,
         "eligible",
-        request_id=request_id,
-        reused_batch_rows=tuple(rows),
+        **decision_details,
     )
 
 

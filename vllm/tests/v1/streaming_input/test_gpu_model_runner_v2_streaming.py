@@ -188,6 +188,9 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert metrics.skipped_repair_tokens == 0
     assert metrics.copied_blocks == 0
     assert metrics.copied_tokens == 0
+    assert not metrics.execution_eligible
+    assert metrics.execution_reason == "not_evaluated"
+    assert metrics.reused_batch_rows == 0
     emitted_metrics = runner._take_cacheselect_repair_metrics([req_id])
     assert emitted_metrics == {req_id: metrics}
     assert req_id not in runner.pending_cacheselect_repair_metrics
