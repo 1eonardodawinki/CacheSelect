@@ -249,6 +249,7 @@ class RequestStateStats:
     cacheselect_execution_eligible: bool | None = None
     cacheselect_execution_reason: str | None = None
     cacheselect_reused_batch_rows: int | None = None
+    cacheselect_compute_batch_rows: int | None = None
 
 
 @dataclass
@@ -294,6 +295,7 @@ class PrefillStats:
         cacheselect_execution_eligible: Whether this batch passed the safety gate.
         cacheselect_execution_reason: Safety-gate decision or fallback reason.
         cacheselect_reused_batch_rows: Reusable rows located in the current batch.
+        cacheselect_compute_batch_rows: Rows retained for model computation.
     """
 
     num_prompt_tokens: int = 0
@@ -315,6 +317,7 @@ class PrefillStats:
     cacheselect_execution_eligible: bool | None = None
     cacheselect_execution_reason: str | None = None
     cacheselect_reused_batch_rows: int | None = None
+    cacheselect_compute_batch_rows: int | None = None
 
     def set(
         self,

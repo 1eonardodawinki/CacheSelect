@@ -684,6 +684,9 @@ class OutputProcessor:
                         req_state.stats.cacheselect_reused_batch_rows = (
                             prefill_stats.cacheselect_reused_batch_rows
                         )
+                        req_state.stats.cacheselect_compute_batch_rows = (
+                            prefill_stats.cacheselect_compute_batch_rows
+                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:

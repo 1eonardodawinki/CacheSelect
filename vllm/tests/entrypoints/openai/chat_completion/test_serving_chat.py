@@ -721,6 +721,7 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
         cacheselect_execution_eligible=True,
         cacheselect_execution_reason="eligible",
         cacheselect_reused_batch_rows=32,
+        cacheselect_compute_batch_rows=112,
     )
 
     metrics = build_per_request_timing_metrics(request_stats, num_generation_tokens=1)
@@ -738,6 +739,7 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
     assert metrics.cacheselect_execution_eligible
     assert metrics.cacheselect_execution_reason == "eligible"
     assert metrics.cacheselect_reused_batch_rows == 32
+    assert metrics.cacheselect_compute_batch_rows == 112
 
 
 @pytest.mark.asyncio

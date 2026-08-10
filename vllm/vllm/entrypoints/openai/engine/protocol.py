@@ -138,6 +138,7 @@ class PerRequestTimingMetrics(OpenAIBaseModel):
     cacheselect_execution_eligible: bool | None = None
     cacheselect_execution_reason: str | None = None
     cacheselect_reused_batch_rows: int | None = None
+    cacheselect_compute_batch_rows: int | None = None
 
 
 class RequestResponseMetadata(BaseModel):
