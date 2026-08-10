@@ -28,6 +28,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
+    record_compacted_batch_construction,
     record_copy_execution,
     resolve_target_block_ids,
     summarize_repair_selection,
@@ -418,6 +419,8 @@ def test_summarize_repair_selection() -> None:
     assert metrics.execution_reason == "not_evaluated"
     assert metrics.reused_batch_rows == 0
     assert metrics.compute_batch_rows == 0
+    assert not metrics.compacted_batch_built
+    assert not metrics.compacted_batch_executed
 
     executed_metrics = record_copy_execution(metrics, copied_blocks=1, block_size=4)
     assert executed_metrics.copied_blocks == 1
@@ -434,3 +437,12 @@ def test_summarize_repair_selection() -> None:
     assert eligible_metrics.execution_reason == "eligible"
     assert eligible_metrics.reused_batch_rows == 2
     assert eligible_metrics.compute_batch_rows == 2
+    assert not eligible_metrics.compacted_batch_built
+    assert not eligible_metrics.compacted_batch_executed
+
+    compacted_metrics = record_compacted_batch_construction(
+        eligible_metrics,
+        compacted_rows=2,
+    )
+    assert compacted_metrics.compacted_batch_built
+    assert not compacted_metrics.compacted_batch_executed

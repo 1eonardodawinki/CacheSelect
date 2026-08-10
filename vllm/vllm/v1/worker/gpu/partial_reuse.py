@@ -185,6 +185,18 @@ def record_batch_execution_decision(
     )
 
 
+# Record successful construction of the advisory compact model batch.
+def record_compacted_batch_construction(
+    metrics: CacheSelectRepairMetrics,
+    compacted_rows: int,
+) -> CacheSelectRepairMetrics:
+    if compacted_rows < 1:
+        raise ValueError("compacted batch must contain at least one row")
+    if compacted_rows != metrics.compute_batch_rows:
+        raise ValueError("compacted rows must match selected compute rows")
+    return replace(metrics, compacted_batch_built=True)
+
+
 # Select copied prompt-token positions that the repair policy leaves reusable.
 def build_reused_token_indices(
     copy_instructions: Sequence[PartialReuseCopyInstruction],

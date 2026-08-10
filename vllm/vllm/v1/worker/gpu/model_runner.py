@@ -118,6 +118,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
+    record_compacted_batch_construction,
     record_copy_execution,
     resolve_target_block_ids,
     summarize_repair_selection,
@@ -1344,6 +1345,18 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 : input_batch.num_reqs + 1
             ],
             compute_rows=self.partial_reuse_compute_rows,
+        )
+        request_id = self.partial_reuse_batch_decision.request_id
+        if request_id is None:
+            raise ValueError("eligible compact batch requires a request ID")
+        metrics = self.pending_cacheselect_repair_metrics.get(request_id)
+        if metrics is None:
+            raise ValueError("eligible compact batch requires request metrics")
+        self.pending_cacheselect_repair_metrics[request_id] = (
+            record_compacted_batch_construction(
+                metrics,
+                compacted_rows=len(self.partial_reuse_compute_rows),
+            )
         )
 
     def prepare_dummy_attn(

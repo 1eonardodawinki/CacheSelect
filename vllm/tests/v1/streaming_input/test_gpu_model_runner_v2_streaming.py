@@ -110,6 +110,18 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
         ),
         partial_reuse_compute_rows=(0, 1, 4, 5),
         partial_reuse_compacted_batch=None,
+        pending_cacheselect_repair_metrics={
+            "rag": CacheSelectRepairMetrics(
+                selector="edit_proximity",
+                candidate_tokens=6,
+                repair_tokens=2,
+                skipped_repair_tokens=4,
+                execution_eligible=True,
+                execution_reason="eligible",
+                reused_batch_rows=2,
+                compute_batch_rows=4,
+            )
+        },
     )
     input_batch = SimpleNamespace(
         num_tokens=6,
@@ -131,6 +143,9 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
     assert compacted.positions.tolist() == [20, 21, 24, 25]
     assert compacted.slot_mappings.tolist() == [[100, 101, 104, 105]]
     assert compacted.query_start_locations == (0, 4)
+    metrics = runner.pending_cacheselect_repair_metrics["rag"]
+    assert metrics.compacted_batch_built
+    assert not metrics.compacted_batch_executed
 
     runner.partial_reuse_batch_decision = PartialReuseBatchDecision(
         False,
