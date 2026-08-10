@@ -9,6 +9,8 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
 
+import torch
+
 if TYPE_CHECKING:
     from vllm.config.cache import CacheSelectRepairSelector
     from vllm.v1.core.partial_reuse import PartialReusePlan
@@ -371,6 +373,39 @@ def build_partial_reuse_compute_rows(
     if not compute_rows:
         raise ValueError("partial reuse must retain at least one compute row")
     return compute_rows
+
+
+# Select token IDs and absolute positions for the rows that still need compute.
+def compact_partial_reuse_model_inputs(
+    input_ids: torch.Tensor,
+    positions: torch.Tensor,
+    compute_rows: Sequence[int],
+) -> tuple[torch.Tensor, torch.Tensor]:
+    if input_ids.ndim != 1 or positions.ndim != 1:
+        raise ValueError("partial reuse model inputs must be one-dimensional")
+    if input_ids.numel() != positions.numel():
+        raise ValueError("input IDs and positions must contain the same rows")
+    if input_ids.device != positions.device:
+        raise ValueError("input IDs and positions must use the same device")
+
+    selected_rows = tuple(compute_rows)
+    if not selected_rows:
+        raise ValueError("partial reuse must retain at least one compute row")
+    if selected_rows != tuple(sorted(set(selected_rows))):
+        raise ValueError("compute rows must be sorted and unique")
+    if any(row < 0 or row >= input_ids.numel() for row in selected_rows):
+        raise ValueError("compute row is outside the model input")
+
+    # index_select preserves the supplied absolute positions after row packing.
+    row_indices = torch.tensor(
+        selected_rows,
+        dtype=torch.long,
+        device=input_ids.device,
+    )
+    return (
+        input_ids.index_select(0, row_indices),
+        positions.index_select(0, row_indices),
+    )
 
 
 # Build a safe fallback that repairs every token in each affected target block.

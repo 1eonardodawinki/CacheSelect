@@ -5,6 +5,7 @@ from dataclasses import replace
 from types import SimpleNamespace
 
 import pytest
+import torch
 
 from vllm.v1.worker.gpu.partial_reuse import (
     EditProximityRepairSelector,
@@ -19,6 +20,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_compute_rows,
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
+    compact_partial_reuse_model_inputs,
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
@@ -290,6 +292,23 @@ def test_build_partial_reuse_compute_rows_rejects_invalid_rows() -> None:
 
     with pytest.raises(ValueError, match="outside the input batch"):
         build_partial_reuse_compute_rows(decision, num_tokens=4)
+
+
+# Check that compaction keeps matching token IDs and absolute positions.
+def test_compact_partial_reuse_model_inputs() -> None:
+    input_ids = torch.tensor([10, 11, 12, 13, 14, 15])
+    positions = torch.tensor([20, 21, 22, 23, 24, 25])
+
+    compacted_ids, compacted_positions = compact_partial_reuse_model_inputs(
+        input_ids,
+        positions,
+        compute_rows=(0, 1, 4, 5),
+    )
+
+    assert compacted_ids.tolist() == [10, 11, 14, 15]
+    assert compacted_positions.tolist() == [20, 21, 24, 25]
+    assert input_ids.tolist() == [10, 11, 12, 13, 14, 15]
+    assert positions.tolist() == [20, 21, 22, 23, 24, 25]
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.
