@@ -334,25 +334,31 @@ for path, (metrics, expected_blocks, expected_tokens) in expected_copy_counts.it
 
 # Shadow mode must locate the same rows while keeping execution disabled.
 expected_execution_decisions = {
-    cacheselect_path: (shadow_metrics, False, "execution_disabled", 32, 144),
-    copy_path: (copy_metrics, True, "eligible", 32, 112),
+    cacheselect_path: (
+        shadow_metrics,
+        {
+            "cacheselect_execution_eligible": False,
+            "cacheselect_execution_reason": "execution_disabled",
+            "cacheselect_reused_batch_rows": 32,
+            "cacheselect_compute_batch_rows": 144,
+            "cacheselect_compacted_batch_built": False,
+            "cacheselect_compacted_batch_executed": False,
+        },
+    ),
+    copy_path: (
+        copy_metrics,
+        {
+            "cacheselect_execution_eligible": True,
+            "cacheselect_execution_reason": "eligible",
+            "cacheselect_reused_batch_rows": 32,
+            "cacheselect_compute_batch_rows": 112,
+            "cacheselect_compacted_batch_built": True,
+            "cacheselect_compacted_batch_executed": False,
+        },
+    ),
 }
-for path, expected_decision in expected_execution_decisions.items():
-    metrics, expected_eligible, expected_reason, expected_reused, expected_compute = (
-        expected_decision
-    )
-    actual = (
-        metrics.get("cacheselect_execution_eligible"),
-        metrics.get("cacheselect_execution_reason"),
-        metrics.get("cacheselect_reused_batch_rows"),
-        metrics.get("cacheselect_compute_batch_rows"),
-    )
-    expected = (
-        expected_eligible,
-        expected_reason,
-        expected_reused,
-        expected_compute,
-    )
+for path, (metrics, expected) in expected_execution_decisions.items():
+    actual = {name: metrics.get(name) for name in expected}
     if actual != expected:
         raise SystemExit(
             f"{path}: expected execution decision {expected}, got {actual}"
@@ -387,6 +393,7 @@ print(
     "execution_gate=shadow:144_compute/32_candidate_reuse "
     "enabled:112_compute/32_reused"
 )
+print("compact_batch=shadow:not_built enabled:built_not_executed")
 print("copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens")
 PY
 
