@@ -342,6 +342,31 @@ def assess_partial_reuse_batch(
     )
 
 
+# Select flattened batch rows that still require model computation.
+def build_partial_reuse_compute_rows(
+    decision: PartialReuseBatchDecision,
+    num_tokens: int,
+) -> tuple[int, ...]:
+    if num_tokens < 0:
+        raise ValueError("num_tokens must be non-negative")
+
+    all_rows = tuple(range(num_tokens))
+    if not decision.eligible:
+        return all_rows
+
+    reused_rows = decision.reused_batch_rows
+    if reused_rows != tuple(sorted(set(reused_rows))):
+        raise ValueError("reused batch rows must be sorted and unique")
+    if any(row < 0 or row >= num_tokens for row in reused_rows):
+        raise ValueError("reused batch row is outside the input batch")
+
+    reused_row_set = set(reused_rows)
+    compute_rows = tuple(row for row in all_rows if row not in reused_row_set)
+    if not compute_rows:
+        raise ValueError("partial reuse must retain at least one compute row")
+    return compute_rows
+
+
 # Build a safe fallback that repairs every token in each affected target block.
 def build_full_block_repair_instructions(
     candidates: Sequence[ResolvedPartialReuseCandidate],

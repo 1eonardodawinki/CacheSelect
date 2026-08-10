@@ -16,6 +16,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     assess_partial_reuse_batch,
     build_full_block_repair_instructions,
     build_kv_cache_block_copies,
+    build_partial_reuse_compute_rows,
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
     create_repair_selector,
@@ -255,6 +256,40 @@ def test_assess_partial_reuse_batch_rejects_batched_requests() -> None:
         request_id="rag",
         reused_batch_rows=tuple(range(64, 96)),
     )
+
+
+# Check that eligible reused rows are omitted from the future compute batch.
+def test_build_partial_reuse_compute_rows_omits_reused_rows() -> None:
+    decision = PartialReuseBatchDecision(
+        True,
+        "eligible",
+        request_id="rag",
+        reused_batch_rows=tuple(range(64, 96)),
+    )
+
+    compute_rows = build_partial_reuse_compute_rows(decision, num_tokens=144)
+
+    assert compute_rows == (*range(64), *range(96, 144))
+
+
+# Check that a fallback decision leaves the full input batch unchanged.
+def test_build_partial_reuse_compute_rows_preserves_fallback_batch() -> None:
+    decision = PartialReuseBatchDecision(False, "execution_disabled")
+
+    assert build_partial_reuse_compute_rows(decision, num_tokens=4) == (0, 1, 2, 3)
+
+
+# Check that an eligible decision cannot reference rows outside its input batch.
+def test_build_partial_reuse_compute_rows_rejects_invalid_rows() -> None:
+    decision = PartialReuseBatchDecision(
+        True,
+        "eligible",
+        request_id="rag",
+        reused_batch_rows=(2, 4),
+    )
+
+    with pytest.raises(ValueError, match="outside the input batch"):
+        build_partial_reuse_compute_rows(decision, num_tokens=4)
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.
