@@ -56,6 +56,7 @@ def mock_model_runner_with_req_states():
     runner.partial_reuse_reused_token_indices = {}
     runner.partial_reuse_reused_batch_rows = {}
     runner.partial_reuse_compute_rows = ()
+    runner.partial_reuse_compacted_batch = None
     runner.partial_reuse_repair_selector = FullBlockRepairSelector()
     runner.cacheselect_execute_partial_reuse = False
     runner.cache_config = SimpleNamespace(
@@ -96,6 +97,51 @@ def test_cacheselect_compute_rows_follow_execution_decision() -> None:
     )
     GPUModelRunner._record_cacheselect_compute_rows(runner, num_tokens=6)
     assert runner.partial_reuse_compute_rows == tuple(range(6))
+
+
+# Check that the runner retains a compact plan only for eligible execution.
+def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
+    runner = SimpleNamespace(
+        partial_reuse_batch_decision=PartialReuseBatchDecision(
+            True,
+            "eligible",
+            request_id="rag",
+            reused_batch_rows=(2, 3),
+        ),
+        partial_reuse_compute_rows=(0, 1, 4, 5),
+        partial_reuse_compacted_batch=None,
+    )
+    input_batch = SimpleNamespace(
+        num_tokens=6,
+        num_reqs=1,
+        input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
+        positions=torch.tensor([20, 21, 22, 23, 24, 25]),
+        query_start_loc_np=(0, 6),
+    )
+    slot_mappings = torch.tensor([[100, 101, 102, 103, 104, 105]])
+
+    GPUModelRunner._record_cacheselect_compacted_batch(
+        runner,
+        input_batch,
+        slot_mappings,
+    )
+    compacted = runner.partial_reuse_compacted_batch
+    assert compacted is not None
+    assert compacted.input_ids.tolist() == [10, 11, 14, 15]
+    assert compacted.positions.tolist() == [20, 21, 24, 25]
+    assert compacted.slot_mappings.tolist() == [[100, 101, 104, 105]]
+    assert compacted.query_start_locations == (0, 4)
+
+    runner.partial_reuse_batch_decision = PartialReuseBatchDecision(
+        False,
+        "execution_disabled",
+    )
+    GPUModelRunner._record_cacheselect_compacted_batch(
+        runner,
+        input_batch,
+        slot_mappings,
+    )
+    assert runner.partial_reuse_compacted_batch is None
 
 
 # Check that only the explicit execution switch allows physical KV copies.

@@ -104,12 +104,14 @@ from vllm.v1.worker.gpu.mm.lora import set_active_mm_loras
 from vllm.v1.worker.gpu.model_states import init_model_state
 from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseBatchDecision,
+    PartialReuseCompactedBatch,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
     PartialReuseRepairSelector,
     ResolvedPartialReuseCandidate,
     assess_partial_reuse_batch,
     build_kv_cache_block_copies,
+    build_partial_reuse_compacted_batch,
     build_partial_reuse_compute_rows,
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
@@ -173,6 +175,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             False, "not_evaluated"
         )
         self.partial_reuse_compute_rows: tuple[int, ...] = ()
+        self.partial_reuse_compacted_batch: PartialReuseCompactedBatch | None = None
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -1298,9 +1301,11 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         )
         return pcp.maybe_partition_pcp_batch(self.pcp_manager, input_batch)
 
+    # Build an advisory compact batch while preserving original attention inputs.
     def prepare_attn(
         self, input_batch: InputBatch
     ) -> tuple[tuple[torch.Tensor, ...], torch.Tensor]:
+        self.partial_reuse_compacted_batch = None
         if self.pcp_manager is not None:
             return self.pcp_manager.prepare_attn(input_batch)
 
@@ -1317,7 +1322,29 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             input_batch.positions,
             num_tokens_padded=input_batch.num_tokens_after_padding,
         )
+        self._record_cacheselect_compacted_batch(input_batch, slot_mappings)
         return block_tables, slot_mappings
+
+    # Store compacted inputs only when the execution safety gate passed.
+    def _record_cacheselect_compacted_batch(
+        self,
+        input_batch: InputBatch,
+        slot_mappings: torch.Tensor,
+    ) -> None:
+        self.partial_reuse_compacted_batch = None
+        if not self.partial_reuse_batch_decision.eligible:
+            return
+
+        num_tokens = input_batch.num_tokens
+        self.partial_reuse_compacted_batch = build_partial_reuse_compacted_batch(
+            input_ids=input_batch.input_ids[:num_tokens],
+            positions=input_batch.positions[:num_tokens],
+            slot_mappings=slot_mappings[:, :num_tokens],
+            query_start_locations=input_batch.query_start_loc_np[
+                : input_batch.num_reqs + 1
+            ],
+            compute_rows=self.partial_reuse_compute_rows,
+        )
 
     def prepare_dummy_attn(
         self, input_batch: InputBatch
