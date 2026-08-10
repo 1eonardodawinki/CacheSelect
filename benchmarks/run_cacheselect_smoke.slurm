@@ -115,7 +115,12 @@ run_condition() {
   local -a cacheselect_args=()
 
   if [[ "$planner_mode" == "vllm" ]]; then
-    cacheselect_args=(--enable-cacheselect)
+    # Radius one leaves the calibrated reorder transition with 32 reusable rows.
+    cacheselect_args=(
+      --enable-cacheselect
+      --cacheselect-repair-selector edit_proximity
+      --cacheselect-edit-radius 1
+    )
   fi
   if [[ "$execute_partial_reuse" == "true" ]]; then
     cacheselect_args+=(--cacheselect-execute-partial-reuse)
@@ -299,8 +304,8 @@ shadow_metrics = cacheselect["observations"][2]["server_metrics"]
 copy_metrics = copy_enabled["observations"][2]["server_metrics"]
 expected_repair_metrics = {
     "cacheselect_candidate_tokens": 80,
-    "cacheselect_repair_tokens": 80,
-    "cacheselect_skipped_repair_tokens": 0,
+    "cacheselect_repair_tokens": 48,
+    "cacheselect_skipped_repair_tokens": 32,
 }
 for name, expected in expected_repair_metrics.items():
     if shadow_metrics.get(name) != expected:
@@ -327,6 +332,25 @@ for path, (metrics, expected_blocks, expected_tokens) in expected_copy_counts.it
     if actual != expected:
         raise SystemExit(f"{path}: expected copy counts {expected}, got {actual}")
 
+# Shadow mode must locate the same rows while keeping execution disabled.
+expected_execution_decisions = {
+    cacheselect_path: (shadow_metrics, False, "execution_disabled", 32),
+    copy_path: (copy_metrics, True, "eligible", 32),
+}
+for path, (metrics, expected_eligible, expected_reason, expected_rows) in (
+    expected_execution_decisions.items()
+):
+    actual = (
+        metrics.get("cacheselect_execution_eligible"),
+        metrics.get("cacheselect_execution_reason"),
+        metrics.get("cacheselect_reused_batch_rows"),
+    )
+    expected = (expected_eligible, expected_reason, expected_rows)
+    if actual != expected:
+        raise SystemExit(
+            f"{path}: expected execution decision {expected}, got {actual}"
+        )
+
 for path, result in results:
     observations = result["observations"]
     cached = [item["cached_tokens"] for item in observations]
@@ -340,6 +364,11 @@ print(
     "online_aligned_candidates="
     f"{candidate_tokens} resident_tokens={resident_tokens} "
     f"mappings={actual_mappings}"
+)
+print("repair_selection=48_repair_tokens/32_reused_rows")
+print(
+    "execution_gate=shadow:execution_disabled/32_rows "
+    "enabled:eligible/32_rows"
 )
 print("copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens")
 PY
