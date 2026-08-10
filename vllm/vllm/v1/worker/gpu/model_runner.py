@@ -1223,12 +1223,18 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             pooling_model=self.is_pooling_model,
         )
         self._record_cacheselect_compute_rows(num_tokens)
-        for req_id in req_ids:
+        for req_index, req_id in enumerate(req_ids):
             metrics = self.pending_cacheselect_repair_metrics.get(req_id)
             if metrics is None:
                 continue
             decision = self.partial_reuse_batch_decision
             decision_applies = decision.request_id in (None, req_id)
+            reused_batch_rows = len(
+                self.partial_reuse_reused_batch_rows.get(req_id, ())
+            )
+            compute_batch_rows = int(num_scheduled_tokens[req_index])
+            if decision.eligible and decision.request_id == req_id:
+                compute_batch_rows = len(self.partial_reuse_compute_rows)
             self.pending_cacheselect_repair_metrics[req_id] = (
                 record_batch_execution_decision(
                     metrics,
@@ -1236,9 +1242,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     reason=(
                         decision.reason if decision_applies else "request_not_selected"
                     ),
-                    reused_batch_rows=len(
-                        self.partial_reuse_reused_batch_rows.get(req_id, ())
-                    ),
+                    reused_batch_rows=reused_batch_rows,
+                    compute_batch_rows=compute_batch_rows,
                 )
             )
         seq_lens_cpu_upper_bound_np = np.zeros(num_reqs_padded, dtype=np.int32)

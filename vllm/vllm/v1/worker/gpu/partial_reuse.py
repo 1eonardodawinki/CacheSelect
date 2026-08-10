@@ -154,16 +154,22 @@ def record_batch_execution_decision(
     eligible: bool,
     reason: str,
     reused_batch_rows: int,
+    compute_batch_rows: int,
 ) -> CacheSelectRepairMetrics:
     if reused_batch_rows < 0:
         raise ValueError("reused_batch_rows must be non-negative")
+    if compute_batch_rows < 0:
+        raise ValueError("compute_batch_rows must be non-negative")
     if eligible and reused_batch_rows == 0:
         raise ValueError("eligible execution requires reusable batch rows")
+    if eligible and compute_batch_rows == 0:
+        raise ValueError("eligible execution requires compute batch rows")
     return replace(
         metrics,
         execution_eligible=eligible,
         execution_reason=reason,
         reused_batch_rows=reused_batch_rows,
+        compute_batch_rows=compute_batch_rows,
     )
 
 

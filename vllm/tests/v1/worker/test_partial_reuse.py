@@ -345,6 +345,7 @@ def test_summarize_repair_selection() -> None:
     assert not metrics.execution_eligible
     assert metrics.execution_reason == "not_evaluated"
     assert metrics.reused_batch_rows == 0
+    assert metrics.compute_batch_rows == 0
 
     executed_metrics = record_copy_execution(metrics, copied_blocks=1, block_size=4)
     assert executed_metrics.copied_blocks == 1
@@ -355,7 +356,9 @@ def test_summarize_repair_selection() -> None:
         eligible=True,
         reason="eligible",
         reused_batch_rows=2,
+        compute_batch_rows=2,
     )
     assert eligible_metrics.execution_eligible
     assert eligible_metrics.execution_reason == "eligible"
     assert eligible_metrics.reused_batch_rows == 2
+    assert eligible_metrics.compute_batch_rows == 2

@@ -119,6 +119,7 @@ class CacheSelectRepairMetrics:
     execution_eligible: bool = False
     execution_reason: str = "not_evaluated"
     reused_batch_rows: int = 0
+    compute_batch_rows: int = 0
 
 
 class AlignedBlockReuseLocator:
