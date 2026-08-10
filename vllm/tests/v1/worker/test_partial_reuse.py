@@ -11,12 +11,14 @@ from vllm.v1.worker.gpu.partial_reuse import (
     EditProximityRepairSelector,
     FullBlockRepairSelector,
     PartialReuseBatchDecision,
+    PartialReuseCompactedBatch,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
     ResolvedPartialReuseCandidate,
     assess_partial_reuse_batch,
     build_full_block_repair_instructions,
     build_kv_cache_block_copies,
+    build_partial_reuse_compacted_batch,
     build_partial_reuse_compute_rows,
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
@@ -342,6 +344,24 @@ def test_compact_partial_reuse_query_start_locations() -> None:
     )
 
     assert compacted == (0, 2, 4)
+
+
+# Check that one compacted plan keeps every model input aligned.
+def test_build_partial_reuse_compacted_batch() -> None:
+    compacted = build_partial_reuse_compacted_batch(
+        input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
+        positions=torch.tensor([20, 21, 22, 23, 24, 25]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103, 104, 105]]),
+        query_start_locations=(0, 3, 6),
+        compute_rows=(0, 2, 3, 5),
+    )
+
+    assert isinstance(compacted, PartialReuseCompactedBatch)
+    assert compacted.compute_rows == (0, 2, 3, 5)
+    assert compacted.input_ids.tolist() == [10, 12, 13, 15]
+    assert compacted.positions.tolist() == [20, 22, 23, 25]
+    assert compacted.slot_mappings.tolist() == [[100, 102, 103, 105]]
+    assert compacted.query_start_locations == (0, 2, 4)
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.

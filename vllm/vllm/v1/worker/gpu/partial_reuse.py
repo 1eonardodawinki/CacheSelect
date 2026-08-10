@@ -56,6 +56,15 @@ class PartialReuseBatchDecision:
     reused_batch_rows: tuple[int, ...] = ()
 
 
+@dataclass(frozen=True)
+class PartialReuseCompactedBatch:
+    compute_rows: tuple[int, ...]
+    input_ids: torch.Tensor
+    positions: torch.Tensor
+    slot_mappings: torch.Tensor
+    query_start_locations: tuple[int, ...]
+
+
 class PartialReuseRepairSelector(Protocol):
     # Select target tokens that must be recomputed after block reuse.
     def select(
@@ -457,6 +466,45 @@ def compact_partial_reuse_query_start_locations(
     selected_rows = _validate_compaction_rows(compute_rows, boundaries[-1])
     # Each new boundary is the count of retained rows before the old boundary.
     return tuple(bisect_left(selected_rows, boundary) for boundary in boundaries)
+
+
+# Build one aligned advisory batch from all compacted model inputs.
+def build_partial_reuse_compacted_batch(
+    input_ids: torch.Tensor,
+    positions: torch.Tensor,
+    slot_mappings: torch.Tensor,
+    query_start_locations: Sequence[int],
+    compute_rows: Sequence[int],
+) -> PartialReuseCompactedBatch:
+    boundaries = tuple(query_start_locations)
+    if len(boundaries) < 2:
+        raise ValueError("query boundaries require at least one request")
+    if boundaries[-1] != input_ids.numel():
+        raise ValueError("query boundaries must cover every model input row")
+    if slot_mappings.ndim != 2:
+        raise ValueError("slot mappings must have cache-group and token dimensions")
+    if slot_mappings.shape[1] != input_ids.numel():
+        raise ValueError("slot mappings must cover every model input row")
+
+    selected_rows = _validate_compaction_rows(compute_rows, input_ids.numel())
+    compacted_ids, compacted_positions = compact_partial_reuse_model_inputs(
+        input_ids,
+        positions,
+        selected_rows,
+    )
+    return PartialReuseCompactedBatch(
+        compute_rows=selected_rows,
+        input_ids=compacted_ids,
+        positions=compacted_positions,
+        slot_mappings=compact_partial_reuse_slot_mappings(
+            slot_mappings,
+            selected_rows,
+        ),
+        query_start_locations=compact_partial_reuse_query_start_locations(
+            boundaries,
+            selected_rows,
+        ),
+    )
 
 
 # Build a safe fallback that repairs every token in each affected target block.
