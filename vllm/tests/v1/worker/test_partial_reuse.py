@@ -21,6 +21,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
     compact_partial_reuse_model_inputs,
+    compact_partial_reuse_query_start_locations,
     compact_partial_reuse_slot_mappings,
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
@@ -331,6 +332,16 @@ def test_compact_partial_reuse_slot_mappings() -> None:
         [200, 201, 204, 205],
     ]
     assert slot_mappings.shape == (2, 6)
+
+
+# Check that packed attention boundaries retain each request's row count.
+def test_compact_partial_reuse_query_start_locations() -> None:
+    compacted = compact_partial_reuse_query_start_locations(
+        query_start_locations=(0, 3, 6),
+        compute_rows=(0, 2, 3, 5),
+    )
+
+    assert compacted == (0, 2, 4)
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.

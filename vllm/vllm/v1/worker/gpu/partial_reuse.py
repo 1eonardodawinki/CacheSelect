@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Protocol
@@ -375,12 +376,11 @@ def build_partial_reuse_compute_rows(
     return compute_rows
 
 
-# Validate selected rows and build indices on the tensor being compacted.
-def _build_compaction_row_indices(
+# Validate selected rows against one unpadded flattened input.
+def _validate_compaction_rows(
     compute_rows: Sequence[int],
     num_rows: int,
-    device: torch.device,
-) -> torch.Tensor:
+) -> tuple[int, ...]:
     selected_rows = tuple(compute_rows)
     if not selected_rows:
         raise ValueError("partial reuse must retain at least one compute row")
@@ -388,6 +388,16 @@ def _build_compaction_row_indices(
         raise ValueError("compute rows must be sorted and unique")
     if any(row < 0 or row >= num_rows for row in selected_rows):
         raise ValueError("compute row is outside the compacted input")
+    return selected_rows
+
+
+# Build validated row indices on the tensor being compacted.
+def _build_compaction_row_indices(
+    compute_rows: Sequence[int],
+    num_rows: int,
+    device: torch.device,
+) -> torch.Tensor:
+    selected_rows = _validate_compaction_rows(compute_rows, num_rows)
     return torch.tensor(selected_rows, dtype=torch.long, device=device)
 
 
@@ -429,6 +439,24 @@ def compact_partial_reuse_slot_mappings(
         slot_mappings.device,
     )
     return slot_mappings.index_select(1, row_indices)
+
+
+# Rebuild request boundaries after selected rows are packed together.
+def compact_partial_reuse_query_start_locations(
+    query_start_locations: Sequence[int],
+    compute_rows: Sequence[int],
+) -> tuple[int, ...]:
+    boundaries = tuple(query_start_locations)
+    if len(boundaries) < 2:
+        raise ValueError("query boundaries require at least one request")
+    if boundaries[0] != 0:
+        raise ValueError("query boundaries must start at zero")
+    if boundaries != tuple(sorted(boundaries)):
+        raise ValueError("query boundaries must be non-decreasing")
+
+    selected_rows = _validate_compaction_rows(compute_rows, boundaries[-1])
+    # Each new boundary is the count of retained rows before the old boundary.
+    return tuple(bisect_left(selected_rows, boundary) for boundary in boundaries)
 
 
 # Build a safe fallback that repairs every token in each affected target block.
