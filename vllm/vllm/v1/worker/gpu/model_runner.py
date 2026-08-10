@@ -110,6 +110,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     ResolvedPartialReuseCandidate,
     assess_partial_reuse_batch,
     build_kv_cache_block_copies,
+    build_partial_reuse_compute_rows,
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
     create_repair_selector,
@@ -171,6 +172,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.partial_reuse_batch_decision = PartialReuseBatchDecision(
             False, "not_evaluated"
         )
+        self.partial_reuse_compute_rows: tuple[int, ...] = ()
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -1052,6 +1054,13 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
         self._apply_cacheselect_block_copies(scheduler_output)
 
+    # Store which unpadded input rows would still require model computation.
+    def _record_cacheselect_compute_rows(self, num_tokens: int) -> None:
+        self.partial_reuse_compute_rows = build_partial_reuse_compute_rows(
+            self.partial_reuse_batch_decision,
+            num_tokens,
+        )
+
     # Prepare the flattened model batch and translate CacheSelect token positions.
     def prepare_inputs(
         self, scheduler_output: SchedulerOutput, batch_desc: BatchExecutionDescriptor
@@ -1213,6 +1222,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             encoder_decoder_model=self.is_encoder_decoder,
             pooling_model=self.is_pooling_model,
         )
+        self._record_cacheselect_compute_rows(num_tokens)
         for req_id in req_ids:
             metrics = self.pending_cacheselect_repair_metrics.get(req_id)
             if metrics is None:

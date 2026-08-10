@@ -18,6 +18,7 @@ from vllm.v1.core.sched.output import (
 from vllm.v1.worker.gpu.model_runner import GPUModelRunner
 from vllm.v1.worker.gpu.partial_reuse import (
     FullBlockRepairSelector,
+    PartialReuseBatchDecision,
     PartialReuseCopyInstruction,
 )
 from vllm.v1.worker.gpu.states import RequestState
@@ -54,6 +55,7 @@ def mock_model_runner_with_req_states():
     runner.partial_reuse_repair_instructions = {}
     runner.partial_reuse_reused_token_indices = {}
     runner.partial_reuse_reused_batch_rows = {}
+    runner.partial_reuse_compute_rows = ()
     runner.partial_reuse_repair_selector = FullBlockRepairSelector()
     runner.cacheselect_execute_partial_reuse = False
     runner.cache_config = SimpleNamespace(
@@ -71,6 +73,29 @@ def mock_model_runner_with_req_states():
         GPUModelRunner._take_cacheselect_repair_metrics.__get__(runner)
     )
     return runner
+
+
+# Check that the runner records advisory compute rows without changing its batch.
+def test_cacheselect_compute_rows_follow_execution_decision() -> None:
+    runner = SimpleNamespace(
+        partial_reuse_batch_decision=PartialReuseBatchDecision(
+            True,
+            "eligible",
+            request_id="rag",
+            reused_batch_rows=(2, 3),
+        ),
+        partial_reuse_compute_rows=(),
+    )
+
+    GPUModelRunner._record_cacheselect_compute_rows(runner, num_tokens=6)
+    assert runner.partial_reuse_compute_rows == (0, 1, 4, 5)
+
+    runner.partial_reuse_batch_decision = PartialReuseBatchDecision(
+        False,
+        "execution_disabled",
+    )
+    GPUModelRunner._record_cacheselect_compute_rows(runner, num_tokens=6)
+    assert runner.partial_reuse_compute_rows == tuple(range(6))
 
 
 # Check that only the explicit execution switch allows physical KV copies.
