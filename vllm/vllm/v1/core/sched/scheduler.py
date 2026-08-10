@@ -1755,6 +1755,12 @@ class Scheduler(SchedulerInterface):
                 request.prefill_stats.cacheselect_compute_batch_rows = (
                     repair_metrics.compute_batch_rows
                 )
+                request.prefill_stats.cacheselect_compacted_batch_built = (
+                    repair_metrics.compacted_batch_built
+                )
+                request.prefill_stats.cacheselect_compacted_batch_executed = (
+                    repair_metrics.compacted_batch_executed
+                )
 
             req_index = model_runner_output.req_id_to_index[req_id]
             generated_token_ids = (

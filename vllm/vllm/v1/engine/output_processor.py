@@ -687,6 +687,12 @@ class OutputProcessor:
                         req_state.stats.cacheselect_compute_batch_rows = (
                             prefill_stats.cacheselect_compute_batch_rows
                         )
+                        req_state.stats.cacheselect_compacted_batch_built = (
+                            prefill_stats.cacheselect_compacted_batch_built
+                        )
+                        req_state.stats.cacheselect_compacted_batch_executed = (
+                            prefill_stats.cacheselect_compacted_batch_executed
+                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:
