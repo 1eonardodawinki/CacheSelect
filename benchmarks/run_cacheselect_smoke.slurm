@@ -334,22 +334,39 @@ for path, (metrics, expected_blocks, expected_tokens) in expected_copy_counts.it
 
 # Shadow mode must locate the same rows while keeping execution disabled.
 expected_execution_decisions = {
-    cacheselect_path: (shadow_metrics, False, "execution_disabled", 32),
-    copy_path: (copy_metrics, True, "eligible", 32),
+    cacheselect_path: (shadow_metrics, False, "execution_disabled", 32, 144),
+    copy_path: (copy_metrics, True, "eligible", 32, 112),
 }
-for path, (metrics, expected_eligible, expected_reason, expected_rows) in (
-    expected_execution_decisions.items()
-):
+for path, expected_decision in expected_execution_decisions.items():
+    metrics, expected_eligible, expected_reason, expected_reused, expected_compute = (
+        expected_decision
+    )
     actual = (
         metrics.get("cacheselect_execution_eligible"),
         metrics.get("cacheselect_execution_reason"),
         metrics.get("cacheselect_reused_batch_rows"),
+        metrics.get("cacheselect_compute_batch_rows"),
     )
-    expected = (expected_eligible, expected_reason, expected_rows)
+    expected = (
+        expected_eligible,
+        expected_reason,
+        expected_reused,
+        expected_compute,
+    )
     if actual != expected:
         raise SystemExit(
             f"{path}: expected execution decision {expected}, got {actual}"
         )
+
+# Enabled execution must partition every original row into compute or reuse.
+enabled_row_total = (
+    copy_metrics["cacheselect_compute_batch_rows"]
+    + copy_metrics["cacheselect_reused_batch_rows"]
+)
+if enabled_row_total != 144:
+    raise SystemExit(
+        f"{copy_path}: expected 144 accounted batch rows, got {enabled_row_total}"
+    )
 
 for path, result in results:
     observations = result["observations"]
@@ -367,8 +384,8 @@ print(
 )
 print("repair_selection=48_repair_tokens/32_reused_rows")
 print(
-    "execution_gate=shadow:execution_disabled/32_rows "
-    "enabled:eligible/32_rows"
+    "execution_gate=shadow:144_compute/32_candidate_reuse "
+    "enabled:112_compute/32_reused"
 )
 print("copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens")
 PY
