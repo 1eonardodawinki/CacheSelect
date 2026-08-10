@@ -12,6 +12,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     FullBlockRepairSelector,
     PartialReuseBatchDecision,
     PartialReuseCompactedBatch,
+    PartialReuseComputeSpan,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
     ResolvedPartialReuseCandidate,
@@ -20,6 +21,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_kv_cache_block_copies,
     build_partial_reuse_compacted_batch,
     build_partial_reuse_compute_rows,
+    build_partial_reuse_compute_spans,
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
     compact_partial_reuse_model_inputs,
@@ -297,6 +299,19 @@ def test_build_partial_reuse_compute_rows_rejects_invalid_rows() -> None:
 
     with pytest.raises(ValueError, match="outside the input batch"):
         build_partial_reuse_compute_rows(decision, num_tokens=4)
+
+
+# Check that one reusable middle region creates two safe compute spans.
+def test_build_partial_reuse_compute_spans() -> None:
+    spans = build_partial_reuse_compute_spans(
+        compute_rows=(*range(64), *range(96, 144)),
+        num_rows=144,
+    )
+
+    assert spans == (
+        PartialReuseComputeSpan(start_row=0, end_row=64),
+        PartialReuseComputeSpan(start_row=96, end_row=144),
+    )
 
 
 # Check that compaction keeps matching token IDs and absolute positions.

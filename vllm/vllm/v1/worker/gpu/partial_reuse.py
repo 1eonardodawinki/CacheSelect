@@ -65,6 +65,12 @@ class PartialReuseCompactedBatch:
     query_start_locations: tuple[int, ...]
 
 
+@dataclass(frozen=True)
+class PartialReuseComputeSpan:
+    start_row: int
+    end_row: int
+
+
 class PartialReuseRepairSelector(Protocol):
     # Select target tokens that must be recomputed after block reuse.
     def select(
@@ -395,6 +401,24 @@ def build_partial_reuse_compute_rows(
     if not compute_rows:
         raise ValueError("partial reuse must retain at least one compute row")
     return compute_rows
+
+
+# Group retained compute rows into contiguous half-open execution spans.
+def build_partial_reuse_compute_spans(
+    compute_rows: Sequence[int],
+    num_rows: int,
+) -> tuple[PartialReuseComputeSpan, ...]:
+    selected_rows = _validate_compaction_rows(compute_rows, num_rows)
+    spans: list[PartialReuseComputeSpan] = []
+    span_start = selected_rows[0]
+    previous_row = span_start
+    for row in selected_rows[1:]:
+        if row != previous_row + 1:
+            spans.append(PartialReuseComputeSpan(span_start, previous_row + 1))
+            span_start = row
+        previous_row = row
+    spans.append(PartialReuseComputeSpan(span_start, previous_row + 1))
+    return tuple(spans)
 
 
 # Validate selected rows against one unpadded flattened input.
