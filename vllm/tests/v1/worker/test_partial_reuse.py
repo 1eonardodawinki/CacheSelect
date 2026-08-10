@@ -21,6 +21,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_copy_instructions,
     build_reused_token_indices,
     compact_partial_reuse_model_inputs,
+    compact_partial_reuse_slot_mappings,
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
@@ -309,6 +310,27 @@ def test_compact_partial_reuse_model_inputs() -> None:
     assert compacted_positions.tolist() == [20, 21, 24, 25]
     assert input_ids.tolist() == [10, 11, 12, 13, 14, 15]
     assert positions.tolist() == [20, 21, 22, 23, 24, 25]
+
+
+# Check that KV destinations are compacted along the matching token rows.
+def test_compact_partial_reuse_slot_mappings() -> None:
+    slot_mappings = torch.tensor(
+        [
+            [100, 101, 102, 103, 104, 105],
+            [200, 201, 202, 203, 204, 205],
+        ]
+    )
+
+    compacted = compact_partial_reuse_slot_mappings(
+        slot_mappings,
+        compute_rows=(0, 1, 4, 5),
+    )
+
+    assert compacted.tolist() == [
+        [100, 101, 104, 105],
+        [200, 201, 204, 205],
+    ]
+    assert slot_mappings.shape == (2, 6)
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.

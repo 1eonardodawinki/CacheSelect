@@ -375,6 +375,22 @@ def build_partial_reuse_compute_rows(
     return compute_rows
 
 
+# Validate selected rows and build indices on the tensor being compacted.
+def _build_compaction_row_indices(
+    compute_rows: Sequence[int],
+    num_rows: int,
+    device: torch.device,
+) -> torch.Tensor:
+    selected_rows = tuple(compute_rows)
+    if not selected_rows:
+        raise ValueError("partial reuse must retain at least one compute row")
+    if selected_rows != tuple(sorted(set(selected_rows))):
+        raise ValueError("compute rows must be sorted and unique")
+    if any(row < 0 or row >= num_rows for row in selected_rows):
+        raise ValueError("compute row is outside the compacted input")
+    return torch.tensor(selected_rows, dtype=torch.long, device=device)
+
+
 # Select token IDs and absolute positions for the rows that still need compute.
 def compact_partial_reuse_model_inputs(
     input_ids: torch.Tensor,
@@ -388,24 +404,31 @@ def compact_partial_reuse_model_inputs(
     if input_ids.device != positions.device:
         raise ValueError("input IDs and positions must use the same device")
 
-    selected_rows = tuple(compute_rows)
-    if not selected_rows:
-        raise ValueError("partial reuse must retain at least one compute row")
-    if selected_rows != tuple(sorted(set(selected_rows))):
-        raise ValueError("compute rows must be sorted and unique")
-    if any(row < 0 or row >= input_ids.numel() for row in selected_rows):
-        raise ValueError("compute row is outside the model input")
-
     # index_select preserves the supplied absolute positions after row packing.
-    row_indices = torch.tensor(
-        selected_rows,
-        dtype=torch.long,
-        device=input_ids.device,
+    row_indices = _build_compaction_row_indices(
+        compute_rows,
+        input_ids.numel(),
+        input_ids.device,
     )
     return (
         input_ids.index_select(0, row_indices),
         positions.index_select(0, row_indices),
     )
+
+
+# Select KV-cache write destinations for the same compacted token rows.
+def compact_partial_reuse_slot_mappings(
+    slot_mappings: torch.Tensor,
+    compute_rows: Sequence[int],
+) -> torch.Tensor:
+    if slot_mappings.ndim != 2:
+        raise ValueError("slot mappings must have cache-group and token dimensions")
+    row_indices = _build_compaction_row_indices(
+        compute_rows,
+        slot_mappings.shape[1],
+        slot_mappings.device,
+    )
+    return slot_mappings.index_select(1, row_indices)
 
 
 # Build a safe fallback that repairs every token in each affected target block.
