@@ -8,7 +8,7 @@ from __future__ import annotations
 from bisect import bisect_left
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypeAlias
 
 import torch
 
@@ -21,6 +21,8 @@ if TYPE_CHECKING:
 from vllm.v1.core.kv_cache_utils import KVCacheBlockCopy
 from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 from vllm.v1.worker.gpu.attn_utils import build_attn_metadata
+
+PartialReuseForwardPath: TypeAlias = Literal["full", "spans"]
 
 
 @dataclass(frozen=True)
@@ -467,6 +469,20 @@ def assess_partial_reuse_batch(
         "eligible",
         **decision_details,
     )
+
+
+# Select the normal or span-based forward without executing either path.
+def select_partial_reuse_forward_path(
+    decision: PartialReuseBatchDecision,
+    steps: Sequence[PartialReuseSpanExecutionStep],
+    *,
+    dummy_run: bool,
+) -> PartialReuseForwardPath:
+    if dummy_run or not decision.eligible:
+        return "full"
+    if not steps:
+        raise ValueError("eligible partial reuse requires execution steps")
+    return "spans"
 
 
 # Select flattened batch rows that still require model computation.

@@ -45,6 +45,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_copy_execution,
     record_span_attention_metadata_construction,
     resolve_target_block_ids,
+    select_partial_reuse_forward_path,
     stitch_partial_reuse_span_outputs,
     summarize_repair_selection,
 )
@@ -362,6 +363,66 @@ def test_assess_partial_reuse_batch_rejects_prompt_logprobs() -> None:
         request_id="rag",
         reused_batch_rows=tuple(range(64, 96)),
     )
+
+
+# Check that a safe eligible request selects span-based execution.
+def test_select_partial_reuse_forward_path_uses_spans() -> None:
+    decision = PartialReuseBatchDecision(True, "eligible", request_id="rag")
+    step = PartialReuseSpanExecutionStep(
+        span=PartialReuseComputeSpan(start_row=0, end_row=2),
+        model_inputs={},
+        attention_metadata={},
+        slot_mappings=torch.tensor([[100, 101]]),
+    )
+
+    path = select_partial_reuse_forward_path(
+        decision,
+        (step,),
+        dummy_run=False,
+    )
+
+    assert path == "spans"
+
+
+# Check that an ineligible request stays on vLLM's normal full forward.
+def test_select_partial_reuse_forward_path_preserves_fallback() -> None:
+    decision = PartialReuseBatchDecision(False, "execution_disabled")
+
+    path = select_partial_reuse_forward_path(
+        decision,
+        (),
+        dummy_run=False,
+    )
+
+    assert path == "full"
+
+
+# Check that profiling and warm-up runs never use request-specific span plans.
+def test_select_partial_reuse_forward_path_preserves_dummy_run() -> None:
+    decision = PartialReuseBatchDecision(True, "eligible", request_id="rag")
+
+    path = select_partial_reuse_forward_path(
+        decision,
+        (),
+        dummy_run=True,
+    )
+
+    assert path == "full"
+
+
+# Check that an eligible decision cannot silently run without prepared spans.
+def test_select_partial_reuse_forward_path_requires_steps() -> None:
+    decision = PartialReuseBatchDecision(True, "eligible", request_id="rag")
+
+    with pytest.raises(
+        ValueError,
+        match="eligible partial reuse requires execution steps",
+    ):
+        select_partial_reuse_forward_path(
+            decision,
+            (),
+            dummy_run=False,
+        )
 
 
 # Check that eligible reused rows are omitted from the future compute batch.
