@@ -341,6 +341,7 @@ expected_execution_decisions = {
             "cacheselect_execution_reason": "execution_disabled",
             "cacheselect_reused_batch_rows": 32,
             "cacheselect_compute_batch_rows": 144,
+            "cacheselect_compute_span_count": 0,
             "cacheselect_compacted_batch_built": False,
             "cacheselect_compacted_batch_executed": False,
         },
@@ -352,6 +353,7 @@ expected_execution_decisions = {
             "cacheselect_execution_reason": "eligible",
             "cacheselect_reused_batch_rows": 32,
             "cacheselect_compute_batch_rows": 112,
+            "cacheselect_compute_span_count": 2,
             "cacheselect_compacted_batch_built": True,
             "cacheselect_compacted_batch_executed": False,
         },
@@ -394,6 +396,7 @@ print(
     "enabled:112_compute/32_reused"
 )
 print("compact_batch=shadow:not_built enabled:built_not_executed")
+print("compute_spans=shadow:0 enabled:2")
 print("copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens")
 PY
 
