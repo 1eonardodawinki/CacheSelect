@@ -1414,6 +1414,38 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             )
         )
 
+    # Execute one validated CacheSelect span with its isolated attention context.
+    def _execute_cacheselect_span_step(
+        self,
+        step: PartialReuseSpanExecutionStep,
+    ) -> Any:
+        num_tokens = step.span.end_row - step.span.start_row
+        if num_tokens < 1:
+            raise ValueError("CacheSelect execution spans cannot be empty")
+        if step.slot_mappings.shape[-1] != num_tokens:
+            raise ValueError("span slot mappings must cover every model input row")
+
+        slot_mappings_by_layer = build_slot_mappings_by_layer(
+            step.slot_mappings,
+            self.kv_cache_config,
+        )
+        # Dynamic repaired spans deliberately bypass compiled graph execution.
+        batch_descriptor = BatchDescriptor(
+            num_tokens=num_tokens,
+            num_reqs=1,
+            uniform=True,
+        )
+        with set_forward_context(
+            step.attention_metadata,
+            self.vllm_config,
+            num_tokens=num_tokens,
+            cudagraph_runtime_mode=CUDAGraphMode.NONE,
+            batch_descriptor=batch_descriptor,
+            slot_mapping=slot_mappings_by_layer,
+            skip_compiled=True,
+        ):
+            return self.model(**step.model_inputs)
+
     def prepare_dummy_attn(
         self, input_batch: InputBatch
     ) -> tuple[tuple[torch.Tensor, ...], torch.Tensor]:
