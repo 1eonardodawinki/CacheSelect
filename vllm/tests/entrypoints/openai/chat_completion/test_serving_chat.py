@@ -722,6 +722,7 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
         cacheselect_execution_reason="eligible",
         cacheselect_reused_batch_rows=32,
         cacheselect_compute_batch_rows=112,
+        cacheselect_compute_span_count=2,
         cacheselect_compacted_batch_built=True,
         cacheselect_compacted_batch_executed=False,
     )
@@ -742,6 +743,7 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
     assert metrics.cacheselect_execution_reason == "eligible"
     assert metrics.cacheselect_reused_batch_rows == 32
     assert metrics.cacheselect_compute_batch_rows == 112
+    assert metrics.cacheselect_compute_span_count == 2
     assert metrics.cacheselect_compacted_batch_built
     assert not metrics.cacheselect_compacted_batch_executed
 

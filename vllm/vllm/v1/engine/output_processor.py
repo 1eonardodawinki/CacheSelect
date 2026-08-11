@@ -687,6 +687,9 @@ class OutputProcessor:
                         req_state.stats.cacheselect_compute_batch_rows = (
                             prefill_stats.cacheselect_compute_batch_rows
                         )
+                        req_state.stats.cacheselect_compute_span_count = (
+                            prefill_stats.cacheselect_compute_span_count
+                        )
                         req_state.stats.cacheselect_compacted_batch_built = (
                             prefill_stats.cacheselect_compacted_batch_built
                         )

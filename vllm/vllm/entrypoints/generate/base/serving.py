@@ -112,6 +112,7 @@ def build_per_request_timing_metrics(
         cacheselect_execution_reason=metrics.cacheselect_execution_reason,
         cacheselect_reused_batch_rows=metrics.cacheselect_reused_batch_rows,
         cacheselect_compute_batch_rows=metrics.cacheselect_compute_batch_rows,
+        cacheselect_compute_span_count=metrics.cacheselect_compute_span_count,
         cacheselect_compacted_batch_built=(
             metrics.cacheselect_compacted_batch_built
         ),

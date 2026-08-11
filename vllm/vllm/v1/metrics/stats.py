@@ -250,6 +250,7 @@ class RequestStateStats:
     cacheselect_execution_reason: str | None = None
     cacheselect_reused_batch_rows: int | None = None
     cacheselect_compute_batch_rows: int | None = None
+    cacheselect_compute_span_count: int | None = None
     cacheselect_compacted_batch_built: bool | None = None
     cacheselect_compacted_batch_executed: bool | None = None
 
@@ -298,6 +299,7 @@ class PrefillStats:
         cacheselect_execution_reason: Safety-gate decision or fallback reason.
         cacheselect_reused_batch_rows: Reusable rows located in the current batch.
         cacheselect_compute_batch_rows: Rows retained for model computation.
+        cacheselect_compute_span_count: Contiguous model operations required.
         cacheselect_compacted_batch_built: Whether compact inputs were constructed.
         cacheselect_compacted_batch_executed: Whether the model used compact inputs.
     """
@@ -322,6 +324,7 @@ class PrefillStats:
     cacheselect_execution_reason: str | None = None
     cacheselect_reused_batch_rows: int | None = None
     cacheselect_compute_batch_rows: int | None = None
+    cacheselect_compute_span_count: int | None = None
     cacheselect_compacted_batch_built: bool | None = None
     cacheselect_compacted_batch_executed: bool | None = None
 

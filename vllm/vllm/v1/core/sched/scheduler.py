@@ -1755,6 +1755,9 @@ class Scheduler(SchedulerInterface):
                 request.prefill_stats.cacheselect_compute_batch_rows = (
                     repair_metrics.compute_batch_rows
                 )
+                request.prefill_stats.cacheselect_compute_span_count = (
+                    repair_metrics.compute_span_count
+                )
                 request.prefill_stats.cacheselect_compacted_batch_built = (
                     repair_metrics.compacted_batch_built
                 )
