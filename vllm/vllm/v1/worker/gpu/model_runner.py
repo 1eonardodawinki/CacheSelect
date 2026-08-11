@@ -20,6 +20,7 @@ instead of embedding feature-specific logic directly.
 import functools
 import gc
 import time
+from collections.abc import Callable
 from copy import deepcopy
 from typing import TYPE_CHECKING, Any, NamedTuple
 
@@ -106,6 +107,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseBatchDecision,
     PartialReuseCompactedBatch,
     PartialReuseCopyInstruction,
+    PartialReuseForwardPath,
     PartialReuseRepairInstruction,
     PartialReuseRepairSelector,
     PartialReuseSpanExecutionStep,
@@ -126,6 +128,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_copy_execution,
     record_span_attention_metadata_construction,
     resolve_target_block_ids,
+    select_partial_reuse_forward_path,
     stitch_partial_reuse_span_outputs,
     summarize_repair_selection,
 )
@@ -187,6 +190,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.partial_reuse_span_execution_steps: tuple[
             PartialReuseSpanExecutionStep, ...
         ] = ()
+        self.partial_reuse_forward_path: PartialReuseForwardPath = "full"
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -1009,8 +1013,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         )
         block_copies = build_kv_cache_block_copies(instructions)
         if block_copies:
-            # These writes are intentionally followed by normal full prefill in
-            # this milestone, so copied KV cannot affect generated output yet.
+            # Repaired rows overwrite copied values before they can be consumed.
             copy_kv_cache_blocks_inplace(
                 self.kv_caches,
                 self.kv_cache_config.num_blocks,
@@ -1480,6 +1483,25 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             total_rows,
         )
 
+    # Execute the selected full or CacheSelect forward while preserving fallback.
+    def _execute_selected_cacheselect_forward(
+        self,
+        scheduler_output: SchedulerOutput,
+        total_rows: int,
+        dummy_run: bool,
+        execute_full: Callable[[], Any],
+    ) -> Any:
+        self.partial_reuse_forward_path = select_partial_reuse_forward_path(
+            self.partial_reuse_batch_decision,
+            self.partial_reuse_span_execution_steps,
+            dummy_run=dummy_run,
+        )
+        if self.partial_reuse_forward_path == "full":
+            return execute_full()
+
+        self.kv_connector.pre_forward(scheduler_output)
+        return self._execute_and_stitch_cacheselect_spans(total_rows)
+
     def prepare_dummy_attn(
         self, input_batch: InputBatch
     ) -> tuple[tuple[torch.Tensor, ...], torch.Tensor]:
@@ -1730,22 +1752,19 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         # Update the EPLB meta.
         self.eplb.prepare_forward(self.model_config, input_batch.num_tokens)
 
-        # Run model.
-        if batch_desc.cg_mode == CUDAGraphMode.FULL:
-            # Use explicit cudagraph replay for FULL mode.
-            # NOTE(woosuk): Here, we don't need to pass the input tensors,
-            # because they are already copied to the CUDA graph input buffers.
-            assert self.cudagraph_manager is not None
-            self.kv_connector.pre_forward(scheduler_output)
-            model_output = self.cudagraph_manager.run_fullgraph(batch_desc)
-        else:
-            # For piecewise and eager mode, just call model().
+        # Preserve vLLM's original full forward as the universal fallback.
+        def execute_full_forward() -> Any:
+            if batch_desc.cg_mode == CUDAGraphMode.FULL:
+                # Full graphs already own their fixed input buffers and context.
+                assert self.cudagraph_manager is not None
+                self.kv_connector.pre_forward(scheduler_output)
+                return self.cudagraph_manager.run_fullgraph(batch_desc)
+
             batch_descriptor = BatchDescriptor(
                 num_tokens=input_batch.num_tokens_after_padding,
                 has_lora=self.lora_config is not None,
                 num_active_loras=batch_desc.num_active_loras,
             )
-
             with set_forward_context(
                 attn_metadata,
                 self.vllm_config,
@@ -1759,16 +1778,18 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             ):
                 self.kv_connector.pre_forward(scheduler_output)
                 if batch_desc.cg_mode == CUDAGraphMode.PIECEWISE:
-                    # Run the PIECEWISE graph (compiled PW cudagraph or breakable
-                    # cudagraph, chosen inside run_pw_graph). cg_mode is only
-                    # PIECEWISE after the cudagraph manager exists.
                     assert self.cudagraph_manager is not None
-                    model_output = self.cudagraph_manager.run_pw_graph(
+                    return self.cudagraph_manager.run_pw_graph(
                         self.model, model_inputs
                     )
-                else:
-                    # Eager (NONE): call the raw model directly.
-                    model_output = self.model(**model_inputs)
+                return self.model(**model_inputs)
+
+        model_output = self._execute_selected_cacheselect_forward(
+            scheduler_output,
+            input_batch.num_tokens_after_padding,
+            dummy_run,
+            execute_full_forward,
+        )
 
         if self.is_last_pp_rank:
             if self.use_aux_hidden_state_outputs:

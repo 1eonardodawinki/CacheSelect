@@ -13,6 +13,7 @@ import torch
 from vllm.config.compilation import CUDAGraphMode
 from vllm.v1.worker.gpu import model_runner as mrv2
 from vllm.v1.worker.gpu.partial_reuse import (
+    PartialReuseBatchDecision,
     PartialReuseComputeSpan,
     PartialReuseSpanExecutionStep,
 )
@@ -150,6 +151,67 @@ def test_execute_and_stitch_cacheselect_spans() -> None:
         [5.0, 5.5],
         [6.0, 6.5],
     ]
+
+
+# Check that an eligible request executes spans instead of the full fallback.
+def test_execute_selected_cacheselect_forward_uses_spans() -> None:
+    step = PartialReuseSpanExecutionStep(
+        span=PartialReuseComputeSpan(start_row=0, end_row=2),
+        model_inputs={},
+        attention_metadata={},
+        slot_mappings=torch.tensor([[100, 101]]),
+    )
+    expected_output = torch.tensor([[1.0, 2.0]])
+    runner = object.__new__(mrv2.GPUModelRunner)
+    runner.partial_reuse_batch_decision = PartialReuseBatchDecision(
+        True, "eligible", request_id="rag"
+    )
+    runner.partial_reuse_span_execution_steps = (step,)
+    runner.kv_connector = Mock()
+    runner._execute_and_stitch_cacheselect_spans = Mock(
+        return_value=expected_output
+    )
+    execute_full = Mock()
+    scheduler_output = SimpleNamespace(name="test-schedule")
+
+    output = runner._execute_selected_cacheselect_forward(
+        scheduler_output,
+        total_rows=2,
+        dummy_run=False,
+        execute_full=execute_full,
+    )
+
+    assert output is expected_output
+    assert runner.partial_reuse_forward_path == "spans"
+    runner.kv_connector.pre_forward.assert_called_once_with(scheduler_output)
+    runner._execute_and_stitch_cacheselect_spans.assert_called_once_with(2)
+    execute_full.assert_not_called()
+
+
+# Check that an ineligible request preserves vLLM's full forward unchanged.
+def test_execute_selected_cacheselect_forward_preserves_fallback() -> None:
+    expected_output = torch.tensor([[3.0, 4.0]])
+    runner = object.__new__(mrv2.GPUModelRunner)
+    runner.partial_reuse_batch_decision = PartialReuseBatchDecision(
+        False, "execution_disabled"
+    )
+    runner.partial_reuse_span_execution_steps = ()
+    runner.kv_connector = Mock()
+    runner._execute_and_stitch_cacheselect_spans = Mock()
+    execute_full = Mock(return_value=expected_output)
+
+    output = runner._execute_selected_cacheselect_forward(
+        SimpleNamespace(name="test-schedule"),
+        total_rows=2,
+        dummy_run=False,
+        execute_full=execute_full,
+    )
+
+    assert output is expected_output
+    assert runner.partial_reuse_forward_path == "full"
+    execute_full.assert_called_once_with()
+    runner.kv_connector.pre_forward.assert_not_called()
+    runner._execute_and_stitch_cacheselect_spans.assert_not_called()
 
 
 # Check that malformed span slot mappings are rejected before model execution.
