@@ -679,6 +679,30 @@ def build_partial_reuse_span_input_sequence(
     )
 
 
+# Translate one compute span into the plain decoder model's call signature.
+def build_partial_reuse_span_model_inputs(
+    span_inputs: PartialReuseSpanInputs,
+) -> dict[str, Any]:
+    """Build advisory model keyword arguments for one isolated span."""
+    if span_inputs.input_ids.ndim != 1 or span_inputs.positions.ndim != 1:
+        raise ValueError("span model inputs must be one-dimensional")
+    if span_inputs.input_ids.numel() != span_inputs.positions.numel():
+        raise ValueError("span input IDs and positions must contain the same rows")
+    if span_inputs.input_ids.numel() == 0:
+        raise ValueError("span model inputs cannot be empty")
+    expected_rows = span_inputs.span.end_row - span_inputs.span.start_row
+    if span_inputs.input_ids.numel() != expected_rows:
+        raise ValueError("span model inputs must cover the complete compute span")
+
+    # Attention metadata is installed separately through set_forward_context.
+    return {
+        "input_ids": span_inputs.input_ids,
+        "positions": span_inputs.positions,
+        "inputs_embeds": None,
+        "intermediate_tensors": None,
+    }
+
+
 # Build the standard attention-builder inputs for one isolated compute span.
 def build_partial_reuse_span_attention_inputs(
     span_inputs: PartialReuseSpanInputs,

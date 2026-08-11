@@ -29,6 +29,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_span_attention_metadata,
     build_partial_reuse_span_input_sequence,
     build_partial_reuse_span_inputs,
+    build_partial_reuse_span_model_inputs,
     build_reused_token_indices,
     compact_partial_reuse_model_inputs,
     compact_partial_reuse_query_start_locations,
@@ -464,6 +465,30 @@ def test_build_partial_reuse_span_attention_inputs() -> None:
     assert attention_inputs.block_tables[0].tolist() == [[7, 8, 9]]
     assert attention_inputs.slot_mappings.tolist() == [[100, 101]]
     assert attention_inputs.positions.tolist() == [2, 3]
+
+
+# Check that one span becomes the keyword arguments expected by a decoder model.
+def test_build_partial_reuse_span_model_inputs() -> None:
+    span_inputs = build_partial_reuse_span_inputs(
+        input_ids=torch.tensor([10, 11, 12, 13]),
+        positions=torch.tensor([2, 3, 4, 5]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103]]),
+        span=PartialReuseComputeSpan(start_row=1, end_row=3),
+        initial_computed_tokens=2,
+    )
+
+    model_inputs = build_partial_reuse_span_model_inputs(span_inputs)
+
+    assert set(model_inputs) == {
+        "input_ids",
+        "positions",
+        "inputs_embeds",
+        "intermediate_tensors",
+    }
+    assert model_inputs["input_ids"].tolist() == [11, 12]
+    assert model_inputs["positions"].tolist() == [3, 4]
+    assert model_inputs["inputs_embeds"] is None
+    assert model_inputs["intermediate_tensors"] is None
 
 
 # Check that advisory metadata calls vLLM's builder once for each span.
