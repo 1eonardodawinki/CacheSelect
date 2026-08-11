@@ -42,6 +42,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
     record_compacted_batch_construction,
+    record_compacted_batch_execution,
     record_copy_execution,
     record_span_attention_metadata_construction,
     resolve_target_block_ids,
@@ -981,3 +982,9 @@ def test_summarize_repair_selection() -> None:
     assert metadata_metrics.span_metadata_built
     assert metadata_metrics.span_metadata_count == 1
     assert not metadata_metrics.compacted_batch_executed
+
+    executed_batch_metrics = record_compacted_batch_execution(
+        metadata_metrics,
+        executed_span_count=1,
+    )
+    assert executed_batch_metrics.compacted_batch_executed

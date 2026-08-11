@@ -11,6 +11,7 @@ import pytest
 import torch
 
 from vllm.config.compilation import CUDAGraphMode
+from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 from vllm.v1.worker.gpu import model_runner as mrv2
 from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseBatchDecision,
@@ -167,6 +168,22 @@ def test_execute_selected_cacheselect_forward_uses_spans() -> None:
         True, "eligible", request_id="rag"
     )
     runner.partial_reuse_span_execution_steps = (step,)
+    runner.pending_cacheselect_repair_metrics = {
+        "rag": CacheSelectRepairMetrics(
+            selector="edit_proximity",
+            candidate_tokens=2,
+            repair_tokens=0,
+            skipped_repair_tokens=2,
+            execution_eligible=True,
+            execution_reason="eligible",
+            reused_batch_rows=2,
+            compute_batch_rows=2,
+            compute_span_count=1,
+            compacted_batch_built=True,
+            span_metadata_built=True,
+            span_metadata_count=1,
+        )
+    }
     runner.kv_connector = Mock()
     runner._execute_and_stitch_cacheselect_spans = Mock(
         return_value=expected_output
@@ -185,6 +202,9 @@ def test_execute_selected_cacheselect_forward_uses_spans() -> None:
     assert runner.partial_reuse_forward_path == "spans"
     runner.kv_connector.pre_forward.assert_called_once_with(scheduler_output)
     runner._execute_and_stitch_cacheselect_spans.assert_called_once_with(2)
+    assert runner.pending_cacheselect_repair_metrics[
+        "rag"
+    ].compacted_batch_executed
     execute_full.assert_not_called()
 
 

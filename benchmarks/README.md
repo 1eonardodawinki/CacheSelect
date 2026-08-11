@@ -100,11 +100,11 @@ For the document-reorder transition, shadow mode must report zero executed
 copies, while execution mode must report five copied blocks representing 80
 tokens. The other two transitions have no aligned candidates.
 
-This remains a correctness and observability smoke test, not an expected
-speedup. The execution-enabled server physically copies the five candidate KV
-blocks, but normal full prefill still recomputes and overwrites them before
-generation. Success is reported as `CacheSelect native execution smoke
-completed successfully`.
+This remains a correctness and observability smoke test, not a stable speedup
+measurement. The execution-enabled server copies the five candidate KV blocks,
+recomputes the selected spans, and verifies that the compacted batch executed.
+Success is reported as `CacheSelect native execution smoke completed
+successfully`.
 
 The online locator currently covers the deliberately narrow first milestone:
 one full-attention KV group where scheduler, hash and physical block sizes are

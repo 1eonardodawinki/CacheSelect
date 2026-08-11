@@ -125,6 +125,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
     record_compacted_batch_construction,
+    record_compacted_batch_execution,
     record_copy_execution,
     record_span_attention_metadata_construction,
     resolve_target_block_ids,
@@ -1500,7 +1501,20 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             return execute_full()
 
         self.kv_connector.pre_forward(scheduler_output)
-        return self._execute_and_stitch_cacheselect_spans(total_rows)
+        model_output = self._execute_and_stitch_cacheselect_spans(total_rows)
+        request_id = self.partial_reuse_batch_decision.request_id
+        if request_id is None:
+            raise ValueError("executed CacheSelect spans require a request ID")
+        metrics = self.pending_cacheselect_repair_metrics.get(request_id)
+        if metrics is None:
+            raise ValueError("executed CacheSelect spans require request metrics")
+        self.pending_cacheselect_repair_metrics[request_id] = (
+            record_compacted_batch_execution(
+                metrics,
+                executed_span_count=len(self.partial_reuse_span_execution_steps),
+            )
+        )
+        return model_output
 
     def prepare_dummy_attn(
         self, input_batch: InputBatch

@@ -333,7 +333,7 @@ for path, (metrics, expected_blocks, expected_tokens) in expected_copy_counts.it
     if actual != expected:
         raise SystemExit(f"{path}: expected copy counts {expected}, got {actual}")
 
-# Shadow mode must locate the same rows while keeping execution disabled.
+# Shadow mode stays disabled while the enabled condition runs compacted spans.
 expected_execution_decisions = {
     cacheselect_path: (
         shadow_metrics,
@@ -344,7 +344,7 @@ expected_execution_decisions = {
             "cacheselect_compute_batch_rows": 144,
             "cacheselect_compute_span_count": 0,
             "cacheselect_compacted_batch_built": False,
-            "cacheselect_compacted_batch_executed": False,
+            "cacheselect_compacted_batch_executed": True,
             "cacheselect_span_metadata_built": False,
             "cacheselect_span_metadata_count": 0,
         },
@@ -400,7 +400,7 @@ print(
     "execution_gate=shadow:144_compute/32_candidate_reuse "
     "enabled:112_compute/32_reused"
 )
-print("compact_batch=shadow:not_built enabled:built_not_executed")
+print("compact_batch=shadow:not_built enabled:built_and_executed")
 print("compute_spans=shadow:0 enabled:2")
 print("span_metadata=shadow:0 enabled:2")
 print("copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens")

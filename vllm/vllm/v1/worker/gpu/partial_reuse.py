@@ -267,6 +267,18 @@ def record_span_attention_metadata_construction(
     )
 
 
+# Record that every prepared compute span completed model execution.
+def record_compacted_batch_execution(
+    metrics: CacheSelectRepairMetrics,
+    executed_span_count: int,
+) -> CacheSelectRepairMetrics:
+    if not metrics.compacted_batch_built or not metrics.span_metadata_built:
+        raise ValueError("span execution requires a fully prepared compacted batch")
+    if executed_span_count != metrics.compute_span_count:
+        raise ValueError("executed spans must match the prepared compute spans")
+    return replace(metrics, compacted_batch_executed=True)
+
+
 # Select copied prompt-token positions that the repair policy leaves reusable.
 def build_reused_token_indices(
     copy_instructions: Sequence[PartialReuseCopyInstruction],
