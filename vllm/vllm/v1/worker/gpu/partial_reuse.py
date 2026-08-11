@@ -57,18 +57,19 @@ class PartialReuseBatchDecision:
 
 
 @dataclass(frozen=True)
+class PartialReuseComputeSpan:
+    start_row: int
+    end_row: int
+
+
+@dataclass(frozen=True)
 class PartialReuseCompactedBatch:
     compute_rows: tuple[int, ...]
+    compute_spans: tuple[PartialReuseComputeSpan, ...]
     input_ids: torch.Tensor
     positions: torch.Tensor
     slot_mappings: torch.Tensor
     query_start_locations: tuple[int, ...]
-
-
-@dataclass(frozen=True)
-class PartialReuseComputeSpan:
-    start_row: int
-    end_row: int
 
 
 class PartialReuseRepairSelector(Protocol):
@@ -530,6 +531,10 @@ def build_partial_reuse_compacted_batch(
     )
     return PartialReuseCompactedBatch(
         compute_rows=selected_rows,
+        compute_spans=build_partial_reuse_compute_spans(
+            selected_rows,
+            input_ids.numel(),
+        ),
         input_ids=compacted_ids,
         positions=compacted_positions,
         slot_mappings=compact_partial_reuse_slot_mappings(

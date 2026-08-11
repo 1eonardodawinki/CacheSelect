@@ -374,6 +374,11 @@ def test_build_partial_reuse_compacted_batch() -> None:
 
     assert isinstance(compacted, PartialReuseCompactedBatch)
     assert compacted.compute_rows == (0, 2, 3, 5)
+    assert compacted.compute_spans == (
+        PartialReuseComputeSpan(start_row=0, end_row=1),
+        PartialReuseComputeSpan(start_row=2, end_row=4),
+        PartialReuseComputeSpan(start_row=5, end_row=6),
+    )
     assert compacted.input_ids.tolist() == [10, 12, 13, 15]
     assert compacted.positions.tolist() == [20, 22, 23, 25]
     assert compacted.slot_mappings.tolist() == [[100, 102, 103, 105]]

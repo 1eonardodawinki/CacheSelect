@@ -139,6 +139,10 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
     )
     compacted = runner.partial_reuse_compacted_batch
     assert compacted is not None
+    assert [(span.start_row, span.end_row) for span in compacted.compute_spans] == [
+        (0, 2),
+        (4, 6),
+    ]
     assert compacted.input_ids.tolist() == [10, 11, 14, 15]
     assert compacted.positions.tolist() == [20, 21, 24, 25]
     assert compacted.slot_mappings.tolist() == [[100, 101, 104, 105]]
