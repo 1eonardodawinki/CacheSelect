@@ -196,12 +196,19 @@ def record_batch_execution_decision(
 def record_compacted_batch_construction(
     metrics: CacheSelectRepairMetrics,
     compacted_rows: int,
+    compute_span_count: int,
 ) -> CacheSelectRepairMetrics:
     if compacted_rows < 1:
         raise ValueError("compacted batch must contain at least one row")
+    if compute_span_count < 1:
+        raise ValueError("compacted batch must contain at least one compute span")
     if compacted_rows != metrics.compute_batch_rows:
         raise ValueError("compacted rows must match selected compute rows")
-    return replace(metrics, compacted_batch_built=True)
+    return replace(
+        metrics,
+        compute_span_count=compute_span_count,
+        compacted_batch_built=True,
+    )
 
 
 # Select copied prompt-token positions that the repair policy leaves reusable.

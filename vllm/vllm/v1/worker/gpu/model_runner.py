@@ -1356,6 +1356,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             record_compacted_batch_construction(
                 metrics,
                 compacted_rows=len(self.partial_reuse_compute_rows),
+                compute_span_count=len(
+                    self.partial_reuse_compacted_batch.compute_spans
+                ),
             )
         )
 

@@ -439,6 +439,7 @@ def test_summarize_repair_selection() -> None:
     assert metrics.execution_reason == "not_evaluated"
     assert metrics.reused_batch_rows == 0
     assert metrics.compute_batch_rows == 0
+    assert metrics.compute_span_count == 0
     assert not metrics.compacted_batch_built
     assert not metrics.compacted_batch_executed
 
@@ -457,12 +458,15 @@ def test_summarize_repair_selection() -> None:
     assert eligible_metrics.execution_reason == "eligible"
     assert eligible_metrics.reused_batch_rows == 2
     assert eligible_metrics.compute_batch_rows == 2
+    assert eligible_metrics.compute_span_count == 0
     assert not eligible_metrics.compacted_batch_built
     assert not eligible_metrics.compacted_batch_executed
 
     compacted_metrics = record_compacted_batch_construction(
         eligible_metrics,
         compacted_rows=2,
+        compute_span_count=1,
     )
     assert compacted_metrics.compacted_batch_built
+    assert compacted_metrics.compute_span_count == 1
     assert not compacted_metrics.compacted_batch_executed

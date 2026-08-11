@@ -149,6 +149,7 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
     assert compacted.query_start_locations == (0, 4)
     metrics = runner.pending_cacheselect_repair_metrics["rag"]
     assert metrics.compacted_batch_built
+    assert metrics.compute_span_count == 2
     assert not metrics.compacted_batch_executed
 
     runner.partial_reuse_batch_decision = PartialReuseBatchDecision(

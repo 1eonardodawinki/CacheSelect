@@ -120,6 +120,7 @@ class CacheSelectRepairMetrics:
     execution_reason: str = "not_evaluated"
     reused_batch_rows: int = 0
     compute_batch_rows: int = 0
+    compute_span_count: int = 0
     compacted_batch_built: bool = False
     compacted_batch_executed: bool = False
 
