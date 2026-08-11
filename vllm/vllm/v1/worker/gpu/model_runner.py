@@ -126,6 +126,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_copy_execution,
     record_span_attention_metadata_construction,
     resolve_target_block_ids,
+    stitch_partial_reuse_span_outputs,
     summarize_repair_selection,
 )
 from vllm.v1.worker.gpu.pool.pooling_runner import PoolingRunner
@@ -1452,6 +1453,18 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         return execute_partial_reuse_span_steps(
             self.partial_reuse_span_execution_steps,
             self._execute_cacheselect_span_step,
+        )
+
+    # Execute selected spans and restore their outputs to full-batch row positions.
+    def _execute_and_stitch_cacheselect_spans(
+        self,
+        total_rows: int,
+    ) -> torch.Tensor:
+        span_outputs = self._execute_cacheselect_span_steps()
+        return stitch_partial_reuse_span_outputs(
+            self.partial_reuse_span_execution_steps,
+            span_outputs,
+            total_rows,
         )
 
     def prepare_dummy_attn(

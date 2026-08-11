@@ -116,6 +116,42 @@ def test_execute_cacheselect_span_steps_in_order() -> None:
     assert callback.call_args_list[1].args[0] is second_step
 
 
+# Check that ordered span outputs are restored to full request row positions.
+def test_execute_and_stitch_cacheselect_spans() -> None:
+    first_step = PartialReuseSpanExecutionStep(
+        span=PartialReuseComputeSpan(start_row=0, end_row=2),
+        model_inputs={},
+        attention_metadata={},
+        slot_mappings=torch.tensor([[100, 101]]),
+    )
+    second_step = PartialReuseSpanExecutionStep(
+        span=PartialReuseComputeSpan(start_row=4, end_row=6),
+        model_inputs={},
+        attention_metadata={},
+        slot_mappings=torch.tensor([[104, 105]]),
+    )
+    span_outputs = (
+        torch.tensor([[1.0, 1.5], [2.0, 2.5]]),
+        torch.tensor([[5.0, 5.5], [6.0, 6.5]]),
+    )
+    execute_spans = Mock(return_value=span_outputs)
+    runner = object.__new__(mrv2.GPUModelRunner)
+    runner.partial_reuse_span_execution_steps = (first_step, second_step)
+    runner._execute_cacheselect_span_steps = execute_spans
+
+    stitched = runner._execute_and_stitch_cacheselect_spans(total_rows=6)
+
+    execute_spans.assert_called_once_with()
+    assert stitched.tolist() == [
+        [1.0, 1.5],
+        [2.0, 2.5],
+        [0.0, 0.0],
+        [0.0, 0.0],
+        [5.0, 5.5],
+        [6.0, 6.5],
+    ]
+
+
 # Check that malformed span slot mappings are rejected before model execution.
 def test_execute_cacheselect_span_step_rejects_incomplete_slot_mapping() -> None:
     model = Mock()
