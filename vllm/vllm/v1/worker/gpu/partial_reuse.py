@@ -72,6 +72,16 @@ class PartialReuseCompactedBatch:
     query_start_locations: tuple[int, ...]
 
 
+@dataclass(frozen=True)
+class PartialReuseSpanInputs:
+    span: PartialReuseComputeSpan
+    input_ids: torch.Tensor
+    positions: torch.Tensor
+    slot_mappings: torch.Tensor
+    query_start_locations: tuple[int, int]
+    sequence_length: int
+
+
 class PartialReuseRepairSelector(Protocol):
     # Select target tokens that must be recomputed after block reuse.
     def select(
@@ -552,6 +562,42 @@ def build_partial_reuse_compacted_batch(
             boundaries,
             selected_rows,
         ),
+    )
+
+
+# Build the model inputs and resulting context length for one compute span.
+def build_partial_reuse_span_inputs(
+    input_ids: torch.Tensor,
+    positions: torch.Tensor,
+    slot_mappings: torch.Tensor,
+    span: PartialReuseComputeSpan,
+    initial_computed_tokens: int,
+) -> PartialReuseSpanInputs:
+    if initial_computed_tokens < 0:
+        raise ValueError("initial_computed_tokens must be non-negative")
+    if span.start_row < 0 or span.start_row >= span.end_row:
+        raise ValueError("compute span must be a non-empty forward range")
+    if span.end_row > input_ids.numel():
+        raise ValueError("compute span extends beyond the model input")
+
+    span_rows = tuple(range(span.start_row, span.end_row))
+    span_input_ids, span_positions = compact_partial_reuse_model_inputs(
+        input_ids,
+        positions,
+        span_rows,
+    )
+    span_row_count = span.end_row - span.start_row
+    return PartialReuseSpanInputs(
+        span=span,
+        input_ids=span_input_ids,
+        positions=span_positions,
+        slot_mappings=compact_partial_reuse_slot_mappings(
+            slot_mappings,
+            span_rows,
+        ),
+        query_start_locations=(0, span_row_count),
+        # Earlier scheduled rows are either freshly computed or reused KV.
+        sequence_length=initial_computed_tokens + span.end_row,
     )
 
 
