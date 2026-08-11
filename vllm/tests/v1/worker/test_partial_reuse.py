@@ -360,6 +360,7 @@ def test_compact_partial_reuse_query_start_locations() -> None:
     compacted = compact_partial_reuse_query_start_locations(
         query_start_locations=(0, 3, 6),
         compute_rows=(0, 2, 3, 5),
+        initial_computed_tokens=20,
     )
 
     assert compacted == (0, 2, 4)
@@ -382,6 +383,7 @@ def test_build_partial_reuse_compacted_batch() -> None:
         PartialReuseComputeSpan(start_row=2, end_row=4),
         PartialReuseComputeSpan(start_row=5, end_row=6),
     )
+    assert [span.sequence_length for span in compacted.span_inputs] == [21, 24, 26]
     assert compacted.input_ids.tolist() == [10, 12, 13, 15]
     assert compacted.positions.tolist() == [20, 22, 23, 25]
     assert compacted.slot_mappings.tolist() == [[100, 102, 103, 105]]

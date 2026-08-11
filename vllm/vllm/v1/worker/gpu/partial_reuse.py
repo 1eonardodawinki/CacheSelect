@@ -66,6 +66,7 @@ class PartialReuseComputeSpan:
 class PartialReuseCompactedBatch:
     compute_rows: tuple[int, ...]
     compute_spans: tuple[PartialReuseComputeSpan, ...]
+    span_inputs: tuple[PartialReuseSpanInputs, ...]
     input_ids: torch.Tensor
     positions: torch.Tensor
     slot_mappings: torch.Tensor
@@ -529,6 +530,7 @@ def build_partial_reuse_compacted_batch(
     slot_mappings: torch.Tensor,
     query_start_locations: Sequence[int],
     compute_rows: Sequence[int],
+    initial_computed_tokens: int,
 ) -> PartialReuseCompactedBatch:
     boundaries = tuple(query_start_locations)
     if len(boundaries) < 2:
@@ -546,11 +548,19 @@ def build_partial_reuse_compacted_batch(
         positions,
         selected_rows,
     )
+    compute_spans = build_partial_reuse_compute_spans(
+        selected_rows,
+        input_ids.numel(),
+    )
     return PartialReuseCompactedBatch(
         compute_rows=selected_rows,
-        compute_spans=build_partial_reuse_compute_spans(
-            selected_rows,
-            input_ids.numel(),
+        compute_spans=compute_spans,
+        span_inputs=build_partial_reuse_span_input_sequence(
+            input_ids,
+            positions,
+            slot_mappings,
+            compute_spans,
+            initial_computed_tokens,
         ),
         input_ids=compacted_ids,
         positions=compacted_positions,

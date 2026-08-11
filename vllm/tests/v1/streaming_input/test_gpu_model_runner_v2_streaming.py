@@ -126,8 +126,10 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
     input_batch = SimpleNamespace(
         num_tokens=6,
         num_reqs=1,
+        req_ids=["rag"],
+        num_computed_tokens_np=(2,),
         input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
-        positions=torch.tensor([20, 21, 22, 23, 24, 25]),
+        positions=torch.tensor([2, 3, 4, 5, 6, 7]),
         query_start_loc_np=(0, 6),
     )
     slot_mappings = torch.tensor([[100, 101, 102, 103, 104, 105]])
@@ -143,8 +145,9 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
         (0, 2),
         (4, 6),
     ]
+    assert [span.sequence_length for span in compacted.span_inputs] == [4, 8]
     assert compacted.input_ids.tolist() == [10, 11, 14, 15]
-    assert compacted.positions.tolist() == [20, 21, 24, 25]
+    assert compacted.positions.tolist() == [2, 3, 6, 7]
     assert compacted.slot_mappings.tolist() == [[100, 101, 104, 105]]
     assert compacted.query_start_locations == (0, 4)
     metrics = runner.pending_cacheselect_repair_metrics["rag"]

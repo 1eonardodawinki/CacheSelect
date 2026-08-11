@@ -1336,6 +1336,12 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if not self.partial_reuse_batch_decision.eligible:
             return
 
+        request_id = self.partial_reuse_batch_decision.request_id
+        if request_id is None:
+            raise ValueError("eligible compact batch requires a request ID")
+        if input_batch.num_reqs != 1 or input_batch.req_ids[0] != request_id:
+            raise ValueError("eligible compact batch requires its isolated request")
+
         num_tokens = input_batch.num_tokens
         self.partial_reuse_compacted_batch = build_partial_reuse_compacted_batch(
             input_ids=input_batch.input_ids[:num_tokens],
@@ -1345,10 +1351,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 : input_batch.num_reqs + 1
             ],
             compute_rows=self.partial_reuse_compute_rows,
+            initial_computed_tokens=int(input_batch.num_computed_tokens_np[0]),
         )
-        request_id = self.partial_reuse_batch_decision.request_id
-        if request_id is None:
-            raise ValueError("eligible compact batch requires a request ID")
         metrics = self.pending_cacheselect_repair_metrics.get(request_id)
         if metrics is None:
             raise ValueError("eligible compact batch requires request metrics")
