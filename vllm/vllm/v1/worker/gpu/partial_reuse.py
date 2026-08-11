@@ -355,6 +355,8 @@ def assess_partial_reuse_batch(
     req_ids: Sequence[str],
     is_prefilling: Sequence[bool],
     reused_batch_rows: Mapping[str, Sequence[int]],
+    required_output_rows: Sequence[int],
+    prompt_logprobs: bool,
     single_gpu: bool,
     eager_execution: bool,
     supported_kv_layout: bool,
@@ -439,6 +441,25 @@ def assess_partial_reuse_batch(
         return PartialReuseBatchDecision(
             False,
             "pooling_unsupported",
+            **decision_details,
+        )
+    if prompt_logprobs:
+        return PartialReuseBatchDecision(
+            False,
+            "prompt_logprobs_unsupported",
+            **decision_details,
+        )
+    if not required_output_rows:
+        return PartialReuseBatchDecision(
+            False,
+            "missing_output_rows",
+            **decision_details,
+        )
+    reused_rows = frozenset(rows)
+    if any(row in reused_rows for row in required_output_rows):
+        return PartialReuseBatchDecision(
+            False,
+            "required_output_row_reused",
             **decision_details,
         )
     return PartialReuseBatchDecision(

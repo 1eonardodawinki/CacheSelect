@@ -241,6 +241,8 @@ def test_assess_partial_reuse_batch_accepts_supported_prefill() -> None:
         req_ids=("rag",),
         is_prefilling=(True,),
         reused_batch_rows={"rag": tuple(range(64, 96))},
+        required_output_rows=(143,),
+        prompt_logprobs=False,
         single_gpu=True,
         eager_execution=True,
         supported_kv_layout=True,
@@ -265,6 +267,8 @@ def test_assess_partial_reuse_batch_rejects_batched_requests() -> None:
         req_ids=("decode", "rag"),
         is_prefilling=(False, True),
         reused_batch_rows={"rag": tuple(range(64, 96))},
+        required_output_rows=(3, 147),
+        prompt_logprobs=False,
         single_gpu=True,
         eager_execution=True,
         supported_kv_layout=True,
@@ -289,6 +293,8 @@ def test_assess_partial_reuse_batch_rejects_non_eager_execution() -> None:
         req_ids=("rag",),
         is_prefilling=(True,),
         reused_batch_rows={"rag": tuple(range(64, 96))},
+        required_output_rows=(143,),
+        prompt_logprobs=False,
         single_gpu=True,
         eager_execution=False,
         supported_kv_layout=True,
@@ -301,6 +307,58 @@ def test_assess_partial_reuse_batch_rejects_non_eager_execution() -> None:
     assert decision == PartialReuseBatchDecision(
         False,
         "non_eager_execution_unsupported",
+        request_id="rag",
+        reused_batch_rows=tuple(range(64, 96)),
+    )
+
+
+# Check that a sampled output row can never be represented by a placeholder.
+def test_assess_partial_reuse_batch_rejects_reused_output_row() -> None:
+    decision = assess_partial_reuse_batch(
+        execution_enabled=True,
+        req_ids=("rag",),
+        is_prefilling=(True,),
+        reused_batch_rows={"rag": tuple(range(64, 96))},
+        required_output_rows=(95,),
+        prompt_logprobs=False,
+        single_gpu=True,
+        eager_execution=True,
+        supported_kv_layout=True,
+        speculative_decoding=False,
+        multimodal_model=False,
+        encoder_decoder_model=False,
+        pooling_model=False,
+    )
+
+    assert decision == PartialReuseBatchDecision(
+        False,
+        "required_output_row_reused",
+        request_id="rag",
+        reused_batch_rows=tuple(range(64, 96)),
+    )
+
+
+# Check that prompt-token scoring falls back until reused rows have hidden states.
+def test_assess_partial_reuse_batch_rejects_prompt_logprobs() -> None:
+    decision = assess_partial_reuse_batch(
+        execution_enabled=True,
+        req_ids=("rag",),
+        is_prefilling=(True,),
+        reused_batch_rows={"rag": tuple(range(64, 96))},
+        required_output_rows=(143,),
+        prompt_logprobs=True,
+        single_gpu=True,
+        eager_execution=True,
+        supported_kv_layout=True,
+        speculative_decoding=False,
+        multimodal_model=False,
+        encoder_decoder_model=False,
+        pooling_model=False,
+    )
+
+    assert decision == PartialReuseBatchDecision(
+        False,
+        "prompt_logprobs_unsupported",
         request_id="rag",
         reused_batch_rows=tuple(range(64, 96)),
     )

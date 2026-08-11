@@ -1224,11 +1224,24 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             and self.parallel_config.decode_context_parallel_size == 1
             and self.parallel_config.prefill_context_parallel_size == 1
         )
+        prompt_logprobs = False
+        if self.prompt_logprobs_worker is not None:
+            prompt_logprobs = bool(
+                np.any(
+                    self.prompt_logprobs_worker.uses_prompt_logprobs[idx_mapping_np]
+                )
+            )
+        required_output_rows = tuple(
+            int(query_end) - 1
+            for query_end in query_start_loc_np[1 : num_reqs + 1]
+        )
         self.partial_reuse_batch_decision = assess_partial_reuse_batch(
             execution_enabled=self.cacheselect_execute_partial_reuse,
             req_ids=req_ids,
             is_prefilling=is_prefilling_np,
             reused_batch_rows=self.partial_reuse_reused_batch_rows,
+            required_output_rows=required_output_rows,
+            prompt_logprobs=prompt_logprobs,
             single_gpu=single_gpu,
             eager_execution=batch_desc.cg_mode == CUDAGraphMode.NONE,
             supported_kv_layout=supported_kv_layout,
