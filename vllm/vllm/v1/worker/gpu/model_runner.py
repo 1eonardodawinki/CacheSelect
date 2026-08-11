@@ -119,6 +119,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_span_execution_steps,
     build_reused_token_indices,
     create_repair_selector,
+    execute_partial_reuse_span_steps,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
     record_compacted_batch_construction,
@@ -1445,6 +1446,13 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             skip_compiled=True,
         ):
             return self.model(**step.model_inputs)
+
+    # Execute every prepared CacheSelect span in validated causal order.
+    def _execute_cacheselect_span_steps(self) -> tuple[Any, ...]:
+        return execute_partial_reuse_span_steps(
+            self.partial_reuse_span_execution_steps,
+            self._execute_cacheselect_span_step,
+        )
 
     def prepare_dummy_attn(
         self, input_batch: InputBatch

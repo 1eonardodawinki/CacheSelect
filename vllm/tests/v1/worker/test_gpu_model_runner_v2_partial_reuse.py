@@ -89,6 +89,33 @@ def test_execute_cacheselect_span_step(monkeypatch: pytest.MonkeyPatch) -> None:
     assert captured_context["skip_compiled"] is True
 
 
+# Check that the runner sends all prepared spans to its callback in order.
+def test_execute_cacheselect_span_steps_in_order() -> None:
+    first_step = PartialReuseSpanExecutionStep(
+        span=PartialReuseComputeSpan(start_row=0, end_row=2),
+        model_inputs={},
+        attention_metadata={},
+        slot_mappings=torch.tensor([[100, 101]]),
+    )
+    second_step = PartialReuseSpanExecutionStep(
+        span=PartialReuseComputeSpan(start_row=4, end_row=6),
+        model_inputs={},
+        attention_metadata={},
+        slot_mappings=torch.tensor([[104, 105]]),
+    )
+    callback = Mock(side_effect=("first-output", "second-output"))
+    runner = object.__new__(mrv2.GPUModelRunner)
+    runner.partial_reuse_span_execution_steps = (first_step, second_step)
+    runner._execute_cacheselect_span_step = callback
+
+    outputs = runner._execute_cacheselect_span_steps()
+
+    assert outputs == ("first-output", "second-output")
+    assert callback.call_count == 2
+    assert callback.call_args_list[0].args[0] is first_step
+    assert callback.call_args_list[1].args[0] is second_step
+
+
 # Check that malformed span slot mappings are rejected before model execution.
 def test_execute_cacheselect_span_step_rejects_incomplete_slot_mapping() -> None:
     model = Mock()
