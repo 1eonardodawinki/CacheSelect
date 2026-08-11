@@ -601,6 +601,34 @@ def build_partial_reuse_span_inputs(
     )
 
 
+# Build all compute-span inputs in the order required by causal attention.
+def build_partial_reuse_span_input_sequence(
+    input_ids: torch.Tensor,
+    positions: torch.Tensor,
+    slot_mappings: torch.Tensor,
+    spans: Sequence[PartialReuseComputeSpan],
+    initial_computed_tokens: int,
+) -> tuple[PartialReuseSpanInputs, ...]:
+    ordered_spans = tuple(spans)
+    if not ordered_spans:
+        raise ValueError("partial reuse requires at least one compute span")
+    previous_end = 0
+    for span in ordered_spans:
+        if span.start_row < previous_end:
+            raise ValueError("compute spans must be ordered and non-overlapping")
+        previous_end = span.end_row
+    return tuple(
+        build_partial_reuse_span_inputs(
+            input_ids,
+            positions,
+            slot_mappings,
+            span,
+            initial_computed_tokens,
+        )
+        for span in ordered_spans
+    )
+
+
 # Build a safe fallback that repairs every token in each affected target block.
 def build_full_block_repair_instructions(
     candidates: Sequence[ResolvedPartialReuseCandidate],

@@ -24,6 +24,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_compute_rows,
     build_partial_reuse_compute_spans,
     build_partial_reuse_copy_instructions,
+    build_partial_reuse_span_input_sequence,
     build_partial_reuse_span_inputs,
     build_reused_token_indices,
     compact_partial_reuse_model_inputs,
@@ -403,6 +404,29 @@ def test_build_partial_reuse_span_inputs() -> None:
     assert span_inputs.slot_mappings.tolist() == [[100, 101]]
     assert span_inputs.query_start_locations == (0, 2)
     assert span_inputs.sequence_length == 4
+
+
+# Check that the second span sees the computed and reused context before it.
+def test_build_partial_reuse_span_input_sequence() -> None:
+    span_inputs = build_partial_reuse_span_input_sequence(
+        input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
+        positions=torch.tensor([2, 3, 4, 5, 6, 7]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103, 104, 105]]),
+        spans=(
+            PartialReuseComputeSpan(start_row=0, end_row=2),
+            PartialReuseComputeSpan(start_row=4, end_row=6),
+        ),
+        initial_computed_tokens=2,
+    )
+
+    first_span, second_span = span_inputs
+    assert first_span.input_ids.tolist() == [10, 11]
+    assert first_span.sequence_length == 4
+    assert second_span.input_ids.tolist() == [14, 15]
+    assert second_span.positions.tolist() == [6, 7]
+    assert second_span.slot_mappings.tolist() == [[104, 105]]
+    assert second_span.query_start_locations == (0, 2)
+    assert second_span.sequence_length == 8
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.
