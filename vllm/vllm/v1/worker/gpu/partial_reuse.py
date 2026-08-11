@@ -8,16 +8,19 @@ from __future__ import annotations
 from bisect import bisect_left
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 import torch
 
 if TYPE_CHECKING:
     from vllm.config.cache import CacheSelectRepairSelector
     from vllm.v1.core.partial_reuse import PartialReusePlan
+    from vllm.v1.kv_cache_interface import KVCacheConfig
+    from vllm.v1.worker.utils import AttentionGroup
 
 from vllm.v1.core.kv_cache_utils import KVCacheBlockCopy
 from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
+from vllm.v1.worker.gpu.attn_utils import build_attn_metadata
 
 
 @dataclass(frozen=True)
@@ -712,6 +715,39 @@ def build_partial_reuse_span_attention_input_sequence(
         raise ValueError("partial reuse requires at least one span input")
     return tuple(
         build_partial_reuse_span_attention_inputs(item, block_tables)
+        for item in ordered_inputs
+    )
+
+
+# Ask vLLM's backend builders for advisory metadata for every compute span.
+def build_partial_reuse_span_attention_metadata(
+    span_attention_inputs: Sequence[PartialReuseSpanAttentionInputs],
+    attn_groups: list[list[AttentionGroup]],
+    kv_cache_config: KVCacheConfig,
+) -> tuple[dict[str, Any], ...]:
+    ordered_inputs = tuple(span_attention_inputs)
+    if not ordered_inputs:
+        raise ValueError("partial reuse requires span attention inputs")
+    return tuple(
+        build_attn_metadata(
+            attn_groups=attn_groups,
+            num_reqs=1,
+            num_tokens=item.num_tokens,
+            query_start_loc_gpu=item.query_start_loc_gpu,
+            query_start_loc_cpu=item.query_start_loc_cpu,
+            max_query_len=item.max_query_len,
+            seq_lens=item.seq_lens,
+            max_seq_len=item.max_seq_len,
+            block_tables=item.block_tables,
+            slot_mappings=item.slot_mappings,
+            kv_cache_config=kv_cache_config,
+            seq_lens_cpu_upper_bound=torch.tensor(
+                [item.max_seq_len],
+                dtype=torch.int32,
+            ),
+            positions=item.positions,
+            is_prefilling=torch.tensor([True]),
+        )
         for item in ordered_inputs
     )
 

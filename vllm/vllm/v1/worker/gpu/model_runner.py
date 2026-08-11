@@ -114,6 +114,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_compacted_batch,
     build_partial_reuse_compute_rows,
     build_partial_reuse_copy_instructions,
+    build_partial_reuse_span_attention_metadata,
     build_reused_token_indices,
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
@@ -177,6 +178,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         )
         self.partial_reuse_compute_rows: tuple[int, ...] = ()
         self.partial_reuse_compacted_batch: PartialReuseCompactedBatch | None = None
+        self.partial_reuse_span_attention_metadata: tuple[dict[str, Any], ...] = ()
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -1372,6 +1374,20 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             )
         )
 
+    # Build advisory backend metadata after the normal model call has completed.
+    def _record_cacheselect_span_attention_metadata(self) -> None:
+        self.partial_reuse_span_attention_metadata = ()
+        compacted_batch = self.partial_reuse_compacted_batch
+        if compacted_batch is None:
+            return
+        self.partial_reuse_span_attention_metadata = (
+            build_partial_reuse_span_attention_metadata(
+                compacted_batch.span_attention_inputs,
+                self.attn_groups,
+                self.kv_cache_config,
+            )
+        )
+
     def prepare_dummy_attn(
         self, input_batch: InputBatch
     ) -> tuple[tuple[torch.Tensor, ...], torch.Tensor]:
@@ -1658,6 +1674,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 else:
                     # Eager (NONE): call the raw model directly.
                     model_output = self.model(**model_inputs)
+
+        if not dummy_run:
+            self._record_cacheselect_span_attention_metadata()
 
         if self.is_last_pp_rank:
             if self.use_aux_hidden_state_outputs:

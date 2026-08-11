@@ -26,6 +26,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_compute_spans,
     build_partial_reuse_copy_instructions,
     build_partial_reuse_span_attention_inputs,
+    build_partial_reuse_span_attention_metadata,
     build_partial_reuse_span_input_sequence,
     build_partial_reuse_span_inputs,
     build_reused_token_indices,
@@ -462,6 +463,48 @@ def test_build_partial_reuse_span_attention_inputs() -> None:
     assert attention_inputs.block_tables[0].tolist() == [[7, 8, 9]]
     assert attention_inputs.slot_mappings.tolist() == [[100, 101]]
     assert attention_inputs.positions.tolist() == [2, 3]
+
+
+# Check that advisory metadata calls vLLM's builder once for each span.
+def test_build_partial_reuse_span_attention_metadata(monkeypatch) -> None:
+    calls = []
+
+    # Capture builder inputs without requiring a configured attention backend.
+    def fake_build_attn_metadata(**kwargs):
+        calls.append(kwargs)
+        return {"span_tokens": kwargs["num_tokens"]}
+
+    monkeypatch.setattr(
+        "vllm.v1.worker.gpu.partial_reuse.build_attn_metadata",
+        fake_build_attn_metadata,
+    )
+    span_inputs = build_partial_reuse_span_input_sequence(
+        input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
+        positions=torch.tensor([2, 3, 4, 5, 6, 7]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103, 104, 105]]),
+        spans=(
+            PartialReuseComputeSpan(start_row=0, end_row=2),
+            PartialReuseComputeSpan(start_row=4, end_row=6),
+        ),
+        initial_computed_tokens=2,
+    )
+    attention_inputs = tuple(
+        build_partial_reuse_span_attention_inputs(
+            item,
+            block_tables=(torch.tensor([[7, 8, 9]]),),
+        )
+        for item in span_inputs
+    )
+
+    metadata = build_partial_reuse_span_attention_metadata(
+        attention_inputs,
+        attn_groups=[],
+        kv_cache_config=SimpleNamespace(),
+    )
+
+    assert metadata == ({"span_tokens": 2}, {"span_tokens": 2})
+    assert [call["max_seq_len"] for call in calls] == [4, 8]
+    assert [call["seq_lens"].tolist() for call in calls] == [[4], [8]]
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.
