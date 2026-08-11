@@ -240,6 +240,22 @@ def record_compacted_batch_construction(
     )
 
 
+# Record successful backend metadata construction for every compute span.
+def record_span_attention_metadata_construction(
+    metrics: CacheSelectRepairMetrics,
+    metadata_count: int,
+) -> CacheSelectRepairMetrics:
+    if metadata_count < 1:
+        raise ValueError("partial reuse requires at least one metadata object")
+    if metadata_count != metrics.compute_span_count:
+        raise ValueError("span metadata count must match compute span count")
+    return replace(
+        metrics,
+        span_metadata_built=True,
+        span_metadata_count=metadata_count,
+    )
+
+
 # Select copied prompt-token positions that the repair policy leaves reusable.
 def build_reused_token_indices(
     copy_instructions: Sequence[PartialReuseCopyInstruction],

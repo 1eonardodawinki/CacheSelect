@@ -123,6 +123,8 @@ class CacheSelectRepairMetrics:
     compute_span_count: int = 0
     compacted_batch_built: bool = False
     compacted_batch_executed: bool = False
+    span_metadata_built: bool = False
+    span_metadata_count: int = 0
 
 
 class AlignedBlockReuseLocator:

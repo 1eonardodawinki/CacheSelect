@@ -121,6 +121,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_batch_execution_decision,
     record_compacted_batch_construction,
     record_copy_execution,
+    record_span_attention_metadata_construction,
     resolve_target_block_ids,
     summarize_repair_selection,
 )
@@ -1385,6 +1386,18 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 compacted_batch.span_attention_inputs,
                 self.attn_groups,
                 self.kv_cache_config,
+            )
+        )
+        request_id = self.partial_reuse_batch_decision.request_id
+        if request_id is None:
+            raise ValueError("span metadata requires a request ID")
+        metrics = self.pending_cacheselect_repair_metrics.get(request_id)
+        if metrics is None:
+            raise ValueError("span metadata requires request metrics")
+        self.pending_cacheselect_repair_metrics[request_id] = (
+            record_span_attention_metadata_construction(
+                metrics,
+                metadata_count=len(self.partial_reuse_span_attention_metadata),
             )
         )
 
