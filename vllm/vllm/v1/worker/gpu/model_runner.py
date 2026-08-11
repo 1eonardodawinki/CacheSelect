@@ -1323,13 +1323,18 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             input_batch.positions,
             num_tokens_padded=input_batch.num_tokens_after_padding,
         )
-        self._record_cacheselect_compacted_batch(input_batch, slot_mappings)
+        self._record_cacheselect_compacted_batch(
+            input_batch,
+            block_tables,
+            slot_mappings,
+        )
         return block_tables, slot_mappings
 
     # Store compacted inputs only when the execution safety gate passed.
     def _record_cacheselect_compacted_batch(
         self,
         input_batch: InputBatch,
+        block_tables: tuple[torch.Tensor, ...],
         slot_mappings: torch.Tensor,
     ) -> None:
         self.partial_reuse_compacted_batch = None
@@ -1347,6 +1352,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             input_ids=input_batch.input_ids[:num_tokens],
             positions=input_batch.positions[:num_tokens],
             slot_mappings=slot_mappings[:, :num_tokens],
+            block_tables=block_tables,
             query_start_locations=input_batch.query_start_loc_np[
                 : input_batch.num_reqs + 1
             ],

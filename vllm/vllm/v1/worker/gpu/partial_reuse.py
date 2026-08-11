@@ -67,6 +67,7 @@ class PartialReuseCompactedBatch:
     compute_rows: tuple[int, ...]
     compute_spans: tuple[PartialReuseComputeSpan, ...]
     span_inputs: tuple[PartialReuseSpanInputs, ...]
+    span_attention_inputs: tuple[PartialReuseSpanAttentionInputs, ...]
     input_ids: torch.Tensor
     positions: torch.Tensor
     slot_mappings: torch.Tensor
@@ -542,6 +543,7 @@ def build_partial_reuse_compacted_batch(
     input_ids: torch.Tensor,
     positions: torch.Tensor,
     slot_mappings: torch.Tensor,
+    block_tables: Sequence[torch.Tensor],
     query_start_locations: Sequence[int],
     compute_rows: Sequence[int],
     initial_computed_tokens: int,
@@ -566,15 +568,20 @@ def build_partial_reuse_compacted_batch(
         selected_rows,
         input_ids.numel(),
     )
+    span_inputs = build_partial_reuse_span_input_sequence(
+        input_ids,
+        positions,
+        slot_mappings,
+        compute_spans,
+        initial_computed_tokens,
+    )
     return PartialReuseCompactedBatch(
         compute_rows=selected_rows,
         compute_spans=compute_spans,
-        span_inputs=build_partial_reuse_span_input_sequence(
-            input_ids,
-            positions,
-            slot_mappings,
-            compute_spans,
-            initial_computed_tokens,
+        span_inputs=span_inputs,
+        span_attention_inputs=build_partial_reuse_span_attention_input_sequence(
+            span_inputs,
+            block_tables,
         ),
         input_ids=compacted_ids,
         positions=compacted_positions,
@@ -692,6 +699,20 @@ def build_partial_reuse_span_attention_inputs(
         block_tables=tuple(table[:1] for table in tables),
         slot_mappings=span_inputs.slot_mappings,
         positions=span_inputs.positions,
+    )
+
+
+# Build attention inputs for every compute span in causal execution order.
+def build_partial_reuse_span_attention_input_sequence(
+    span_inputs: Sequence[PartialReuseSpanInputs],
+    block_tables: Sequence[torch.Tensor],
+) -> tuple[PartialReuseSpanAttentionInputs, ...]:
+    ordered_inputs = tuple(span_inputs)
+    if not ordered_inputs:
+        raise ValueError("partial reuse requires at least one span input")
+    return tuple(
+        build_partial_reuse_span_attention_inputs(item, block_tables)
+        for item in ordered_inputs
     )
 
 

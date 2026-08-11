@@ -374,6 +374,7 @@ def test_build_partial_reuse_compacted_batch() -> None:
         input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
         positions=torch.tensor([20, 21, 22, 23, 24, 25]),
         slot_mappings=torch.tensor([[100, 101, 102, 103, 104, 105]]),
+        block_tables=(torch.tensor([[7, 8, 9], [10, 11, 12]]),),
         query_start_locations=(0, 3, 6),
         compute_rows=(0, 2, 3, 5),
     )
@@ -386,6 +387,9 @@ def test_build_partial_reuse_compacted_batch() -> None:
         PartialReuseComputeSpan(start_row=5, end_row=6),
     )
     assert [span.sequence_length for span in compacted.span_inputs] == [21, 24, 26]
+    assert [
+        item.max_seq_len for item in compacted.span_attention_inputs
+    ] == [21, 24, 26]
     assert compacted.input_ids.tolist() == [10, 12, 13, 15]
     assert compacted.positions.tolist() == [20, 22, 23, 25]
     assert compacted.slot_mappings.tolist() == [[100, 102, 103, 105]]

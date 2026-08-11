@@ -133,10 +133,12 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
         query_start_loc_np=(0, 6),
     )
     slot_mappings = torch.tensor([[100, 101, 102, 103, 104, 105]])
+    block_tables = (torch.tensor([[7, 8, 9]]),)
 
     GPUModelRunner._record_cacheselect_compacted_batch(
         runner,
         input_batch,
+        block_tables,
         slot_mappings,
     )
     compacted = runner.partial_reuse_compacted_batch
@@ -146,6 +148,9 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
         (4, 6),
     ]
     assert [span.sequence_length for span in compacted.span_inputs] == [4, 8]
+    assert [
+        item.max_seq_len for item in compacted.span_attention_inputs
+    ] == [4, 8]
     assert compacted.input_ids.tolist() == [10, 11, 14, 15]
     assert compacted.positions.tolist() == [2, 3, 6, 7]
     assert compacted.slot_mappings.tolist() == [[100, 101, 104, 105]]
@@ -162,6 +167,7 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
     GPUModelRunner._record_cacheselect_compacted_batch(
         runner,
         input_batch,
+        block_tables,
         slot_mappings,
     )
     assert runner.partial_reuse_compacted_batch is None
