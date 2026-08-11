@@ -344,6 +344,8 @@ expected_execution_decisions = {
             "cacheselect_compute_span_count": 0,
             "cacheselect_compacted_batch_built": False,
             "cacheselect_compacted_batch_executed": False,
+            "cacheselect_span_metadata_built": False,
+            "cacheselect_span_metadata_count": 0,
         },
     ),
     copy_path: (
@@ -356,6 +358,8 @@ expected_execution_decisions = {
             "cacheselect_compute_span_count": 2,
             "cacheselect_compacted_batch_built": True,
             "cacheselect_compacted_batch_executed": False,
+            "cacheselect_span_metadata_built": True,
+            "cacheselect_span_metadata_count": 2,
         },
     ),
 }
@@ -397,6 +401,7 @@ print(
 )
 print("compact_batch=shadow:not_built enabled:built_not_executed")
 print("compute_spans=shadow:0 enabled:2")
+print("span_metadata=shadow:0 enabled:2")
 print("copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens")
 PY
 

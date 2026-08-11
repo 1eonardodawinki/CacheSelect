@@ -725,6 +725,8 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
         cacheselect_compute_span_count=2,
         cacheselect_compacted_batch_built=True,
         cacheselect_compacted_batch_executed=False,
+        cacheselect_span_metadata_built=True,
+        cacheselect_span_metadata_count=2,
     )
 
     metrics = build_per_request_timing_metrics(request_stats, num_generation_tokens=1)
@@ -746,6 +748,8 @@ def test_build_per_request_timing_metrics_includes_cacheselect_decision():
     assert metrics.cacheselect_compute_span_count == 2
     assert metrics.cacheselect_compacted_batch_built
     assert not metrics.cacheselect_compacted_batch_executed
+    assert metrics.cacheselect_span_metadata_built
+    assert metrics.cacheselect_span_metadata_count == 2
 
 
 @pytest.mark.asyncio

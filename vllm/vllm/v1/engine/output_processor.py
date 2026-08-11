@@ -696,6 +696,12 @@ class OutputProcessor:
                         req_state.stats.cacheselect_compacted_batch_executed = (
                             prefill_stats.cacheselect_compacted_batch_executed
                         )
+                        req_state.stats.cacheselect_span_metadata_built = (
+                            prefill_stats.cacheselect_span_metadata_built
+                        )
+                        req_state.stats.cacheselect_span_metadata_count = (
+                            prefill_stats.cacheselect_span_metadata_count
+                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:

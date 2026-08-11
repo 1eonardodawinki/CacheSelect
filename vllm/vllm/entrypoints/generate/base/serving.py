@@ -119,6 +119,8 @@ def build_per_request_timing_metrics(
         cacheselect_compacted_batch_executed=(
             metrics.cacheselect_compacted_batch_executed
         ),
+        cacheselect_span_metadata_built=metrics.cacheselect_span_metadata_built,
+        cacheselect_span_metadata_count=metrics.cacheselect_span_metadata_count,
     )
 
 

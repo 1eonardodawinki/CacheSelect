@@ -253,6 +253,8 @@ class RequestStateStats:
     cacheselect_compute_span_count: int | None = None
     cacheselect_compacted_batch_built: bool | None = None
     cacheselect_compacted_batch_executed: bool | None = None
+    cacheselect_span_metadata_built: bool | None = None
+    cacheselect_span_metadata_count: int | None = None
 
 
 @dataclass
@@ -302,6 +304,8 @@ class PrefillStats:
         cacheselect_compute_span_count: Contiguous model operations required.
         cacheselect_compacted_batch_built: Whether compact inputs were constructed.
         cacheselect_compacted_batch_executed: Whether the model used compact inputs.
+        cacheselect_span_metadata_built: Whether every span received attention metadata.
+        cacheselect_span_metadata_count: Number of span metadata objects constructed.
     """
 
     num_prompt_tokens: int = 0
@@ -327,6 +331,8 @@ class PrefillStats:
     cacheselect_compute_span_count: int | None = None
     cacheselect_compacted_batch_built: bool | None = None
     cacheselect_compacted_batch_executed: bool | None = None
+    cacheselect_span_metadata_built: bool | None = None
+    cacheselect_span_metadata_count: int | None = None
 
     def set(
         self,
