@@ -108,6 +108,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
     PartialReuseRepairSelector,
+    PartialReuseSpanExecutionStep,
     ResolvedPartialReuseCandidate,
     assess_partial_reuse_batch,
     build_kv_cache_block_copies,
@@ -115,6 +116,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_compute_rows,
     build_partial_reuse_copy_instructions,
     build_partial_reuse_span_attention_metadata,
+    build_partial_reuse_span_execution_steps,
     build_reused_token_indices,
     create_repair_selector,
     map_reused_tokens_to_batch_rows,
@@ -180,6 +182,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.partial_reuse_compute_rows: tuple[int, ...] = ()
         self.partial_reuse_compacted_batch: PartialReuseCompactedBatch | None = None
         self.partial_reuse_span_attention_metadata: tuple[dict[str, Any], ...] = ()
+        self.partial_reuse_span_execution_steps: tuple[
+            PartialReuseSpanExecutionStep, ...
+        ] = ()
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -1375,9 +1380,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             )
         )
 
-    # Build advisory backend metadata after the normal model call has completed.
+    # Pair advisory span inputs and metadata after the normal model call.
     def _record_cacheselect_span_attention_metadata(self) -> None:
         self.partial_reuse_span_attention_metadata = ()
+        self.partial_reuse_span_execution_steps = ()
         compacted_batch = self.partial_reuse_compacted_batch
         if compacted_batch is None:
             return
@@ -1386,6 +1392,12 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 compacted_batch.span_attention_inputs,
                 self.attn_groups,
                 self.kv_cache_config,
+            )
+        )
+        self.partial_reuse_span_execution_steps = (
+            build_partial_reuse_span_execution_steps(
+                compacted_batch,
+                self.partial_reuse_span_attention_metadata,
             )
         )
         request_id = self.partial_reuse_batch_decision.request_id

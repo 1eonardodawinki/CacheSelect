@@ -102,6 +102,13 @@ class PartialReuseSpanAttentionInputs:
     positions: torch.Tensor
 
 
+@dataclass(frozen=True)
+class PartialReuseSpanExecutionStep:
+    span: PartialReuseComputeSpan
+    model_inputs: dict[str, Any]
+    attention_metadata: dict[str, Any]
+
+
 class PartialReuseRepairSelector(Protocol):
     # Select target tokens that must be recomputed after block reuse.
     def select(
@@ -806,6 +813,37 @@ def build_partial_reuse_span_attention_metadata(
             is_prefilling=torch.tensor([True]),
         )
         for item in ordered_inputs
+    )
+
+
+# Pair every span's model arguments with its matching attention metadata.
+def build_partial_reuse_span_execution_steps(
+    compacted_batch: PartialReuseCompactedBatch,
+    span_attention_metadata: Sequence[dict[str, Any]],
+) -> tuple[PartialReuseSpanExecutionStep, ...]:
+    """Build ordered advisory execution steps without calling the model."""
+    spans = compacted_batch.compute_spans
+    model_inputs = compacted_batch.span_model_inputs
+    attention_metadata = tuple(span_attention_metadata)
+    if not spans:
+        raise ValueError("partial reuse requires at least one compute span")
+    if len(model_inputs) != len(spans):
+        raise ValueError("every compute span requires model inputs")
+    if len(attention_metadata) != len(spans):
+        raise ValueError("every compute span requires attention metadata")
+
+    return tuple(
+        PartialReuseSpanExecutionStep(
+            span=span,
+            model_inputs=inputs,
+            attention_metadata=metadata,
+        )
+        for span, inputs, metadata in zip(
+            spans,
+            model_inputs,
+            attention_metadata,
+            strict=True,
+        )
     )
 
 
