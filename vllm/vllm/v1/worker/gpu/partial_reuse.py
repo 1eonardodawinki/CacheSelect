@@ -355,6 +355,7 @@ def assess_partial_reuse_batch(
     is_prefilling: Sequence[bool],
     reused_batch_rows: Mapping[str, Sequence[int]],
     single_gpu: bool,
+    eager_execution: bool,
     supported_kv_layout: bool,
     speculative_decoding: bool,
     multimodal_model: bool,
@@ -400,6 +401,13 @@ def assess_partial_reuse_batch(
         return PartialReuseBatchDecision(
             False,
             "parallelism_unsupported",
+            **decision_details,
+        )
+    # Dynamic span shapes cannot use vLLM's fixed compiled execution yet.
+    if not eager_execution:
+        return PartialReuseBatchDecision(
+            False,
+            "non_eager_execution_unsupported",
             **decision_details,
         )
     if not supported_kv_layout:

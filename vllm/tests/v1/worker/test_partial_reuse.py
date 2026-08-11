@@ -240,6 +240,7 @@ def test_assess_partial_reuse_batch_accepts_supported_prefill() -> None:
         is_prefilling=(True,),
         reused_batch_rows={"rag": tuple(range(64, 96))},
         single_gpu=True,
+        eager_execution=True,
         supported_kv_layout=True,
         speculative_decoding=False,
         multimodal_model=False,
@@ -263,6 +264,7 @@ def test_assess_partial_reuse_batch_rejects_batched_requests() -> None:
         is_prefilling=(False, True),
         reused_batch_rows={"rag": tuple(range(64, 96))},
         single_gpu=True,
+        eager_execution=True,
         supported_kv_layout=True,
         speculative_decoding=False,
         multimodal_model=False,
@@ -273,6 +275,30 @@ def test_assess_partial_reuse_batch_rejects_batched_requests() -> None:
     assert decision == PartialReuseBatchDecision(
         False,
         "batched_requests_unsupported",
+        request_id="rag",
+        reused_batch_rows=tuple(range(64, 96)),
+    )
+
+
+# Check that compiled execution falls back before dynamic spans are attempted.
+def test_assess_partial_reuse_batch_rejects_non_eager_execution() -> None:
+    decision = assess_partial_reuse_batch(
+        execution_enabled=True,
+        req_ids=("rag",),
+        is_prefilling=(True,),
+        reused_batch_rows={"rag": tuple(range(64, 96))},
+        single_gpu=True,
+        eager_execution=False,
+        supported_kv_layout=True,
+        speculative_decoding=False,
+        multimodal_model=False,
+        encoder_decoder_model=False,
+        pooling_model=False,
+    )
+
+    assert decision == PartialReuseBatchDecision(
+        False,
+        "non_eager_execution_unsupported",
         request_id="rag",
         reused_batch_rows=tuple(range(64, 96)),
     )

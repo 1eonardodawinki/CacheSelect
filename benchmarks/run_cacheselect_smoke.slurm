@@ -123,7 +123,8 @@ run_condition() {
     )
   fi
   if [[ "$execute_partial_reuse" == "true" ]]; then
-    cacheselect_args+=(--cacheselect-execute-partial-reuse)
+    # The first partial execution path deliberately excludes compiled graphs.
+    cacheselect_args+=(--cacheselect-execute-partial-reuse --enforce-eager)
   fi
 
   echo "Starting fresh vLLM server: condition=$condition"

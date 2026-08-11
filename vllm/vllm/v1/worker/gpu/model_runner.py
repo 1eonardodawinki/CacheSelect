@@ -1228,6 +1228,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             is_prefilling=is_prefilling_np,
             reused_batch_rows=self.partial_reuse_reused_batch_rows,
             single_gpu=single_gpu,
+            eager_execution=batch_desc.cg_mode == CUDAGraphMode.NONE,
             supported_kv_layout=supported_kv_layout,
             speculative_decoding=self.speculative_config is not None,
             multimodal_model=self.supports_mm_inputs,
