@@ -1396,7 +1396,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             )
         )
 
-    # Pair advisory span inputs and metadata after the normal model call.
+    # Pair span inputs and metadata before selecting the request's forward path.
     def _record_cacheselect_span_attention_metadata(self) -> None:
         self.partial_reuse_span_attention_metadata = ()
         self.partial_reuse_span_execution_steps = ()
@@ -1670,6 +1670,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.kv_cache_config,
             )
 
+        if not dummy_run:
+            self._record_cacheselect_span_attention_metadata()
+
         input_ids = input_batch.input_ids
         inputs_embeds = None
         if self.supports_mm_inputs and self.is_first_pp_rank:
@@ -1766,9 +1769,6 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 else:
                     # Eager (NONE): call the raw model directly.
                     model_output = self.model(**model_inputs)
-
-        if not dummy_run:
-            self._record_cacheselect_span_attention_metadata()
 
         if self.is_last_pp_rank:
             if self.use_aux_hidden_state_outputs:
