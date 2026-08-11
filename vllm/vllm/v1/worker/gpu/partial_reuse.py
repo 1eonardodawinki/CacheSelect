@@ -70,6 +70,7 @@ class PartialReuseCompactedBatch:
     compute_rows: tuple[int, ...]
     compute_spans: tuple[PartialReuseComputeSpan, ...]
     span_inputs: tuple[PartialReuseSpanInputs, ...]
+    span_model_inputs: tuple[dict[str, Any], ...]
     span_attention_inputs: tuple[PartialReuseSpanAttentionInputs, ...]
     input_ids: torch.Tensor
     positions: torch.Tensor
@@ -598,6 +599,9 @@ def build_partial_reuse_compacted_batch(
         compute_rows=selected_rows,
         compute_spans=compute_spans,
         span_inputs=span_inputs,
+        span_model_inputs=build_partial_reuse_span_model_input_sequence(
+            span_inputs
+        ),
         span_attention_inputs=build_partial_reuse_span_attention_input_sequence(
             span_inputs,
             block_tables,
@@ -701,6 +705,19 @@ def build_partial_reuse_span_model_inputs(
         "inputs_embeds": None,
         "intermediate_tensors": None,
     }
+
+
+# Build model arguments for every compute span in causal execution order.
+def build_partial_reuse_span_model_input_sequence(
+    span_inputs: Sequence[PartialReuseSpanInputs],
+) -> tuple[dict[str, Any], ...]:
+    """Build the ordered advisory model calls for one compacted request."""
+    ordered_inputs = tuple(span_inputs)
+    if not ordered_inputs:
+        raise ValueError("partial reuse requires at least one span input")
+    return tuple(
+        build_partial_reuse_span_model_inputs(item) for item in ordered_inputs
+    )
 
 
 # Build the standard attention-builder inputs for one isolated compute span.

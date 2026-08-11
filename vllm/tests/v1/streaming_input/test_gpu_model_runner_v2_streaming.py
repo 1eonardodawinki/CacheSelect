@@ -149,6 +149,10 @@ def test_cacheselect_compacted_batch_follows_execution_decision() -> None:
     ]
     assert [span.sequence_length for span in compacted.span_inputs] == [4, 8]
     assert [
+        model_inputs["positions"].tolist()
+        for model_inputs in compacted.span_model_inputs
+    ] == [[2, 3], [6, 7]]
+    assert [
         item.max_seq_len for item in compacted.span_attention_inputs
     ] == [4, 8]
     assert compacted.input_ids.tolist() == [10, 11, 14, 15]

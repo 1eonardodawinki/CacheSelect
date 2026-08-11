@@ -29,6 +29,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_span_attention_metadata,
     build_partial_reuse_span_input_sequence,
     build_partial_reuse_span_inputs,
+    build_partial_reuse_span_model_input_sequence,
     build_partial_reuse_span_model_inputs,
     build_reused_token_indices,
     compact_partial_reuse_model_inputs,
@@ -365,7 +366,6 @@ def test_compact_partial_reuse_query_start_locations() -> None:
     compacted = compact_partial_reuse_query_start_locations(
         query_start_locations=(0, 3, 6),
         compute_rows=(0, 2, 3, 5),
-        initial_computed_tokens=20,
     )
 
     assert compacted == (0, 2, 4)
@@ -380,6 +380,7 @@ def test_build_partial_reuse_compacted_batch() -> None:
         block_tables=(torch.tensor([[7, 8, 9], [10, 11, 12]]),),
         query_start_locations=(0, 3, 6),
         compute_rows=(0, 2, 3, 5),
+        initial_computed_tokens=20,
     )
 
     assert isinstance(compacted, PartialReuseCompactedBatch)
@@ -390,6 +391,10 @@ def test_build_partial_reuse_compacted_batch() -> None:
         PartialReuseComputeSpan(start_row=5, end_row=6),
     )
     assert [span.sequence_length for span in compacted.span_inputs] == [21, 24, 26]
+    assert [
+        model_inputs["positions"].tolist()
+        for model_inputs in compacted.span_model_inputs
+    ] == [[20], [22, 23], [25]]
     assert [
         item.max_seq_len for item in compacted.span_attention_inputs
     ] == [21, 24, 26]
@@ -489,6 +494,31 @@ def test_build_partial_reuse_span_model_inputs() -> None:
     assert model_inputs["positions"].tolist() == [3, 4]
     assert model_inputs["inputs_embeds"] is None
     assert model_inputs["intermediate_tensors"] is None
+
+
+# Check that multiple model calls preserve their causal span order.
+def test_build_partial_reuse_span_model_input_sequence() -> None:
+    span_inputs = build_partial_reuse_span_input_sequence(
+        input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
+        positions=torch.tensor([2, 3, 4, 5, 6, 7]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103, 104, 105]]),
+        spans=(
+            PartialReuseComputeSpan(start_row=0, end_row=2),
+            PartialReuseComputeSpan(start_row=4, end_row=6),
+        ),
+        initial_computed_tokens=2,
+    )
+
+    model_inputs = build_partial_reuse_span_model_input_sequence(span_inputs)
+
+    assert [item["input_ids"].tolist() for item in model_inputs] == [
+        [10, 11],
+        [14, 15],
+    ]
+    assert [item["positions"].tolist() for item in model_inputs] == [
+        [2, 3],
+        [6, 7],
+    ]
 
 
 # Check that advisory metadata calls vLLM's builder once for each span.
