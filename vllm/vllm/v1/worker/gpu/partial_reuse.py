@@ -6,7 +6,7 @@
 from __future__ import annotations
 
 from bisect import bisect_left
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import TYPE_CHECKING, Any, Protocol
 
@@ -853,6 +853,26 @@ def build_partial_reuse_span_execution_steps(
             strict=True,
         )
     )
+
+
+# Execute paired span steps in causal order through a supplied model callback.
+def execute_partial_reuse_span_steps(
+    steps: Sequence[PartialReuseSpanExecutionStep],
+    execute_step: Callable[[PartialReuseSpanExecutionStep], Any],
+) -> tuple[Any, ...]:
+    """Run an isolated span callback for every validated execution step."""
+    ordered_steps = tuple(steps)
+    if not ordered_steps:
+        raise ValueError("partial reuse requires at least one execution step")
+
+    outputs = []
+    previous_end = 0
+    for step in ordered_steps:
+        if step.span.start_row < previous_end:
+            raise ValueError("execution steps must be ordered and non-overlapping")
+        outputs.append(execute_step(step))
+        previous_end = step.span.end_row
+    return tuple(outputs)
 
 
 # Build a safe fallback that repairs every token in each affected target block.

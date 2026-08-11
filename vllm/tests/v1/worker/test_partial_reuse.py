@@ -38,6 +38,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     compact_partial_reuse_query_start_locations,
     compact_partial_reuse_slot_mappings,
     create_repair_selector,
+    execute_partial_reuse_span_steps,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
     record_compacted_batch_construction,
@@ -638,6 +639,66 @@ def test_build_partial_reuse_span_execution_steps_requires_matching_counts() -> 
         match="every compute span requires attention metadata",
     ):
         build_partial_reuse_span_execution_steps(compacted, ({"span": "first"},))
+
+
+# Check that the executor calls each span once in causal order.
+def test_execute_partial_reuse_span_steps() -> None:
+    compacted = build_partial_reuse_compacted_batch(
+        input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
+        positions=torch.tensor([2, 3, 4, 5, 6, 7]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103, 104, 105]]),
+        block_tables=(torch.tensor([[7, 8, 9]]),),
+        query_start_locations=(0, 6),
+        compute_rows=(0, 1, 4, 5),
+        initial_computed_tokens=2,
+    )
+    steps = build_partial_reuse_span_execution_steps(
+        compacted,
+        ({"span": "first"}, {"span": "second"}),
+    )
+    called_spans = []
+
+    # Mimic one model call while recording the order received by the executor.
+    def fake_execute(step: PartialReuseSpanExecutionStep) -> torch.Tensor:
+        called_spans.append((step.span.start_row, step.span.end_row))
+        return step.model_inputs["input_ids"] * 2
+
+    outputs = execute_partial_reuse_span_steps(steps, fake_execute)
+
+    assert called_spans == [(0, 2), (4, 6)]
+    assert [output.tolist() for output in outputs] == [
+        [20, 22],
+        [28, 30],
+    ]
+
+
+# Check that the executor rejects steps supplied in reverse causal order.
+def test_execute_partial_reuse_span_steps_rejects_reordered_steps() -> None:
+    compacted = build_partial_reuse_compacted_batch(
+        input_ids=torch.tensor([10, 11, 12, 13]),
+        positions=torch.tensor([2, 3, 4, 5]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103]]),
+        block_tables=(torch.tensor([[7, 8, 9]]),),
+        query_start_locations=(0, 4),
+        compute_rows=(0, 1, 3),
+        initial_computed_tokens=2,
+    )
+    steps = build_partial_reuse_span_execution_steps(
+        compacted,
+        ({"span": "first"}, {"span": "second"}),
+    )
+
+    # Return a step unchanged if ordering validation permits callback execution.
+    def return_step(
+        step: PartialReuseSpanExecutionStep,
+    ) -> PartialReuseSpanExecutionStep:
+        return step
+
+    with pytest.raises(
+        ValueError,
+        match="execution steps must be ordered and non-overlapping",
+    ):
+        execute_partial_reuse_span_steps(tuple(reversed(steps)), return_step)
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.
