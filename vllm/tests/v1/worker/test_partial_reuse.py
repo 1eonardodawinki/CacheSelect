@@ -45,6 +45,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_copy_execution,
     record_span_attention_metadata_construction,
     resolve_target_block_ids,
+    stitch_partial_reuse_span_outputs,
     summarize_repair_selection,
 )
 
@@ -703,6 +704,65 @@ def test_execute_partial_reuse_span_steps_rejects_reordered_steps() -> None:
         match="execution steps must be ordered and non-overlapping",
     ):
         execute_partial_reuse_span_steps(tuple(reversed(steps)), return_step)
+
+
+# Check that separated hidden states return to their original prompt rows.
+def test_stitch_partial_reuse_span_outputs() -> None:
+    compacted = build_partial_reuse_compacted_batch(
+        input_ids=torch.tensor([10, 11, 12, 13, 14, 15]),
+        positions=torch.tensor([2, 3, 4, 5, 6, 7]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103, 104, 105]]),
+        block_tables=(torch.tensor([[7, 8, 9]]),),
+        query_start_locations=(0, 6),
+        compute_rows=(0, 1, 4, 5),
+        initial_computed_tokens=2,
+    )
+    steps = build_partial_reuse_span_execution_steps(
+        compacted,
+        ({"span": "first"}, {"span": "second"}),
+    )
+    outputs = (
+        torch.tensor([[1.0, 1.5], [2.0, 2.5]]),
+        torch.tensor([[5.0, 5.5], [6.0, 6.5]]),
+    )
+
+    stitched = stitch_partial_reuse_span_outputs(steps, outputs, total_rows=6)
+
+    assert stitched.tolist() == [
+        [1.0, 1.5],
+        [2.0, 2.5],
+        [0.0, 0.0],
+        [0.0, 0.0],
+        [5.0, 5.5],
+        [6.0, 6.5],
+    ]
+
+
+# Check that a span cannot return a different number of hidden-state rows.
+def test_stitch_partial_reuse_span_outputs_rejects_wrong_row_count() -> None:
+    compacted = build_partial_reuse_compacted_batch(
+        input_ids=torch.tensor([10, 11]),
+        positions=torch.tensor([2, 3]),
+        slot_mappings=torch.tensor([[100, 101]]),
+        block_tables=(torch.tensor([[7, 8, 9]]),),
+        query_start_locations=(0, 2),
+        compute_rows=(0, 1),
+        initial_computed_tokens=2,
+    )
+    steps = build_partial_reuse_span_execution_steps(
+        compacted,
+        ({"span": "only"},),
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="span output rows must match the execution span",
+    ):
+        stitch_partial_reuse_span_outputs(
+            steps,
+            (torch.tensor([[1.0, 1.5]]),),
+            total_rows=2,
+        )
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.

@@ -881,6 +881,43 @@ def execute_partial_reuse_span_steps(
     return tuple(outputs)
 
 
+# Restore separate span hidden states to their original full-batch row positions.
+def stitch_partial_reuse_span_outputs(
+    steps: Sequence[PartialReuseSpanExecutionStep],
+    outputs: Sequence[torch.Tensor],
+    total_rows: int,
+) -> torch.Tensor:
+    """Build a full-row tensor while leaving reused rows as zero placeholders."""
+    ordered_steps = tuple(steps)
+    ordered_outputs = tuple(outputs)
+    if total_rows < 1:
+        raise ValueError("partial reuse output must contain at least one row")
+    if not ordered_steps:
+        raise ValueError("partial reuse requires at least one execution step")
+    if len(ordered_outputs) != len(ordered_steps):
+        raise ValueError("every execution step requires one model output")
+
+    first_output = ordered_outputs[0]
+    if first_output.ndim < 1:
+        raise ValueError("span model outputs require a token dimension")
+    trailing_shape = first_output.shape[1:]
+    stitched = first_output.new_zeros((total_rows, *trailing_shape))
+    previous_end = 0
+    for step, output in zip(ordered_steps, ordered_outputs, strict=True):
+        start_row = step.span.start_row
+        end_row = step.span.end_row
+        if start_row < previous_end or end_row > total_rows:
+            raise ValueError("span outputs must be ordered within the full batch")
+        if output.ndim < 1 or output.shape[0] != end_row - start_row:
+            raise ValueError("span output rows must match the execution span")
+        if output.shape[1:] != trailing_shape:
+            raise ValueError("span model outputs must share a trailing shape")
+        # Reused rows remain zero because only computed rows produce hidden states.
+        stitched[start_row:end_row].copy_(output)
+        previous_end = end_row
+    return stitched
+
+
 # Build a safe fallback that repairs every token in each affected target block.
 def build_full_block_repair_instructions(
     candidates: Sequence[ResolvedPartialReuseCandidate],
