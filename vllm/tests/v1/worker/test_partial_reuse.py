@@ -620,6 +620,10 @@ def test_build_partial_reuse_span_execution_steps() -> None:
         "first",
         "second",
     ]
+    assert [step.slot_mappings.tolist() for step in steps] == [
+        [[100, 101]],
+        [[104, 105]],
+    ]
 
 
 # Check that execution planning rejects missing span metadata.
