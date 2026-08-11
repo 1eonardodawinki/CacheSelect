@@ -15,6 +15,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseComputeSpan,
     PartialReuseCopyInstruction,
     PartialReuseRepairInstruction,
+    PartialReuseSpanAttentionInputs,
     PartialReuseSpanInputs,
     ResolvedPartialReuseCandidate,
     assess_partial_reuse_batch,
@@ -24,6 +25,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_compute_rows,
     build_partial_reuse_compute_spans,
     build_partial_reuse_copy_instructions,
+    build_partial_reuse_span_attention_inputs,
     build_partial_reuse_span_input_sequence,
     build_partial_reuse_span_inputs,
     build_reused_token_indices,
@@ -429,6 +431,33 @@ def test_build_partial_reuse_span_input_sequence() -> None:
     assert second_span.slot_mappings.tolist() == [[104, 105]]
     assert second_span.query_start_locations == (0, 2)
     assert second_span.sequence_length == 8
+
+
+# Check that one span becomes complete inputs for vLLM's attention builder.
+def test_build_partial_reuse_span_attention_inputs() -> None:
+    span_inputs = build_partial_reuse_span_inputs(
+        input_ids=torch.tensor([10, 11, 12, 13]),
+        positions=torch.tensor([2, 3, 4, 5]),
+        slot_mappings=torch.tensor([[100, 101, 102, 103]]),
+        span=PartialReuseComputeSpan(start_row=0, end_row=2),
+        initial_computed_tokens=2,
+    )
+
+    attention_inputs = build_partial_reuse_span_attention_inputs(
+        span_inputs,
+        block_tables=(torch.tensor([[7, 8, 9], [10, 11, 12]]),),
+    )
+
+    assert isinstance(attention_inputs, PartialReuseSpanAttentionInputs)
+    assert attention_inputs.num_tokens == 2
+    assert attention_inputs.query_start_loc_cpu.tolist() == [0, 2]
+    assert attention_inputs.query_start_loc_gpu.tolist() == [0, 2]
+    assert attention_inputs.seq_lens.tolist() == [4]
+    assert attention_inputs.max_query_len == 2
+    assert attention_inputs.max_seq_len == 4
+    assert attention_inputs.block_tables[0].tolist() == [[7, 8, 9]]
+    assert attention_inputs.slot_mappings.tolist() == [[100, 101]]
+    assert attention_inputs.positions.tolist() == [2, 3]
 
 
 # Check that an invalid edit radius cannot configure the experimental selector.

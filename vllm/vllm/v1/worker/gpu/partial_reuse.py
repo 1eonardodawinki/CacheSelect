@@ -83,6 +83,20 @@ class PartialReuseSpanInputs:
     sequence_length: int
 
 
+@dataclass(frozen=True)
+class PartialReuseSpanAttentionInputs:
+    span: PartialReuseComputeSpan
+    num_tokens: int
+    query_start_loc_cpu: torch.Tensor
+    query_start_loc_gpu: torch.Tensor
+    seq_lens: torch.Tensor
+    max_query_len: int
+    max_seq_len: int
+    block_tables: tuple[torch.Tensor, ...]
+    slot_mappings: torch.Tensor
+    positions: torch.Tensor
+
+
 class PartialReuseRepairSelector(Protocol):
     # Select target tokens that must be recomputed after block reuse.
     def select(
@@ -636,6 +650,48 @@ def build_partial_reuse_span_input_sequence(
             initial_computed_tokens,
         )
         for span in ordered_spans
+    )
+
+
+# Build the standard attention-builder inputs for one isolated compute span.
+def build_partial_reuse_span_attention_inputs(
+    span_inputs: PartialReuseSpanInputs,
+    block_tables: Sequence[torch.Tensor],
+) -> PartialReuseSpanAttentionInputs:
+    tables = tuple(block_tables)
+    if not tables:
+        raise ValueError("partial reuse requires at least one block table")
+    if any(table.ndim != 2 or table.shape[0] < 1 for table in tables):
+        raise ValueError("block tables must contain the isolated request")
+    if span_inputs.slot_mappings.shape[0] != len(tables):
+        raise ValueError("slot mappings must match the KV cache groups")
+
+    num_tokens = span_inputs.input_ids.numel()
+    if span_inputs.query_start_locations != (0, num_tokens):
+        raise ValueError("span query boundaries must cover every span token")
+    if span_inputs.sequence_length < num_tokens:
+        raise ValueError("span sequence length cannot be shorter than its query")
+
+    query_boundaries = span_inputs.query_start_locations
+    return PartialReuseSpanAttentionInputs(
+        span=span_inputs.span,
+        num_tokens=num_tokens,
+        query_start_loc_cpu=torch.tensor(query_boundaries, dtype=torch.int32),
+        query_start_loc_gpu=torch.tensor(
+            query_boundaries,
+            dtype=torch.int32,
+            device=span_inputs.positions.device,
+        ),
+        seq_lens=torch.tensor(
+            [span_inputs.sequence_length],
+            dtype=torch.int32,
+            device=span_inputs.positions.device,
+        ),
+        max_query_len=num_tokens,
+        max_seq_len=span_inputs.sequence_length,
+        block_tables=tuple(table[:1] for table in tables),
+        slot_mappings=span_inputs.slot_mappings,
+        positions=span_inputs.positions,
     )
 
 
