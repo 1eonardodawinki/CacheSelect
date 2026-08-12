@@ -41,11 +41,17 @@ def _load_trial(path: Path) -> dict[str, Any]:
         "cacheselect_copy_time_ms",
         "cacheselect_preparation_time_ms",
         "cacheselect_forward_time_ms",
+        "time_to_first_token_ms",
     )
     if any(metrics.get(name) is None for name in timing_names):
         raise ValueError(f"{path}: missing CacheSelect timing metrics")
+    if any(float(metrics[name]) < 0 for name in timing_names):
+        raise ValueError(f"{path}: negative CacheSelect timing metric")
     if not (edited.get("quality") or {}).get("passed"):
         raise ValueError(f"{path}: edited response failed its quality gate")
+    choices = (edited.get("raw_response") or {}).get("choices") or []
+    if not choices or choices[0].get("finish_reason") != "stop":
+        raise ValueError(f"{path}: edited response was truncated")
     prompt_tokens = int(edited["prompt_token_count"])
     if abs(prompt_tokens - int(target)) > 16:
         raise ValueError(
