@@ -122,6 +122,21 @@ def test_plan_filters_candidates_to_retained_source_ids() -> None:
     assert plan.for_retained_source_ids(set()) is None
 
 
+# Check that repeated content maps to the closest context-compatible occurrence.
+def test_select_nearest_repeated_source_block() -> None:
+    locator = AlignedBlockReuseLocator(FakeBlockPool(7), block_size=16)
+    token_ids = tuple(range(16))
+    source_blocks = (
+        SourceBlock(1, token_ids, 5, object()),
+        SourceBlock(5, token_ids, 6, object()),
+        SourceBlock(9, token_ids, 7, object()),
+    )
+
+    selected = locator._select_nearest_source_block(source_blocks, 6)
+
+    assert selected.block_index == 5
+
+
 # Check that insertion geometry measures candidates from the unmatched block.
 def test_change_geometry_for_inserted_block() -> None:
     candidates = (

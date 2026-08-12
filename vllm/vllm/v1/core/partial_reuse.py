@@ -222,17 +222,16 @@ class AlignedBlockReuseLocator:
             source_blocks = by_content.get(token_ids)
             if not source_blocks:
                 continue
-            resident_source = next(
-                (block for block in source_blocks if self._is_resident(block)),
-                None,
+            source_block = self._select_nearest_source_block(
+                source_blocks,
+                target_block_index,
             )
-            source_block = resident_source or source_blocks[0]
             candidates.append(
                 PartialReuseCandidate(
                     source_block_index=source_block.block_index,
                     target_block_index=target_block_index,
                     source_block_id=source_block.block_id,
-                    source_resident=resident_source is not None,
+                    source_resident=self._is_resident(source_block),
                 )
             )
 
@@ -244,6 +243,27 @@ class AlignedBlockReuseLocator:
             native_cached_tokens,
             reason="aligned_candidates" if candidates else "no_aligned_candidates",
             candidates=annotated_candidates,
+        )
+
+    # Prefer the resident identical block whose original position is closest.
+    def _select_nearest_source_block(
+        self,
+        source_blocks: Sequence[SourceBlock],
+        target_block_index: int,
+    ) -> SourceBlock:
+        resident_blocks = tuple(
+            block for block in source_blocks if self._is_resident(block)
+        )
+        choices = resident_blocks or tuple(source_blocks)
+        if not choices:
+            raise ValueError("source block choices cannot be empty")
+        # Stable index tie-breaking makes repeated-content plans reproducible.
+        return min(
+            choices,
+            key=lambda block: (
+                abs(block.block_index - target_block_index),
+                block.block_index,
+            ),
         )
 
     # Add cheap edit-proximity signals to each content-identical block match.
