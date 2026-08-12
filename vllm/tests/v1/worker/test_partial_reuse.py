@@ -98,6 +98,28 @@ def test_resolve_target_block_ids_rejects_missing_target() -> None:
         resolve_target_block_ids(plan, ([71, 12],))
 
 
+# Check that chunked prefill defers mappings for target blocks not allocated yet.
+def test_resolve_target_block_ids_defers_unallocated_chunk() -> None:
+    candidate = SimpleNamespace(
+        source_block_index=3,
+        target_block_index=5,
+        source_block_id=42,
+        source_resident=True,
+        requires_repair=True,
+        block_displacement=2,
+        nearest_changed_block_distance=1,
+    )
+    plan = SimpleNamespace(candidates=(candidate,))
+
+    resolved = resolve_target_block_ids(
+        plan,
+        ([71, 12],),
+        allow_unallocated=True,
+    )
+
+    assert resolved == ()
+
+
 # Check that resolved mappings become explicit worker copy instructions.
 def test_build_partial_reuse_copy_instructions() -> None:
     candidate = ResolvedPartialReuseCandidate(

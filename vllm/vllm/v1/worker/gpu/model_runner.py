@@ -907,7 +907,15 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
             plan = new_req_data.partial_reuse_plan
             resolved_candidates = (
-                resolve_target_block_ids(plan, new_req_data.block_ids)
+                resolve_target_block_ids(
+                    plan,
+                    new_req_data.block_ids,
+                    allow_unallocated=(
+                        len(new_req_data.block_ids) == 1
+                        and len(new_req_data.block_ids[0]) * plan.block_size
+                        < len(new_req_data.prompt_token_ids)
+                    ),
+                )
                 if plan is not None
                 else None
             )

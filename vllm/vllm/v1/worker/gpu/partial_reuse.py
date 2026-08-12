@@ -125,6 +125,8 @@ class PartialReuseRepairSelector(Protocol):
 def resolve_target_block_ids(
     plan: PartialReusePlan,
     target_block_ids: Sequence[Sequence[int]],
+    *,
+    allow_unallocated: bool = False,
 ) -> tuple[ResolvedPartialReuseCandidate, ...]:
     """Resolve logical target positions to physical block IDs."""
     # The locator currently indexes only the first KV-cache group, so reject
@@ -137,6 +139,9 @@ def resolve_target_block_ids(
     for candidate in plan.candidates:
         target_index = candidate.target_block_index
         if target_index < 0 or target_index >= len(target_group):
+            # Chunked prefill allocates later prompt blocks in future steps.
+            if allow_unallocated and target_index >= len(target_group):
+                continue
             raise ValueError(
                 f"target block index {target_index} is outside the request block table"
             )
