@@ -97,7 +97,7 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         native, shadow, active = modes["native"], modes["shadow"], modes["active"]
         if shadow["executed"]:
             raise ValueError(f"shadow trial executed reuse: {shadow['result_file']}")
-        if active["candidate_tokens"] > 0 and not active["executed"]:
+        if active["reused_rows"] > 0 and not active["executed"]:
             raise ValueError(f"active trial did not execute: {active['result_file']}")
         comparable_names = ("prompt_tokens", "candidate_tokens", "reused_rows")
         if any(shadow[name] != active[name] for name in comparable_names):
