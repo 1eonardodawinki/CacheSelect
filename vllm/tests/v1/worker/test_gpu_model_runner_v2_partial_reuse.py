@@ -168,6 +168,7 @@ def test_execute_selected_cacheselect_forward_uses_spans() -> None:
         True, "eligible", request_id="rag"
     )
     runner.partial_reuse_span_execution_steps = (step,)
+    runner.pending_cacheselect_copy_events = {}
     runner.pending_cacheselect_repair_metrics = {
         "rag": CacheSelectRepairMetrics(
             selector="edit_proximity",

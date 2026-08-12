@@ -103,6 +103,9 @@ tokens. The other two transitions have no aligned candidates.
 This remains a correctness and observability smoke test, not a stable speedup
 measurement. The execution-enabled server copies the five candidate KV blocks,
 recomputes the selected spans, and verifies that the compacted batch executed.
+It also validates and prints preparation, KV-copy and selected-forward timings;
+copy events are resolved only after the dependent forward to avoid an extra
+mid-request synchronization point.
 Success is reported as `CacheSelect native execution smoke completed
 successfully`.
 

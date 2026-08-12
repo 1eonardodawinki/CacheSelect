@@ -371,6 +371,23 @@ for path, (metrics, expected) in expected_execution_decisions.items():
             f"{path}: expected execution decision {expected}, got {actual}"
         )
 
+# Require the timing breakdown before treating this as a performance checkpoint.
+timing_names = (
+    "cacheselect_copy_time_ms",
+    "cacheselect_preparation_time_ms",
+    "cacheselect_forward_time_ms",
+)
+for path, metrics in ((cacheselect_path, shadow_metrics), (copy_path, copy_metrics)):
+    timings = {name: metrics.get(name) for name in timing_names}
+    if any(value is None or value < 0 for value in timings.values()):
+        raise SystemExit(f"{path}: invalid CacheSelect timings {timings}")
+if shadow_metrics["cacheselect_forward_time_ms"] <= 0:
+    raise SystemExit(f"{cacheselect_path}: full-forward timing was not recorded")
+if copy_metrics["cacheselect_forward_time_ms"] <= 0:
+    raise SystemExit(f"{copy_path}: span-forward timing was not recorded")
+shadow_ttft_ms = shadow_metrics["time_to_first_token_ms"]
+enabled_ttft_ms = copy_metrics["time_to_first_token_ms"]
+
 # Enabled execution must partition every original row into compute or reuse.
 enabled_row_total = (
     copy_metrics["cacheselect_compute_batch_rows"]
@@ -404,6 +421,14 @@ print("compact_batch=shadow:not_built enabled:built_and_executed")
 print("compute_spans=shadow:0 enabled:2")
 print("span_metadata=shadow:0 enabled:2")
 print("copy_execution=shadow:0_blocks/0_tokens enabled:5_blocks/80_tokens")
+print(
+    "timing_ms="
+    f"shadow_full:{shadow_metrics['cacheselect_forward_time_ms']:.3f} "
+    f"enabled_prepare:{copy_metrics['cacheselect_preparation_time_ms']:.3f} "
+    f"enabled_copy:{copy_metrics['cacheselect_copy_time_ms']:.3f} "
+    f"enabled_forward:{copy_metrics['cacheselect_forward_time_ms']:.3f} "
+    f"ttft_delta:{enabled_ttft_ms - shadow_ttft_ms:+.3f}"
+)
 PY
 
 echo "CacheSelect native execution smoke completed successfully"

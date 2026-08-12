@@ -194,6 +194,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             PartialReuseSpanExecutionStep, ...
         ] = ()
         self.partial_reuse_forward_path: PartialReuseForwardPath = "full"
+        self.pending_cacheselect_copy_events: dict[
+            str, tuple[torch.Event, torch.Event]
+        ] = {}
         self.partial_reuse_repair_selector: PartialReuseRepairSelector = (
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
@@ -853,6 +856,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.partial_reuse_reused_token_indices.pop(req_id, None)
         self.partial_reuse_reused_batch_rows.pop(req_id, None)
         self.pending_cacheselect_repair_metrics.pop(req_id, None)
+        self.pending_cacheselect_copy_events.pop(req_id, None)
         # Call model_state.remove_request *before* req_states.remove_request
         # so the model_state can still look up the slot index.
         self.model_state.remove_request(req_id)
@@ -1023,7 +1027,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.kv_cache_config.num_blocks,
                 block_copies,
             )
-            _, copy_time_ms = self._measure_cacheselect_gpu_operation(
+            _, copy_events = self._launch_timed_cacheselect_gpu_operation(
                 copy_operation
             )
             for req_id, request_instructions in instructions_by_request.items():
@@ -1032,27 +1036,34 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 metrics = self.pending_cacheselect_repair_metrics[req_id]
                 plan = self.partial_reuse_plans[req_id]
                 self.pending_cacheselect_repair_metrics[req_id] = (
-                    record_gpu_execution_times(
-                        record_copy_execution(
-                            metrics,
-                            len(request_instructions),
-                            plan.block_size,
-                        ),
-                        copy_time_ms=copy_time_ms,
+                    record_copy_execution(
+                        metrics,
+                        len(request_instructions),
+                        plan.block_size,
                     )
                 )
+                self.pending_cacheselect_copy_events[req_id] = copy_events
+
+    # Launch one GPU operation between timing events without synchronizing it.
+    def _launch_timed_cacheselect_gpu_operation(
+        self,
+        operation: Callable[[], Any],
+    ) -> tuple[Any, tuple[torch.Event, torch.Event]]:
+        start_event = torch.Event(enable_timing=True)
+        end_event = torch.Event(enable_timing=True)
+        start_event.record()
+        output = operation()
+        end_event.record()
+        return output, (start_event, end_event)
 
     # Measure one GPU operation using device events rather than Python wall time.
     def _measure_cacheselect_gpu_operation(
         self,
         operation: Callable[[], Any],
     ) -> tuple[Any, float]:
-        start_event = torch.Event(enable_timing=True)
-        end_event = torch.Event(enable_timing=True)
-        start_event.record()
-        output = operation()
-        end_event.record()
-        # This research timing point exposes asynchronous GPU duration.
+        output, events = self._launch_timed_cacheselect_gpu_operation(operation)
+        start_event, end_event = events
+        # Synchronize only at the final forward boundary, after earlier copies.
         end_event.synchronize()
         return output, float(start_event.elapsed_time(end_event))
 
@@ -1558,6 +1569,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     metrics,
                     executed_span_count=len(self.partial_reuse_span_execution_steps),
                 ),
+                copy_time_ms=self._take_cacheselect_copy_time(request_id),
                 forward_time_ms=forward_time_ms,
             )
         )
@@ -1570,9 +1582,22 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         forward_time_ms: float,
     ) -> None:
         metrics = self.pending_cacheselect_repair_metrics[request_id]
+        copy_time_ms = self._take_cacheselect_copy_time(request_id)
         self.pending_cacheselect_repair_metrics[request_id] = (
-            record_gpu_execution_times(metrics, forward_time_ms=forward_time_ms)
+            record_gpu_execution_times(
+                metrics,
+                copy_time_ms=copy_time_ms,
+                forward_time_ms=forward_time_ms,
+            )
         )
+
+    # Resolve and remove deferred KV-copy events after dependent forward work.
+    def _take_cacheselect_copy_time(self, request_id: str) -> float | None:
+        events = self.pending_cacheselect_copy_events.pop(request_id, None)
+        if events is None:
+            return None
+        start_event, end_event = events
+        return float(start_event.elapsed_time(end_event))
 
     def prepare_dummy_attn(
         self, input_batch: InputBatch
