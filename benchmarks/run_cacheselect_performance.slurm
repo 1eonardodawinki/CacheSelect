@@ -80,6 +80,8 @@ echo "gpu=$GPU_DESCRIPTION"
   echo "gpu=$GPU_DESCRIPTION"
   echo "selector=edit_proximity"
   echo "edit_radius=1"
+  echo "chunked_prefill=false"
+  echo "max_num_batched_tokens=8192"
 } >"$RESULT_DIR/metadata.env"
 
 python -m benchmarks.generate_length_calibration \
@@ -157,6 +159,8 @@ start_server() {
     --host 127.0.0.1 \
     --port "$PORT" \
     --max-model-len 8192 \
+    --max-num-batched-tokens 8192 \
+    --no-enable-chunked-prefill \
     --gpu-memory-utilization 0.90 \
     --enable-prefix-caching \
     --enable-prompt-tokens-details \

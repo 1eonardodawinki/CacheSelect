@@ -123,10 +123,13 @@ The experiment compares three server modes:
 - `shadow`: CacheSelect selects reusable rows, but vLLM computes the full batch.
 - `active`: CacheSelect copies the selected KV rows and computes only the rest.
 
-All modes use eager execution for a like-for-like comparison. Each source/edit
-pair receives its own cache salt, so it can reuse within that pair but cannot
-inherit an accidental cache hit from an earlier repetition. Submit from the
-Imperial submission host:
+All modes use eager execution and unchunked prefill for a like-for-like
+comparison of the complete reuse plan. Each source/edit pair receives its own
+cache salt, so it can reuse within that pair but cannot inherit an accidental
+cache hit from an earlier repetition. The runtime safely defers mappings for
+future blocks when ordinary vLLM chunked prefill is enabled, but executing reuse
+across multiple prefill chunks remains outside this first benchmark. Submit from
+the Imperial submission host:
 
 ```bash
 cd ~/DeltaCache
