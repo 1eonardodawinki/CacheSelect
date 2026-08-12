@@ -122,13 +122,20 @@ wait_for_server() {
   return 1
 }
 
-# Start one comparable shadow or active CacheSelect server condition.
+# Start one native, shadow, or active server with comparable execution settings.
 start_server() {
   local mode="$1"
   local server_log="$SERVER_LOG_DIR/vllm-$mode.log"
-  local -a execution_args=()
-  if [[ "$mode" == "active" ]]; then
-    execution_args+=(--cacheselect-execute-partial-reuse)
+  local -a cacheselect_args=()
+  if [[ "$mode" != "native" ]]; then
+    cacheselect_args+=(
+      --enable-cacheselect
+      --cacheselect-repair-selector edit_proximity
+      --cacheselect-edit-radius 1
+    )
+    if [[ "$mode" == "active" ]]; then
+      cacheselect_args+=(--cacheselect-execute-partial-reuse)
+    fi
   fi
 
   echo "Starting vLLM mode=$mode"
@@ -140,11 +147,8 @@ start_server() {
     --enable-prefix-caching \
     --enable-prompt-tokens-details \
     --enable-per-request-metrics \
-    --enable-cacheselect \
-    --cacheselect-repair-selector edit_proximity \
-    --cacheselect-edit-radius 1 \
     --enforce-eager \
-    "${execution_args[@]}" \
+    "${cacheselect_args[@]}" \
     >"$server_log" 2>&1 &
   SERVER_PID=$!
   wait_for_server "$server_log"
@@ -160,13 +164,17 @@ run_trial() {
   local label="$5"
   local run_key="tokens-${TARGET}-${position}-${mode}-rep-${repetition}"
   local cache_salt="performance-${PERFORMANCE_ID}-${TASK_ID}-${mode}-${position}-${label}"
+  local planner_mode="vllm"
+  if [[ "$mode" == "native" ]]; then
+    planner_mode="off"
+  fi
 
   python -m benchmarks.run_vllm_baseline \
     --trace "$TRACE_DIR/tokens-${TARGET}-${position}.json" \
     --model "$MODEL" \
     --base-url "http://127.0.0.1:$PORT" \
     --apc-label on \
-    --planner-mode vllm \
+    --planner-mode "$planner_mode" \
     --cache-salt "$cache_salt" \
     --max-completion-tokens 96 \
     --run-id "performance-$PERFORMANCE_ID-$TASK_ID-$mode-$position-$label" \
@@ -191,14 +199,15 @@ run_mode() {
   stop_server
 }
 
-# Alternate condition order across GPUs to reduce systematic warm-machine bias.
-if (( TASK_ID % 2 == 0 )); then
-  run_mode shadow
-  run_mode active
-else
-  run_mode active
-  run_mode shadow
-fi
+# Rotate condition order across GPUs to reduce systematic warm-machine bias.
+case "$TASK_ID" in
+  0) MODES=(native shadow active) ;;
+  1) MODES=(shadow active native) ;;
+  2) MODES=(active native shadow) ;;
+esac
+for mode in "${MODES[@]}"; do
+  run_mode "$mode"
+done
 
 python -m benchmarks.analyze_cacheselect_performance \
   --input-dir "$MEASURED_DIR" \

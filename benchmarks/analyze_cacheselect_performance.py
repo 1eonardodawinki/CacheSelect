@@ -12,9 +12,9 @@ from pathlib import Path
 from typing import Any
 
 POSITIONS = ("early", "middle", "late")
-MODES = ("shadow", "active")
+MODES = ("native", "shadow", "active")
 RESULT_NAME = re.compile(
-    r"^tokens-(\d+)-(early|middle|late)-(shadow|active)-rep-(\d+)\.json$"
+    r"^tokens-(\d+)-(early|middle|late)-(native|shadow|active)-rep-(\d+)\.json$"
 )
 
 
@@ -37,12 +37,13 @@ def _load_trial(path: Path) -> dict[str, Any]:
 
     edited = observations[1]
     metrics = edited.get("server_metrics") or {}
-    timing_names = (
-        "cacheselect_copy_time_ms",
-        "cacheselect_preparation_time_ms",
-        "cacheselect_forward_time_ms",
-        "time_to_first_token_ms",
-    )
+    timing_names = ("time_to_first_token_ms",)
+    if mode != "native":
+        timing_names += (
+            "cacheselect_copy_time_ms",
+            "cacheselect_preparation_time_ms",
+            "cacheselect_forward_time_ms",
+        )
     if any(metrics.get(name) is None for name in timing_names):
         raise ValueError(f"{path}: missing CacheSelect timing metrics")
     if any(float(metrics[name]) < 0 for name in timing_names):
@@ -64,14 +65,16 @@ def _load_trial(path: Path) -> dict[str, Any]:
         "repetition": int(repetition),
         "prompt_tokens": prompt_tokens,
         "native_cached_tokens": int(edited["cached_tokens"]),
-        "candidate_tokens": int(metrics["cacheselect_candidate_tokens"]),
-        "reused_rows": int(metrics["cacheselect_reused_batch_rows"]),
-        "compute_rows": int(metrics["cacheselect_compute_batch_rows"]),
-        "span_count": int(metrics["cacheselect_compute_span_count"]),
-        "executed": bool(metrics["cacheselect_compacted_batch_executed"]),
-        "copy_time_ms": float(metrics["cacheselect_copy_time_ms"]),
-        "preparation_time_ms": float(metrics["cacheselect_preparation_time_ms"]),
-        "forward_time_ms": float(metrics["cacheselect_forward_time_ms"]),
+        "candidate_tokens": int(metrics.get("cacheselect_candidate_tokens", 0)),
+        "reused_rows": int(metrics.get("cacheselect_reused_batch_rows", 0)),
+        "compute_rows": int(metrics.get("cacheselect_compute_batch_rows", 0)),
+        "span_count": int(metrics.get("cacheselect_compute_span_count", 0)),
+        "executed": bool(metrics.get("cacheselect_compacted_batch_executed")),
+        "copy_time_ms": float(metrics.get("cacheselect_copy_time_ms", 0.0)),
+        "preparation_time_ms": float(
+            metrics.get("cacheselect_preparation_time_ms", 0.0)
+        ),
+        "forward_time_ms": float(metrics.get("cacheselect_forward_time_ms", 0.0)),
         "ttft_ms": float(metrics["time_to_first_token_ms"]),
         "result_file": path.name,
     }
@@ -88,7 +91,7 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for (target, position, repetition), modes in sorted(grouped.items()):
         if set(modes) != set(MODES):
             raise ValueError(f"unpaired trial: {target}/{position}/rep-{repetition}")
-        shadow, active = modes["shadow"], modes["active"]
+        native, shadow, active = modes["native"], modes["shadow"], modes["active"]
         if shadow["executed"]:
             raise ValueError(f"shadow trial executed reuse: {shadow['result_file']}")
         if active["candidate_tokens"] > 0 and not active["executed"]:
@@ -97,6 +100,11 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         if any(shadow[name] != active[name] for name in comparable_names):
             raise ValueError(
                 f"condition geometry differs: {shadow['result_file']} and "
+                f"{active['result_file']}"
+            )
+        if native["prompt_tokens"] != active["prompt_tokens"]:
+            raise ValueError(
+                f"native prompt differs: {native['result_file']} and "
                 f"{active['result_file']}"
             )
         paired.append(
@@ -115,8 +123,12 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "active_forward_ms": active["forward_time_ms"],
                 "forward_delta_ms": active["forward_time_ms"]
                 - shadow["forward_time_ms"],
+                "native_ttft_ms": native["ttft_ms"],
                 "shadow_ttft_ms": shadow["ttft_ms"],
                 "active_ttft_ms": active["ttft_ms"],
+                "selector_overhead_ms": shadow["ttft_ms"] - native["ttft_ms"],
+                "active_vs_native_ttft_ms": active["ttft_ms"]
+                - native["ttft_ms"],
                 "ttft_delta_ms": active["ttft_ms"] - shadow["ttft_ms"],
             }
         )
@@ -158,6 +170,10 @@ def _summarize(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "mean_active_copy_ms": _mean(rows, "active_copy_ms"),
                 "mean_active_forward_ms": _mean(rows, "active_forward_ms"),
                 "mean_forward_delta_ms": _mean(rows, "forward_delta_ms"),
+                "mean_selector_overhead_ms": _mean(rows, "selector_overhead_ms"),
+                "mean_active_vs_native_ttft_ms": _mean(
+                    rows, "active_vs_native_ttft_ms"
+                ),
                 "mean_ttft_delta_ms": _mean(rows, "ttft_delta_ms"),
             }
         )
@@ -192,7 +208,8 @@ def main() -> None:
             f"reused={summary['mean_reused_rows']:.1f} "
             f"spans={summary['mean_span_count']:.1f} "
             f"forward_delta_ms={summary['mean_forward_delta_ms']:+.3f} "
-            f"ttft_delta_ms={summary['mean_ttft_delta_ms']:+.3f}"
+            f"active_vs_native_ttft_ms="
+            f"{summary['mean_active_vs_native_ttft_ms']:+.3f}"
         )
 
 
