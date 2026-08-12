@@ -65,16 +65,19 @@ def _load_trial(path: Path) -> dict[str, Any]:
         "repetition": int(repetition),
         "prompt_tokens": prompt_tokens,
         "native_cached_tokens": int(edited["cached_tokens"]),
-        "candidate_tokens": int(metrics.get("cacheselect_candidate_tokens", 0)),
-        "reused_rows": int(metrics.get("cacheselect_reused_batch_rows", 0)),
-        "compute_rows": int(metrics.get("cacheselect_compute_batch_rows", 0)),
-        "span_count": int(metrics.get("cacheselect_compute_span_count", 0)),
+        # Native vLLM exposes these optional schema fields as null, not absent.
+        "candidate_tokens": int(metrics.get("cacheselect_candidate_tokens") or 0),
+        "reused_rows": int(metrics.get("cacheselect_reused_batch_rows") or 0),
+        "compute_rows": int(metrics.get("cacheselect_compute_batch_rows") or 0),
+        "span_count": int(metrics.get("cacheselect_compute_span_count") or 0),
         "executed": bool(metrics.get("cacheselect_compacted_batch_executed")),
-        "copy_time_ms": float(metrics.get("cacheselect_copy_time_ms", 0.0)),
+        "copy_time_ms": float(metrics.get("cacheselect_copy_time_ms") or 0.0),
         "preparation_time_ms": float(
-            metrics.get("cacheselect_preparation_time_ms", 0.0)
+            metrics.get("cacheselect_preparation_time_ms") or 0.0
         ),
-        "forward_time_ms": float(metrics.get("cacheselect_forward_time_ms", 0.0)),
+        "forward_time_ms": float(
+            metrics.get("cacheselect_forward_time_ms") or 0.0
+        ),
         "ttft_ms": float(metrics["time_to_first_token_ms"]),
         "result_file": path.name,
     }
