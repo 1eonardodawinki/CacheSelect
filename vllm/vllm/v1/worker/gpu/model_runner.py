@@ -127,6 +127,8 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_compacted_batch_construction,
     record_compacted_batch_execution,
     record_copy_execution,
+    record_gpu_execution_times,
+    record_preparation_time,
     record_span_attention_metadata_construction,
     resolve_target_block_ids,
     select_partial_reuse_forward_path,
@@ -1015,10 +1017,14 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         block_copies = build_kv_cache_block_copies(instructions)
         if block_copies:
             # Repaired rows overwrite copied values before they can be consumed.
-            copy_kv_cache_blocks_inplace(
+            copy_operation = functools.partial(
+                copy_kv_cache_blocks_inplace,
                 self.kv_caches,
                 self.kv_cache_config.num_blocks,
                 block_copies,
+            )
+            _, copy_time_ms = self._measure_cacheselect_gpu_operation(
+                copy_operation
             )
             for req_id, request_instructions in instructions_by_request.items():
                 if not request_instructions:
@@ -1026,12 +1032,29 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 metrics = self.pending_cacheselect_repair_metrics[req_id]
                 plan = self.partial_reuse_plans[req_id]
                 self.pending_cacheselect_repair_metrics[req_id] = (
-                    record_copy_execution(
-                        metrics,
-                        len(request_instructions),
-                        plan.block_size,
+                    record_gpu_execution_times(
+                        record_copy_execution(
+                            metrics,
+                            len(request_instructions),
+                            plan.block_size,
+                        ),
+                        copy_time_ms=copy_time_ms,
                     )
                 )
+
+    # Measure one GPU operation using device events rather than Python wall time.
+    def _measure_cacheselect_gpu_operation(
+        self,
+        operation: Callable[[], Any],
+    ) -> tuple[Any, float]:
+        start_event = torch.Event(enable_timing=True)
+        end_event = torch.Event(enable_timing=True)
+        start_event.record()
+        output = operation()
+        end_event.record()
+        # This research timing point exposes asynchronous GPU duration.
+        end_event.synchronize()
+        return output, float(start_event.elapsed_time(end_event))
 
     # Update worker request state and perform all pre-forward KV memory writes.
     def update_requests(self, scheduler_output: SchedulerOutput) -> None:
@@ -1376,6 +1399,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             raise ValueError("eligible compact batch requires its isolated request")
 
         num_tokens = input_batch.num_tokens
+        preparation_start = time.perf_counter()
         self.partial_reuse_compacted_batch = build_partial_reuse_compacted_batch(
             input_ids=input_batch.input_ids[:num_tokens],
             positions=input_batch.positions[:num_tokens],
@@ -1391,12 +1415,15 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if metrics is None:
             raise ValueError("eligible compact batch requires request metrics")
         self.pending_cacheselect_repair_metrics[request_id] = (
-            record_compacted_batch_construction(
-                metrics,
-                compacted_rows=len(self.partial_reuse_compute_rows),
-                compute_span_count=len(
-                    self.partial_reuse_compacted_batch.compute_spans
+            record_preparation_time(
+                record_compacted_batch_construction(
+                    metrics,
+                    compacted_rows=len(self.partial_reuse_compute_rows),
+                    compute_span_count=len(
+                        self.partial_reuse_compacted_batch.compute_spans
+                    ),
                 ),
+                elapsed_ms=(time.perf_counter() - preparation_start) * 1000,
             )
         )
 
@@ -1407,6 +1434,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         compacted_batch = self.partial_reuse_compacted_batch
         if compacted_batch is None:
             return
+        preparation_start = time.perf_counter()
         self.partial_reuse_span_attention_metadata = (
             build_partial_reuse_span_attention_metadata(
                 compacted_batch.span_attention_inputs,
@@ -1427,9 +1455,12 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if metrics is None:
             raise ValueError("span metadata requires request metrics")
         self.pending_cacheselect_repair_metrics[request_id] = (
-            record_span_attention_metadata_construction(
-                metrics,
-                metadata_count=len(self.partial_reuse_span_attention_metadata),
+            record_preparation_time(
+                record_span_attention_metadata_construction(
+                    metrics,
+                    metadata_count=len(self.partial_reuse_span_attention_metadata),
+                ),
+                elapsed_ms=(time.perf_counter() - preparation_start) * 1000,
             )
         )
 
@@ -1498,10 +1529,23 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             dummy_run=dummy_run,
         )
         if self.partial_reuse_forward_path == "full":
-            return execute_full()
+            request_id = self.partial_reuse_batch_decision.request_id
+            if request_id not in self.pending_cacheselect_repair_metrics:
+                return execute_full()
+            model_output, forward_time_ms = self._measure_cacheselect_gpu_operation(
+                execute_full
+            )
+            self._record_cacheselect_forward_time(request_id, forward_time_ms)
+            return model_output
 
         self.kv_connector.pre_forward(scheduler_output)
-        model_output = self._execute_and_stitch_cacheselect_spans(total_rows)
+        span_operation = functools.partial(
+            self._execute_and_stitch_cacheselect_spans,
+            total_rows,
+        )
+        model_output, forward_time_ms = self._measure_cacheselect_gpu_operation(
+            span_operation
+        )
         request_id = self.partial_reuse_batch_decision.request_id
         if request_id is None:
             raise ValueError("executed CacheSelect spans require a request ID")
@@ -1509,12 +1553,26 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         if metrics is None:
             raise ValueError("executed CacheSelect spans require request metrics")
         self.pending_cacheselect_repair_metrics[request_id] = (
-            record_compacted_batch_execution(
-                metrics,
-                executed_span_count=len(self.partial_reuse_span_execution_steps),
+            record_gpu_execution_times(
+                record_compacted_batch_execution(
+                    metrics,
+                    executed_span_count=len(self.partial_reuse_span_execution_steps),
+                ),
+                forward_time_ms=forward_time_ms,
             )
         )
         return model_output
+
+    # Attach measured full-forward duration to an existing shadow request metric.
+    def _record_cacheselect_forward_time(
+        self,
+        request_id: str,
+        forward_time_ms: float,
+    ) -> None:
+        metrics = self.pending_cacheselect_repair_metrics[request_id]
+        self.pending_cacheselect_repair_metrics[request_id] = (
+            record_gpu_execution_times(metrics, forward_time_ms=forward_time_ms)
+        )
 
     def prepare_dummy_attn(
         self, input_batch: InputBatch

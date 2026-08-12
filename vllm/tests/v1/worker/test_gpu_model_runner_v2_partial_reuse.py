@@ -188,6 +188,12 @@ def test_execute_selected_cacheselect_forward_uses_spans() -> None:
     runner._execute_and_stitch_cacheselect_spans = Mock(
         return_value=expected_output
     )
+
+    # Run the supplied operation immediately while returning a fixed GPU duration.
+    def measure_operation(operation: Any) -> tuple[Any, float]:
+        return operation(), 4.5
+
+    runner._measure_cacheselect_gpu_operation = Mock(side_effect=measure_operation)
     execute_full = Mock()
     scheduler_output = SimpleNamespace(name="test-schedule")
 
@@ -205,6 +211,7 @@ def test_execute_selected_cacheselect_forward_uses_spans() -> None:
     assert runner.pending_cacheselect_repair_metrics[
         "rag"
     ].compacted_batch_executed
+    assert runner.pending_cacheselect_repair_metrics["rag"].forward_time_ms == 4.5
     execute_full.assert_not_called()
 
 
