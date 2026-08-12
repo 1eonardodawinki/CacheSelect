@@ -68,6 +68,20 @@ echo "project_commit=$PROJECT_COMMIT"
 echo "model=$MODEL vllm_version=$VLLM_VERSION"
 echo "gpu=$GPU_DESCRIPTION"
 
+# Preserve the essential run provenance beside the measured results.
+{
+  echo "experiment=cacheselect_repeated_performance"
+  echo "performance_id=$PERFORMANCE_ID"
+  echo "target_tokens=$TARGET"
+  echo "repetitions=$REPETITIONS"
+  echo "project_commit=$PROJECT_COMMIT"
+  echo "model=$MODEL"
+  echo "vllm_version=$VLLM_VERSION"
+  echo "gpu=$GPU_DESCRIPTION"
+  echo "selector=edit_proximity"
+  echo "edit_radius=1"
+} >"$RESULT_DIR/metadata.env"
+
 python -m benchmarks.generate_length_calibration \
   --model "$MODEL" \
   --target-prompt-tokens "$TARGET" \

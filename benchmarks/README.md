@@ -109,6 +109,53 @@ mid-request synchronization point.
 Success is reported as `CacheSelect native execution smoke completed
 successfully`.
 
+## Repeated CacheSelect performance experiment
+
+After the native smoke test passes, run the repeated matrix to determine whether
+partial KV reuse is actually faster. Its three array tasks use one GPU each for
+target prompt lengths of 256, 1,024 and 4,096 tokens. Every task tests edits near
+the beginning, middle and end of the prompt with one warmup and five measured
+repetitions.
+
+The experiment compares three server modes:
+
+- `native`: ordinary vLLM automatic prefix caching.
+- `shadow`: CacheSelect selects reusable rows, but vLLM computes the full batch.
+- `active`: CacheSelect copies the selected KV rows and computes only the rest.
+
+All modes use eager execution for a like-for-like comparison. Each source/edit
+pair receives its own cache salt, so it can reuse within that pair but cannot
+inherit an accidental cache hit from an earlier repetition. Submit from the
+Imperial submission host:
+
+```bash
+cd ~/DeltaCache
+git pull --ff-only
+PERFORMANCE_JOB_ID=$(sbatch --parsable benchmarks/run_cacheselect_performance.slurm)
+echo "$PERFORMANCE_JOB_ID"
+```
+
+Monitor the three array tasks with:
+
+```bash
+squeue -j "$PERFORMANCE_JOB_ID"
+grep -h "CacheSelect performance task completed successfully" \
+  /vol/bitbucket/$USER/cacheselect-server-logs/performance-"$PERFORMANCE_JOB_ID"_*.out \
+  2>/dev/null | wc -l
+```
+
+The success count reaches 3. Results are stored below
+`/vol/bitbucket/$USER/cacheselect-results/performance-$PERFORMANCE_JOB_ID`.
+Each prompt-length directory contains the raw measured and warmup JSON files,
+run metadata, and an `analysis` directory with paired-trial CSV and aggregate
+CSV/JSON summaries. Complete inputs and outputs remain available in the matching
+`cacheselect-request-logs` directory.
+
+A negative `mean_forward_delta_ms` means the partial forward beat the full
+shadow forward. A negative `mean_active_vs_native_ttft_ms` is the stronger
+end-to-end result: CacheSelect returned the first token faster than ordinary
+vLLM APC after including selection, copying and recomputation overhead.
+
 The online locator currently covers the deliberately narrow first milestone:
 one full-attention KV group where scheduler, hash and physical block sizes are
 equal. It indexes only full source blocks, requires an explicit source request
