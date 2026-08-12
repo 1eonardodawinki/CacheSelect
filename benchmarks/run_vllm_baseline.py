@@ -122,8 +122,11 @@ def _observe_request(
     expected_prompt_token_ids: list[int] | None = None,
     require_cacheselect_metrics: bool = False,
     vllm_xargs: dict[str, str] | None = None,
+    cache_salt: str | None = None,
 ) -> dict[str, Any]:
     payload = request.api_payload(model, max_completion_tokens)
+    if cache_salt is not None:
+        payload["cache_salt"] = cache_salt
     if vllm_xargs:
         payload["vllm_xargs"] = {
             **(payload.get("vllm_xargs") or {}),
@@ -325,6 +328,11 @@ def main() -> None:
     parser.add_argument("--apc-label", choices=["on", "off"], required=True)
     parser.add_argument("--max-completion-tokens", type=int, default=96)
     parser.add_argument("--timeout-seconds", type=float, default=300.0)
+    parser.add_argument(
+        "--cache-salt",
+        default=None,
+        help="Optional cache namespace shared only by requests in this trace run.",
+    )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument(
         "--planner-mode",
@@ -440,6 +448,7 @@ def main() -> None:
                 expected_prompt_token_ids=expected_prompt_tokens,
                 require_cacheselect_metrics=args.planner_mode == "vllm",
                 vllm_xargs=source_metadata.get(request.request_id),
+                cache_salt=args.cache_salt,
             )
         )
 

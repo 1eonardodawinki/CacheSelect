@@ -294,12 +294,14 @@ class BaselineRunnerTests(TestCase):
                     "cacheselect_source_request_id": "chat-source",
                     "cacheselect_transition_id": "chat-transition",
                 },
+                cache_salt="isolated-repetition-1",
             )
 
         sent_request = urlopen.call_args.args[0]
         sent_payload = json.loads(sent_request.data)
         self.assertTrue(sent_payload["return_token_ids"])
         self.assertTrue(sent_payload["return_prompt_text"])
+        self.assertEqual(sent_payload["cache_salt"], "isolated-repetition-1")
         self.assertEqual(
             sent_payload["vllm_xargs"],
             {
