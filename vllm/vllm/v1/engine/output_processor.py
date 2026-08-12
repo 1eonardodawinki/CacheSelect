@@ -702,6 +702,15 @@ class OutputProcessor:
                         req_state.stats.cacheselect_span_metadata_count = (
                             prefill_stats.cacheselect_span_metadata_count
                         )
+                        req_state.stats.cacheselect_copy_time_ms = (
+                            prefill_stats.cacheselect_copy_time_ms
+                        )
+                        req_state.stats.cacheselect_preparation_time_ms = (
+                            prefill_stats.cacheselect_preparation_time_ms
+                        )
+                        req_state.stats.cacheselect_forward_time_ms = (
+                            prefill_stats.cacheselect_forward_time_ms
+                        )
                 req_state.is_prefilling = False
 
             if pooling_output is None:

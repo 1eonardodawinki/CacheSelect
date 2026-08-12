@@ -125,6 +125,9 @@ class CacheSelectRepairMetrics:
     compacted_batch_executed: bool = False
     span_metadata_built: bool = False
     span_metadata_count: int = 0
+    copy_time_ms: float = 0.0
+    preparation_time_ms: float = 0.0
+    forward_time_ms: float = 0.0
 
 
 class AlignedBlockReuseLocator:

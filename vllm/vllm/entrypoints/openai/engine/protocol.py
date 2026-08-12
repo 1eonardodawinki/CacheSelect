@@ -144,6 +144,9 @@ class PerRequestTimingMetrics(OpenAIBaseModel):
     cacheselect_compacted_batch_executed: bool | None = None
     cacheselect_span_metadata_built: bool | None = None
     cacheselect_span_metadata_count: int | None = None
+    cacheselect_copy_time_ms: float | None = None
+    cacheselect_preparation_time_ms: float | None = None
+    cacheselect_forward_time_ms: float | None = None
 
 
 class RequestResponseMetadata(BaseModel):

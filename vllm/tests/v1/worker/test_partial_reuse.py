@@ -44,6 +44,8 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_compacted_batch_construction,
     record_compacted_batch_execution,
     record_copy_execution,
+    record_gpu_execution_times,
+    record_preparation_time,
     record_span_attention_metadata_construction,
     resolve_target_block_ids,
     select_partial_reuse_forward_path,
@@ -988,3 +990,14 @@ def test_summarize_repair_selection() -> None:
         executed_span_count=1,
     )
     assert executed_batch_metrics.compacted_batch_executed
+
+    timed_metrics = record_preparation_time(executed_batch_metrics, 1.25)
+    timed_metrics = record_preparation_time(timed_metrics, 0.75)
+    timed_metrics = record_gpu_execution_times(
+        timed_metrics,
+        copy_time_ms=0.5,
+        forward_time_ms=4.5,
+    )
+    assert timed_metrics.preparation_time_ms == 2.0
+    assert timed_metrics.copy_time_ms == 0.5
+    assert timed_metrics.forward_time_ms == 4.5

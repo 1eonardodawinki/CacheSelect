@@ -121,6 +121,9 @@ def build_per_request_timing_metrics(
         ),
         cacheselect_span_metadata_built=metrics.cacheselect_span_metadata_built,
         cacheselect_span_metadata_count=metrics.cacheselect_span_metadata_count,
+        cacheselect_copy_time_ms=metrics.cacheselect_copy_time_ms,
+        cacheselect_preparation_time_ms=metrics.cacheselect_preparation_time_ms,
+        cacheselect_forward_time_ms=metrics.cacheselect_forward_time_ms,
     )
 
 

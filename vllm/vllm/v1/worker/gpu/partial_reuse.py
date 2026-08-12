@@ -279,6 +279,39 @@ def record_compacted_batch_execution(
     return replace(metrics, compacted_batch_executed=True)
 
 
+# Accumulate measured CacheSelect preparation work performed on the CPU.
+def record_preparation_time(
+    metrics: CacheSelectRepairMetrics,
+    elapsed_ms: float,
+) -> CacheSelectRepairMetrics:
+    if elapsed_ms < 0:
+        raise ValueError("preparation time must be non-negative")
+    return replace(
+        metrics,
+        preparation_time_ms=metrics.preparation_time_ms + elapsed_ms,
+    )
+
+
+# Store GPU timings for block copying and the selected model-forward path.
+def record_gpu_execution_times(
+    metrics: CacheSelectRepairMetrics,
+    *,
+    copy_time_ms: float | None = None,
+    forward_time_ms: float | None = None,
+) -> CacheSelectRepairMetrics:
+    if copy_time_ms is not None and copy_time_ms < 0:
+        raise ValueError("copy time must be non-negative")
+    if forward_time_ms is not None and forward_time_ms < 0:
+        raise ValueError("forward time must be non-negative")
+    return replace(
+        metrics,
+        copy_time_ms=metrics.copy_time_ms if copy_time_ms is None else copy_time_ms,
+        forward_time_ms=(
+            metrics.forward_time_ms if forward_time_ms is None else forward_time_ms
+        ),
+    )
+
+
 # Select copied prompt-token positions that the repair policy leaves reusable.
 def build_reused_token_indices(
     copy_instructions: Sequence[PartialReuseCopyInstruction],

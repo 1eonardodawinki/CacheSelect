@@ -1770,6 +1770,15 @@ class Scheduler(SchedulerInterface):
                 request.prefill_stats.cacheselect_span_metadata_count = (
                     repair_metrics.span_metadata_count
                 )
+                request.prefill_stats.cacheselect_copy_time_ms = (
+                    repair_metrics.copy_time_ms
+                )
+                request.prefill_stats.cacheselect_preparation_time_ms = (
+                    repair_metrics.preparation_time_ms
+                )
+                request.prefill_stats.cacheselect_forward_time_ms = (
+                    repair_metrics.forward_time_ms
+                )
 
             req_index = model_runner_output.req_id_to_index[req_id]
             generated_token_ids = (
