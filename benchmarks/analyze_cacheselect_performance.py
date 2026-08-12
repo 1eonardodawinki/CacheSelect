@@ -70,6 +70,10 @@ def _load_trial(path: Path) -> dict[str, Any]:
         "reused_rows": int(metrics.get("cacheselect_reused_batch_rows") or 0),
         "compute_rows": int(metrics.get("cacheselect_compute_batch_rows") or 0),
         "span_count": int(metrics.get("cacheselect_compute_span_count") or 0),
+        "execution_eligible": bool(
+            metrics.get("cacheselect_execution_eligible")
+        ),
+        "execution_reason": metrics.get("cacheselect_execution_reason"),
         "executed": bool(metrics.get("cacheselect_compacted_batch_executed")),
         "copy_time_ms": float(metrics.get("cacheselect_copy_time_ms") or 0.0),
         "preparation_time_ms": float(
@@ -97,8 +101,10 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         native, shadow, active = modes["native"], modes["shadow"], modes["active"]
         if shadow["executed"]:
             raise ValueError(f"shadow trial executed reuse: {shadow['result_file']}")
-        if active["reused_rows"] > 0 and not active["executed"]:
+        if active["execution_eligible"] and not active["executed"]:
             raise ValueError(f"active trial did not execute: {active['result_file']}")
+        if active["executed"] and not active["execution_eligible"]:
+            raise ValueError(f"ineligible trial executed: {active['result_file']}")
         comparable_names = ("prompt_tokens", "candidate_tokens", "reused_rows")
         if any(shadow[name] != active[name] for name in comparable_names):
             raise ValueError(
@@ -117,9 +123,12 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "repetition": repetition,
                 "prompt_tokens": active["prompt_tokens"],
                 "candidate_tokens": active["candidate_tokens"],
-                "reused_rows": active["reused_rows"],
+                "selected_reuse_rows": active["reused_rows"],
+                "reused_rows": active["reused_rows"] if active["executed"] else 0,
                 "compute_rows": active["compute_rows"],
                 "span_count": active["span_count"],
+                "executed": active["executed"],
+                "execution_reason": active["execution_reason"],
                 "shadow_forward_ms": shadow["forward_time_ms"],
                 "active_preparation_ms": active["preparation_time_ms"],
                 "active_copy_ms": active["copy_time_ms"],
@@ -164,6 +173,11 @@ def _summarize(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "target_tokens": target,
                 "position": position,
                 "repetitions": len(rows),
+                "executed_repetitions": sum(row["executed"] for row in rows),
+                "execution_reasons": ",".join(
+                    sorted({str(row["execution_reason"]) for row in rows})
+                ),
+                "mean_selected_reuse_rows": _mean(rows, "selected_reuse_rows"),
                 "mean_reused_rows": _mean(rows, "reused_rows"),
                 "mean_span_count": _mean(rows, "span_count"),
                 "mean_shadow_forward_ms": _mean(rows, "shadow_forward_ms"),
@@ -208,7 +222,11 @@ def main() -> None:
     for summary in summaries:
         print(
             f"tokens={summary['target_tokens']} position={summary['position']} "
+            f"selected={summary['mean_selected_reuse_rows']:.1f} "
             f"reused={summary['mean_reused_rows']:.1f} "
+            f"executed={summary['executed_repetitions']}/"
+            f"{summary['repetitions']} "
+            f"reason={summary['execution_reasons']} "
             f"spans={summary['mean_span_count']:.1f} "
             f"forward_delta_ms={summary['mean_forward_delta_ms']:+.3f} "
             f"active_vs_native_ttft_ms="
