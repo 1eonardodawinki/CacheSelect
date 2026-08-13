@@ -19,7 +19,13 @@ EXPERIMENT_KIND="${CACHESELECT_EXPERIMENT_KIND:-performance}"
 EDIT_RADIUS="${CACHESELECT_EDIT_RADIUS:-1}"
 ANSWER_SENSITIVE="${CACHESELECT_ANSWER_SENSITIVE:-0}"
 QUALITY_SCENARIO="${CACHESELECT_QUALITY_SCENARIO:-direct}"
+QUALITY_SCENARIOS_VALUE="${CACHESELECT_QUALITY_SCENARIOS:-$QUALITY_SCENARIO}"
 HF_OFFLINE="${CACHESELECT_HF_OFFLINE:-1}"
+read -r -a QUALITY_SCENARIOS <<<"$QUALITY_SCENARIOS_VALUE"
+SUITE_MODE=0
+if (( ${#QUALITY_SCENARIOS[@]} > 1 )); then
+  SUITE_MODE=1
+fi
 
 TASK_ID="${SLURM_ARRAY_TASK_ID:?Run this file as a Slurm array job}"
 EXPERIMENT_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
@@ -74,7 +80,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
 
 echo "CacheSelect $EXPERIMENT_KIND experiment"
 echo "experiment_id=$EXPERIMENT_ID task_id=$TASK_ID target_tokens=$TARGET"
-echo "edit_radius=$EDIT_RADIUS answer_sensitive=$ANSWER_SENSITIVE quality_scenario=$QUALITY_SCENARIO"
+echo "edit_radius=$EDIT_RADIUS answer_sensitive=$ANSWER_SENSITIVE quality_scenarios=$QUALITY_SCENARIOS_VALUE"
 echo "hf_offline=$HF_OFFLINE"
 echo "host=$(hostname) port=$PORT repetitions=$REPETITIONS"
 echo "project_commit=$PROJECT_COMMIT"
@@ -94,7 +100,7 @@ echo "gpu=$GPU_DESCRIPTION"
   echo "selector=edit_proximity"
   echo "edit_radius=$EDIT_RADIUS"
   echo "answer_sensitive=$ANSWER_SENSITIVE"
-  echo "quality_scenario=$QUALITY_SCENARIO"
+  echo "quality_scenarios=$QUALITY_SCENARIOS_VALUE"
   echo "hf_offline=$HF_OFFLINE"
   echo "chunked_prefill=false"
   echo "max_num_batched_tokens=8192"
@@ -102,8 +108,11 @@ echo "gpu=$GPU_DESCRIPTION"
 
 TRACE_ARGS=()
 if [[ "$ANSWER_SENSITIVE" == "1" ]]; then
-  TRACE_ARGS+=(--answer-sensitive --quality-scenario "$QUALITY_SCENARIO")
+  TRACE_ARGS+=(--answer-sensitive)
 fi
+for quality_scenario in "${QUALITY_SCENARIOS[@]}"; do
+  TRACE_ARGS+=(--quality-scenario "$quality_scenario")
+done
 python -m benchmarks.generate_length_calibration \
   --model "$MODEL" \
   --target-prompt-tokens "$TARGET" \
@@ -197,26 +206,33 @@ start_server() {
 # Submit one source/edit pair with a cache namespace unique to this repetition.
 run_trial() {
   local mode="$1"
-  local position="$2"
-  local repetition="$3"
-  local output_dir="$4"
-  local label="$5"
+  local scenario="$2"
+  local position="$3"
+  local repetition="$4"
+  local output_dir="$5"
+  local label="$6"
   local run_key="tokens-${TARGET}-${position}-${mode}-rep-${repetition}"
-  local cache_salt="${EXPERIMENT_KIND}-${EXPERIMENT_ID}-${TASK_ID}-${mode}-${position}-${label}"
+  local trace_dir="$TRACE_DIR"
+  if (( SUITE_MODE )); then
+    trace_dir="$TRACE_DIR/$scenario"
+    output_dir="$output_dir/$scenario"
+    mkdir -p "$output_dir"
+  fi
+  local cache_salt="${EXPERIMENT_KIND}-${EXPERIMENT_ID}-${TASK_ID}-${mode}-${scenario}-${position}-${label}"
   local planner_mode="vllm"
   if [[ "$mode" == "native" ]]; then
     planner_mode="off"
   fi
 
   python -m benchmarks.run_vllm_baseline \
-    --trace "$TRACE_DIR/tokens-${TARGET}-${position}.json" \
+    --trace "$trace_dir/tokens-${TARGET}-${position}.json" \
     --model "$MODEL" \
     --base-url "http://127.0.0.1:$PORT" \
     --apc-label on \
     --planner-mode "$planner_mode" \
     --cache-salt "$cache_salt" \
     --max-completion-tokens 96 \
-    --run-id "$EXPERIMENT_KIND-$EXPERIMENT_ID-$TASK_ID-$mode-$position-$label" \
+    --run-id "$EXPERIMENT_KIND-$EXPERIMENT_ID-$TASK_ID-$mode-$scenario-$position-$label" \
     --request-log-dir "$REQUEST_LOG_DIR" \
     --output "$output_dir/$run_key.json"
 }
@@ -225,14 +241,19 @@ run_trial() {
 run_mode() {
   local mode="$1"
   start_server "$mode"
+  local warmup_scenario="${QUALITY_SCENARIOS[0]}"
   for position in "${POSITIONS[@]}"; do
-    run_trial "$mode" "$position" 0 "$WARMUP_DIR" "warmup"
+    run_trial \
+      "$mode" "$warmup_scenario" "$position" 0 "$WARMUP_DIR" "warmup"
   done
   for repetition in $(seq 1 "$REPETITIONS"); do
-    for position in "${POSITIONS[@]}"; do
-      echo "Measuring mode=$mode position=$position repetition=$repetition"
-      run_trial \
-        "$mode" "$position" "$repetition" "$MEASURED_DIR" "rep-$repetition"
+    for scenario in "${QUALITY_SCENARIOS[@]}"; do
+      for position in "${POSITIONS[@]}"; do
+        echo "Measuring mode=$mode scenario=$scenario position=$position repetition=$repetition"
+        run_trial \
+          "$mode" "$scenario" "$position" "$repetition" \
+          "$MEASURED_DIR" "rep-$repetition"
+      done
     done
   done
   stop_server
@@ -248,11 +269,19 @@ for mode in "${MODES[@]}"; do
   run_mode "$mode"
 done
 
-python -m benchmarks.analyze_cacheselect_performance \
-  --input-dir "$MEASURED_DIR" \
-  --output-dir "$ANALYSIS_DIR" \
-  --target-tokens "$TARGET" \
-  --repetitions "$REPETITIONS"
+for scenario in "${QUALITY_SCENARIOS[@]}"; do
+  scenario_input_dir="$MEASURED_DIR"
+  scenario_output_dir="$ANALYSIS_DIR"
+  if (( SUITE_MODE )); then
+    scenario_input_dir="$MEASURED_DIR/$scenario"
+    scenario_output_dir="$ANALYSIS_DIR/$scenario"
+  fi
+  python -m benchmarks.analyze_cacheselect_performance \
+    --input-dir "$scenario_input_dir" \
+    --output-dir "$scenario_output_dir" \
+    --target-tokens "$TARGET" \
+    --repetitions "$REPETITIONS"
+done
 
 echo "results=$RESULT_DIR"
 echo "request_logs=$REQUEST_LOG_DIR"

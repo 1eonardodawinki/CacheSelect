@@ -33,7 +33,8 @@ def main() -> None:
     parser.add_argument(
         "--quality-scenario",
         choices=QUALITY_SCENARIOS,
-        default="direct",
+        action="append",
+        dest="quality_scenarios",
         help="Choose whether the changed answer is direct or composed.",
     )
     args = parser.parse_args()
@@ -46,21 +47,29 @@ def main() -> None:
     def rendered_token_count(messages: list[dict[str, str]]) -> int:
         return _rendered_token_count(tokenizer, messages)
 
-    for edit_position in EDIT_POSITIONS:
-        trace = build_length_calibration_trace(
-            target_prompt_tokens=args.target_prompt_tokens,
-            edit_position=edit_position,
-            token_counter=rendered_token_count,
-            tokenizer_name=args.model,
-            answer_sensitive=args.answer_sensitive,
-            quality_scenario=args.quality_scenario,
-        )
-        path = args.output_dir / (
-            f"tokens-{args.target_prompt_tokens}-{edit_position}.json"
-        )
-        save_trace(trace, path)
-        counts = [rendered_token_count(request.messages) for request in trace.requests]
-        print(f"Saved {path}: rendered_prompt_tokens={counts}")
+    quality_scenarios = args.quality_scenarios or ["direct"]
+    for quality_scenario in quality_scenarios:
+        scenario_output_dir = args.output_dir
+        if len(quality_scenarios) > 1:
+            scenario_output_dir /= quality_scenario
+        for edit_position in EDIT_POSITIONS:
+            trace = build_length_calibration_trace(
+                target_prompt_tokens=args.target_prompt_tokens,
+                edit_position=edit_position,
+                token_counter=rendered_token_count,
+                tokenizer_name=args.model,
+                answer_sensitive=args.answer_sensitive,
+                quality_scenario=quality_scenario,
+            )
+            path = scenario_output_dir / (
+                f"tokens-{args.target_prompt_tokens}-{edit_position}.json"
+            )
+            save_trace(trace, path)
+            counts = [
+                rendered_token_count(request.messages)
+                for request in trace.requests
+            ]
+            print(f"Saved {path}: rendered_prompt_tokens={counts}")
 
 
 if __name__ == "__main__":
