@@ -18,6 +18,7 @@ REPETITIONS="${CACHESELECT_PERFORMANCE_REPETITIONS:-5}"
 EXPERIMENT_KIND="${CACHESELECT_EXPERIMENT_KIND:-performance}"
 EDIT_RADIUS="${CACHESELECT_EDIT_RADIUS:-1}"
 ANSWER_SENSITIVE="${CACHESELECT_ANSWER_SENSITIVE:-0}"
+QUALITY_SCENARIO="${CACHESELECT_QUALITY_SCENARIO:-direct}"
 
 TASK_ID="${SLURM_ARRAY_TASK_ID:?Run this file as a Slurm array job}"
 EXPERIMENT_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
@@ -69,7 +70,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
 
 echo "CacheSelect $EXPERIMENT_KIND experiment"
 echo "experiment_id=$EXPERIMENT_ID task_id=$TASK_ID target_tokens=$TARGET"
-echo "edit_radius=$EDIT_RADIUS answer_sensitive=$ANSWER_SENSITIVE"
+echo "edit_radius=$EDIT_RADIUS answer_sensitive=$ANSWER_SENSITIVE quality_scenario=$QUALITY_SCENARIO"
 echo "host=$(hostname) port=$PORT repetitions=$REPETITIONS"
 echo "project_commit=$PROJECT_COMMIT"
 echo "model=$MODEL vllm_version=$VLLM_VERSION"
@@ -88,13 +89,14 @@ echo "gpu=$GPU_DESCRIPTION"
   echo "selector=edit_proximity"
   echo "edit_radius=$EDIT_RADIUS"
   echo "answer_sensitive=$ANSWER_SENSITIVE"
+  echo "quality_scenario=$QUALITY_SCENARIO"
   echo "chunked_prefill=false"
   echo "max_num_batched_tokens=8192"
 } >"$RESULT_DIR/metadata.env"
 
 TRACE_ARGS=()
 if [[ "$ANSWER_SENSITIVE" == "1" ]]; then
-  TRACE_ARGS+=(--answer-sensitive)
+  TRACE_ARGS+=(--answer-sensitive --quality-scenario "$QUALITY_SCENARIO")
 fi
 python -m benchmarks.generate_length_calibration \
   --model "$MODEL" \
