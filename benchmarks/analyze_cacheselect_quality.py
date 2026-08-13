@@ -11,7 +11,7 @@ from typing import Any
 TARGETS = (256, 1024, 4096)
 RADII = (0, 1, 2)
 POSITIONS = ("early", "middle", "late")
-QUALITY_SCENARIOS = ("direct", "composed")
+QUALITY_SCENARIOS = ("direct", "composed", "conflict")
 
 
 # Parse the simple key-value provenance emitted beside each condition.
