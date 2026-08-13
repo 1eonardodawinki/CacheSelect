@@ -13,21 +13,29 @@ from benchmarks.schema import save_trace
 from cacheselect.tokenization import rendered_chat_token_ids
 
 
+# Count the actual model-rendered token IDs rather than estimating from words.
 def _rendered_token_count(tokenizer, messages: list[dict[str, str]]) -> int:
     return len(rendered_chat_token_ids(tokenizer, messages))
 
 
+# Generate all three edit-position traces for one requested prompt length.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", required=True)
     parser.add_argument("--target-prompt-tokens", type=int, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--answer-sensitive",
+        action="store_true",
+        help="Change the answer-bearing fact instead of an irrelevant marker.",
+    )
     args = parser.parse_args()
 
     from transformers import AutoTokenizer
 
     tokenizer = AutoTokenizer.from_pretrained(args.model)
 
+    # Bind the loaded tokenizer once for repeated binary-search measurements.
     def rendered_token_count(messages: list[dict[str, str]]) -> int:
         return _rendered_token_count(tokenizer, messages)
 
@@ -37,6 +45,7 @@ def main() -> None:
             edit_position=edit_position,
             token_counter=rendered_token_count,
             tokenizer_name=args.model,
+            answer_sensitive=args.answer_sensitive,
         )
         path = args.output_dir / (
             f"tokens-{args.target_prompt_tokens}-{edit_position}.json"
