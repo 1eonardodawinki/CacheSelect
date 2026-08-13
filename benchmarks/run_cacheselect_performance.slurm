@@ -19,6 +19,7 @@ EXPERIMENT_KIND="${CACHESELECT_EXPERIMENT_KIND:-performance}"
 EDIT_RADIUS="${CACHESELECT_EDIT_RADIUS:-1}"
 ANSWER_SENSITIVE="${CACHESELECT_ANSWER_SENSITIVE:-0}"
 QUALITY_SCENARIO="${CACHESELECT_QUALITY_SCENARIO:-direct}"
+HF_OFFLINE="${CACHESELECT_HF_OFFLINE:-1}"
 
 TASK_ID="${SLURM_ARRAY_TASK_ID:?Run this file as a Slurm array job}"
 EXPERIMENT_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
@@ -59,6 +60,9 @@ export TMPDIR="$TMP_ROOT"
 export HF_HOME="$STORAGE_ROOT/hf-cache"
 export UV_CACHE_DIR="$STORAGE_ROOT/uv-cache"
 export PYTHONUNBUFFERED=1
+# Repeated server starts must reuse the downloaded model without Hub API calls.
+export HF_HUB_OFFLINE="$HF_OFFLINE"
+export TRANSFORMERS_OFFLINE="$HF_OFFLINE"
 
 command -v nvidia-smi >/dev/null
 command -v curl >/dev/null
@@ -71,6 +75,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
 echo "CacheSelect $EXPERIMENT_KIND experiment"
 echo "experiment_id=$EXPERIMENT_ID task_id=$TASK_ID target_tokens=$TARGET"
 echo "edit_radius=$EDIT_RADIUS answer_sensitive=$ANSWER_SENSITIVE quality_scenario=$QUALITY_SCENARIO"
+echo "hf_offline=$HF_OFFLINE"
 echo "host=$(hostname) port=$PORT repetitions=$REPETITIONS"
 echo "project_commit=$PROJECT_COMMIT"
 echo "model=$MODEL vllm_version=$VLLM_VERSION"
@@ -90,6 +95,7 @@ echo "gpu=$GPU_DESCRIPTION"
   echo "edit_radius=$EDIT_RADIUS"
   echo "answer_sensitive=$ANSWER_SENSITIVE"
   echo "quality_scenario=$QUALITY_SCENARIO"
+  echo "hf_offline=$HF_OFFLINE"
   echo "chunked_prefill=false"
   echo "max_num_batched_tokens=8192"
 } >"$RESULT_DIR/metadata.env"
