@@ -7,14 +7,20 @@ from benchmarks.analyze_cacheselect_quality import analyze_quality_matrix
 
 
 # Write one complete synthetic condition in the production directory layout.
-def _write_condition(root: Path, target_tokens: int, edit_radius: int) -> None:
+def _write_condition(
+    root: Path,
+    target_tokens: int,
+    edit_radius: int,
+    quality_scenario: str = "direct",
+) -> None:
     condition = root / f"tokens-{target_tokens}" / f"radius-{edit_radius}"
     analysis = condition / "analysis"
     analysis.mkdir(parents=True)
     (condition / "metadata.env").write_text(
         f"target_tokens={target_tokens}\n"
         f"edit_radius={edit_radius}\n"
-        "answer_sensitive=1\n",
+        "answer_sensitive=1\n"
+        f"quality_scenario={quality_scenario}\n",
         encoding="utf-8",
     )
     summaries = [
@@ -48,6 +54,7 @@ class QualityMatrixAnalysisTests(TestCase):
             rows = analyze_quality_matrix(root)
 
         self.assertEqual(len(rows), 27)
+        self.assertTrue(all(row["quality_scenario"] == "direct" for row in rows))
         self.assertEqual(
             (rows[0]["target_tokens"], rows[0]["edit_radius"], rows[0]["position"]),
             (256, 0, "early"),
@@ -60,3 +67,20 @@ class QualityMatrixAnalysisTests(TestCase):
             ),
             (4096, 2, "late"),
         )
+
+    # Verify composed matrices retain their scenario label in every output row.
+    def test_composed_matrix_is_labelled(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            for target_tokens in (256, 1024, 4096):
+                for edit_radius in (0, 1, 2):
+                    _write_condition(
+                        root,
+                        target_tokens,
+                        edit_radius,
+                        quality_scenario="composed",
+                    )
+
+            rows = analyze_quality_matrix(root, "composed")
+
+        self.assertTrue(all(row["quality_scenario"] == "composed" for row in rows))

@@ -11,6 +11,7 @@ from typing import Any
 TARGETS = (256, 1024, 4096)
 RADII = (0, 1, 2)
 POSITIONS = ("early", "middle", "late")
+QUALITY_SCENARIOS = ("direct", "composed")
 
 
 # Parse the simple key-value provenance emitted beside each condition.
@@ -31,6 +32,7 @@ def _load_condition(
     input_root: Path,
     target_tokens: int,
     edit_radius: int,
+    quality_scenario: str,
 ) -> list[dict[str, Any]]:
     condition_dir = input_root / f"tokens-{target_tokens}" / f"radius-{edit_radius}"
     metadata = _load_metadata(condition_dir / "metadata.env")
@@ -45,6 +47,13 @@ def _load_condition(
                 f"{condition_dir}: expected {key}={expected}, "
                 f"got {metadata.get(key)!r}"
             )
+    # Older direct-fact runs predate the explicit scenario provenance field.
+    recorded_scenario = metadata.get("quality_scenario", "direct")
+    if recorded_scenario != quality_scenario:
+        raise ValueError(
+            f"{condition_dir}: expected quality_scenario={quality_scenario}, "
+            f"got {recorded_scenario!r}"
+        )
 
     summary_path = condition_dir / "analysis" / "summary.json"
     if not summary_path.is_file():
@@ -69,6 +78,7 @@ def _load_condition(
             {
                 "target_tokens": target_tokens,
                 "edit_radius": edit_radius,
+                "quality_scenario": quality_scenario,
                 **{
                     key: value
                     for key, value in summary.items()
@@ -80,11 +90,23 @@ def _load_condition(
 
 
 # Validate all nine conditions and return rows in stable report order.
-def analyze_quality_matrix(input_root: Path) -> list[dict[str, Any]]:
+def analyze_quality_matrix(
+    input_root: Path,
+    quality_scenario: str = "direct",
+) -> list[dict[str, Any]]:
+    if quality_scenario not in QUALITY_SCENARIOS:
+        raise ValueError(f"unsupported quality scenario: {quality_scenario}")
     rows = []
     for target_tokens in TARGETS:
         for edit_radius in RADII:
-            rows.extend(_load_condition(input_root, target_tokens, edit_radius))
+            rows.extend(
+                _load_condition(
+                    input_root,
+                    target_tokens,
+                    edit_radius,
+                    quality_scenario,
+                )
+            )
     position_order = {position: index for index, position in enumerate(POSITIONS)}
     return sorted(
         rows,
@@ -130,9 +152,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-root", type=Path, required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
+    parser.add_argument(
+        "--quality-scenario",
+        choices=QUALITY_SCENARIOS,
+        default="direct",
+    )
     args = parser.parse_args()
 
-    rows = analyze_quality_matrix(args.input_root)
+    rows = analyze_quality_matrix(args.input_root, args.quality_scenario)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _write_csv(args.output_dir / "quality-matrix.csv", rows)
     (args.output_dir / "quality-matrix.json").write_text(
