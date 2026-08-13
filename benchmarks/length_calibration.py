@@ -15,6 +15,7 @@ from benchmarks.schema import (
 )
 
 EDIT_POSITIONS = ("early", "middle", "late")
+QUALITY_SCENARIOS = ("direct", "composed")
 
 CALIBRATION_SYSTEM = (
     "Answer using only the supplied synthetic record. Return the project code "
@@ -24,6 +25,13 @@ CALIBRATION_FACT = "The verified project code is NORTH-731."
 CALIBRATION_QUESTION = "What is the verified project code?"
 BASE_PROJECT_CODE = "NORTH-731"
 EDITED_PROJECT_CODE = "SOUTH-913"
+PROJECT_REGION = "NORTH"
+BASE_PROJECT_SERIAL = "731"
+EDITED_PROJECT_SERIAL = "913"
+COMPOSED_QUESTION = (
+    "Combine the verified project region and serial as REGION-SERIAL. "
+    "What is the verified project code?"
+)
 FILLER_WORDS = (
     "archive",
     "sensor",
@@ -55,6 +63,26 @@ def _split_filler(count: int) -> tuple[str, str, str]:
     )
 
 
+# Describe the changed segment and correct answer for one quality scenario.
+def _quality_fact(
+    position: str,
+    edited: bool,
+    quality_scenario: str,
+) -> tuple[str, str, str]:
+    if quality_scenario == "direct":
+        code = EDITED_PROJECT_CODE if edited else BASE_PROJECT_CODE
+        return "fact", f"{position.title()} verified project code: {code}.", code
+    if quality_scenario == "composed":
+        serial = EDITED_PROJECT_SERIAL if edited else BASE_PROJECT_SERIAL
+        code = f"{PROJECT_REGION}-{serial}"
+        return (
+            "serial",
+            f"{position.title()} verified project serial: {serial}.",
+            code,
+        )
+    raise ValueError(f"unsupported quality scenario: {quality_scenario}")
+
+
 # Place either an irrelevant marker or an answer-bearing fact at the edit point.
 def _record_parts(
     filler_word_count: int,
@@ -62,6 +90,7 @@ def _record_parts(
     edit_position: str,
     edited: bool,
     answer_sensitive: bool,
+    quality_scenario: str,
 ) -> list[tuple[str, str, int]]:
     if edit_position not in EDIT_POSITIONS:
         raise ValueError(f"unsupported edit position: {edit_position}")
@@ -75,9 +104,10 @@ def _record_parts(
     ):
         is_changed_segment = edit_position == position
         if answer_sensitive and is_changed_segment:
-            code = EDITED_PROJECT_CODE if edited else BASE_PROJECT_CODE
-            segment_id = f"{position}_fact"
-            content = f"{position.title()} verified project code: {code}."
+            segment_kind, content, _ = _quality_fact(
+                position, edited, quality_scenario
+            )
+            segment_id = f"{position}_{segment_kind}"
         else:
             marker = "B" if edited and is_changed_segment else "A"
             segment_id = f"{position}_marker"
@@ -97,14 +127,22 @@ def _messages(
     parts: list[tuple[str, str, int]],
     *,
     answer_sensitive: bool,
+    quality_scenario: str,
 ) -> list[dict[str, str]]:
     record_sections = [content for _, content, _ in parts]
     if not answer_sensitive:
         record_sections.append(CALIBRATION_FACT)
+    elif quality_scenario == "composed":
+        record_sections.append(f"The verified project region is {PROJECT_REGION}.")
     record = "\n\n".join(record_sections)
+    question = (
+        COMPOSED_QUESTION
+        if answer_sensitive and quality_scenario == "composed"
+        else CALIBRATION_QUESTION
+    )
     user_content = (
         "Synthetic record [calibration_record]:\n\n"
-        f"{record}\n\nQuestion: {CALIBRATION_QUESTION}"
+        f"{record}\n\nQuestion: {question}"
     )
     return [
         {"role": "system", "content": CALIBRATION_SYSTEM},
@@ -119,18 +157,22 @@ def _request(
     edited: bool,
     filler_word_count: int,
     answer_sensitive: bool,
+    quality_scenario: str,
 ) -> RequestSpec:
     parts = _record_parts(
         filler_word_count,
         edit_position=edit_position,
         edited=edited,
         answer_sensitive=answer_sensitive,
+        quality_scenario=quality_scenario,
     )
     request_kind = "edited" if edited else "base"
     workload = "quality_stress" if answer_sensitive else "length_calibration"
-    expected_code = (
-        EDITED_PROJECT_CODE if answer_sensitive and edited else BASE_PROJECT_CODE
-    )
+    expected_code = BASE_PROJECT_CODE
+    if answer_sensitive:
+        _, _, expected_code = _quality_fact(
+            edit_position, edited, quality_scenario
+        )
     fixed_fact_segments = []
     if not answer_sensitive:
         fixed_fact_segments.append(
@@ -142,11 +184,33 @@ def _request(
                 CALIBRATION_FACT,
             )
         )
+    elif quality_scenario == "composed":
+        fixed_fact_segments.append(
+            PromptSegment(
+                "region_fact",
+                "user",
+                "retrieved_fact",
+                1,
+                f"The verified project region is {PROJECT_REGION}.",
+            )
+        )
+    request_prefix = (
+        f"{workload}-{quality_scenario}" if answer_sensitive else workload
+    )
+    question = (
+        COMPOSED_QUESTION
+        if answer_sensitive and quality_scenario == "composed"
+        else CALIBRATION_QUESTION
+    )
     return RequestSpec(
-        request_id=f"{workload}-{edit_position}-{request_kind}",
+        request_id=f"{request_prefix}-{edit_position}-{request_kind}",
         workload=workload,
         sequence_index=int(edited),
-        messages=_messages(parts, answer_sensitive=answer_sensitive),
+        messages=_messages(
+            parts,
+            answer_sensitive=answer_sensitive,
+            quality_scenario=quality_scenario,
+        ),
         segments=[
             PromptSegment(
                 "system",
@@ -160,7 +224,7 @@ def _request(
                     segment_id,
                     "user",
                     "retrieved_fact"
-                    if segment_id.endswith("fact")
+                    if segment_id.endswith(("fact", "serial"))
                     else "revision_marker"
                     if segment_id.endswith("marker")
                     else "document",
@@ -175,7 +239,7 @@ def _request(
                 "user",
                 "query",
                 1,
-                CALIBRATION_QUESTION,
+                question,
             ),
         ],
         ground_truth=RequestGroundTruth(
@@ -184,7 +248,9 @@ def _request(
                 AnswerRequirement("project_code", [expected_code.casefold()]),
             ],
             notes=(
-                "The selected fact changes the correct answer."
+                "The changed serial must be combined with the unchanged region."
+                if answer_sensitive and quality_scenario == "composed"
+                else "The selected fact changes the correct answer."
                 if answer_sensitive
                 else "The revision marker is deliberately irrelevant to the "
                 "answer. The calibration quality gate checks semantic fact "
@@ -201,18 +267,21 @@ def _prompt_counts(
     edit_position: str,
     token_counter: TokenCounter,
     answer_sensitive: bool,
+    quality_scenario: str,
 ) -> tuple[int, int]:
     base = _request(
         edit_position=edit_position,
         edited=False,
         filler_word_count=filler_word_count,
         answer_sensitive=answer_sensitive,
+        quality_scenario=quality_scenario,
     )
     edited = _request(
         edit_position=edit_position,
         edited=True,
         filler_word_count=filler_word_count,
         answer_sensitive=answer_sensitive,
+        quality_scenario=quality_scenario,
     )
     return token_counter(base.messages), token_counter(edited.messages)
 
@@ -224,6 +293,7 @@ def _choose_filler_word_count(
     edit_position: str,
     token_counter: TokenCounter,
     answer_sensitive: bool,
+    quality_scenario: str,
 ) -> tuple[int, tuple[int, int]]:
     if target_prompt_tokens < 1:
         raise ValueError("target_prompt_tokens must be positive")
@@ -233,6 +303,7 @@ def _choose_filler_word_count(
         edit_position=edit_position,
         token_counter=token_counter,
         answer_sensitive=answer_sensitive,
+        quality_scenario=quality_scenario,
     )
     if max(empty_counts) > target_prompt_tokens:
         raise ValueError(
@@ -249,6 +320,7 @@ def _choose_filler_word_count(
                 edit_position=edit_position,
                 token_counter=token_counter,
                 answer_sensitive=answer_sensitive,
+                quality_scenario=quality_scenario,
             )
         )
         < target_prompt_tokens
@@ -266,6 +338,7 @@ def _choose_filler_word_count(
             edit_position=edit_position,
             token_counter=token_counter,
             answer_sensitive=answer_sensitive,
+            quality_scenario=quality_scenario,
         )
         if max(counts) < target_prompt_tokens:
             lower = middle
@@ -282,6 +355,7 @@ def _choose_filler_word_count(
                 edit_position=edit_position,
                 token_counter=token_counter,
                 answer_sensitive=answer_sensitive,
+                quality_scenario=quality_scenario,
             )
         ),
     )
@@ -290,6 +364,7 @@ def _choose_filler_word_count(
         edit_position=edit_position,
         token_counter=token_counter,
         answer_sensitive=answer_sensitive,
+        quality_scenario=quality_scenario,
     )
 
 
@@ -302,16 +377,22 @@ def build_length_calibration_trace(
     tokenizer_name: str,
     tolerance_tokens: int = 16,
     answer_sensitive: bool = False,
+    quality_scenario: str = "direct",
 ) -> WorkloadTrace:
     """Build one cold-donor/edit pair close to a rendered token target."""
     if edit_position not in EDIT_POSITIONS:
         raise ValueError(f"unsupported edit position: {edit_position}")
+    if quality_scenario not in QUALITY_SCENARIOS:
+        raise ValueError(f"unsupported quality scenario: {quality_scenario}")
+    if not answer_sensitive and quality_scenario != "direct":
+        raise ValueError("quality scenarios require answer_sensitive=True")
 
     filler_word_count, measured_counts = _choose_filler_word_count(
         target_prompt_tokens,
         edit_position=edit_position,
         token_counter=token_counter,
         answer_sensitive=answer_sensitive,
+        quality_scenario=quality_scenario,
     )
     if (
         max(abs(count - target_prompt_tokens) for count in measured_counts)
@@ -327,19 +408,26 @@ def build_length_calibration_trace(
         edited=False,
         filler_word_count=filler_word_count,
         answer_sensitive=answer_sensitive,
+        quality_scenario=quality_scenario,
     )
     edited = _request(
         edit_position=edit_position,
         edited=True,
         filler_word_count=filler_word_count,
         answer_sensitive=answer_sensitive,
+        quality_scenario=quality_scenario,
     )
-    trace_kind = "quality-stress" if answer_sensitive else "length-calibration"
-    changed_segment_id = (
-        f"{edit_position}_fact"
+    trace_kind = (
+        f"quality-stress-{quality_scenario}"
         if answer_sensitive
-        else f"{edit_position}_marker"
+        else "length-calibration"
     )
+    changed_segment_kind = "marker"
+    if answer_sensitive:
+        changed_segment_kind, _, _ = _quality_fact(
+            edit_position, edited=True, quality_scenario=quality_scenario
+        )
+    changed_segment_id = f"{edit_position}_{changed_segment_kind}"
     return WorkloadTrace(
         trace_id=f"{trace_kind}-{target_prompt_tokens}-{edit_position}-v1",
         workload="quality_stress" if answer_sensitive else "length_calibration",

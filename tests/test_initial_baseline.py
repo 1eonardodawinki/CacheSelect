@@ -164,6 +164,35 @@ class WorkloadTests(TestCase):
                 [changed_segment_id],
             )
 
+    # Verify composed stress combines an unchanged region with a changed serial.
+    def test_composed_quality_stress_changes_only_the_serial_fact(self):
+        def count_words(messages):
+            return 5 + sum(len(message["content"].split()) for message in messages)
+
+        trace = build_length_calibration_trace(
+            target_prompt_tokens=256,
+            edit_position="middle",
+            token_counter=count_words,
+            tokenizer_name="word-counter-test",
+            answer_sensitive=True,
+            quality_scenario="composed",
+        )
+        base, edited = trace.requests
+        base_segments = {segment.segment_id: segment for segment in base.segments}
+        edited_segments = {
+            segment.segment_id: segment for segment in edited.segments
+        }
+
+        self.assertIn("731", base_segments["middle_serial"].content)
+        self.assertIn("913", edited_segments["middle_serial"].content)
+        self.assertEqual(base_segments["region_fact"], edited_segments["region_fact"])
+        self.assertEqual(base.ground_truth.expected_answer, "NORTH-731")
+        self.assertEqual(edited.ground_truth.expected_answer, "NORTH-913")
+        self.assertEqual(
+            trace.transitions[0].ground_truth.changed_segment_ids,
+            ["middle_serial"],
+        )
+
     def test_calibration_token_counter_accepts_transformers_return_shapes(self):
         class FakeTokenizer:
             def __init__(self, encoded):

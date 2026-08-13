@@ -7,6 +7,7 @@ from pathlib import Path
 
 from benchmarks.length_calibration import (
     EDIT_POSITIONS,
+    QUALITY_SCENARIOS,
     build_length_calibration_trace,
 )
 from benchmarks.schema import save_trace
@@ -29,6 +30,12 @@ def main() -> None:
         action="store_true",
         help="Change the answer-bearing fact instead of an irrelevant marker.",
     )
+    parser.add_argument(
+        "--quality-scenario",
+        choices=QUALITY_SCENARIOS,
+        default="direct",
+        help="Choose whether the changed answer is direct or composed.",
+    )
     args = parser.parse_args()
 
     from transformers import AutoTokenizer
@@ -46,6 +53,7 @@ def main() -> None:
             token_counter=rendered_token_count,
             tokenizer_name=args.model,
             answer_sensitive=args.answer_sensitive,
+            quality_scenario=args.quality_scenario,
         )
         path = args.output_dir / (
             f"tokens-{args.target_prompt_tokens}-{edit_position}.json"
