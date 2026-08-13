@@ -426,12 +426,28 @@ def assess_partial_reuse_batch(
         return PartialReuseBatchDecision(False, "multiple_reuse_requests")
 
     request_id, rows = next(iter(reused_batch_rows.items()))
-    decision_details = {
-        "request_id": request_id,
-        "reused_batch_rows": tuple(rows),
-    }
     if request_id not in req_ids:
         raise ValueError("reused rows reference a request outside the batch")
+    if not required_output_rows:
+        return PartialReuseBatchDecision(
+            False,
+            "missing_output_rows",
+            request_id=request_id,
+            reused_batch_rows=tuple(rows),
+        )
+    # The final row must be computed because sampling consumes its hidden state.
+    required_row_set = frozenset(required_output_rows)
+    protected_rows = tuple(row for row in rows if row not in required_row_set)
+    decision_details = {
+        "request_id": request_id,
+        "reused_batch_rows": protected_rows,
+    }
+    if not protected_rows:
+        return PartialReuseBatchDecision(
+            False,
+            "no_reusable_rows_after_output_protection",
+            **decision_details,
+        )
     if not execution_enabled:
         return PartialReuseBatchDecision(
             False,
@@ -444,8 +460,6 @@ def assess_partial_reuse_batch(
             "batched_requests_unsupported",
             **decision_details,
         )
-    if not rows:
-        raise ValueError("reused batch row selection cannot be empty")
     if not bool(is_prefilling[0]):
         return PartialReuseBatchDecision(
             False,
@@ -499,19 +513,6 @@ def assess_partial_reuse_batch(
         return PartialReuseBatchDecision(
             False,
             "prompt_logprobs_unsupported",
-            **decision_details,
-        )
-    if not required_output_rows:
-        return PartialReuseBatchDecision(
-            False,
-            "missing_output_rows",
-            **decision_details,
-        )
-    reused_rows = frozenset(rows)
-    if any(row in reused_rows for row in required_output_rows):
-        return PartialReuseBatchDecision(
-            False,
-            "required_output_row_reused",
             **decision_details,
         )
     return PartialReuseBatchDecision(

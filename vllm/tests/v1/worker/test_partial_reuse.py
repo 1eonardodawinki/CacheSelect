@@ -338,8 +338,8 @@ def test_assess_partial_reuse_batch_rejects_non_eager_execution() -> None:
     )
 
 
-# Check that a sampled output row can never be represented by a placeholder.
-def test_assess_partial_reuse_batch_rejects_reused_output_row() -> None:
+# Check that the sampled output row is removed from the selected reuse rows.
+def test_assess_partial_reuse_batch_protects_reused_output_row() -> None:
     decision = assess_partial_reuse_batch(
         execution_enabled=True,
         req_ids=("rag",),
@@ -357,10 +357,10 @@ def test_assess_partial_reuse_batch_rejects_reused_output_row() -> None:
     )
 
     assert decision == PartialReuseBatchDecision(
-        False,
-        "required_output_row_reused",
+        True,
+        "eligible",
         request_id="rag",
-        reused_batch_rows=tuple(range(64, 96)),
+        reused_batch_rows=tuple(range(64, 95)),
     )
 
 

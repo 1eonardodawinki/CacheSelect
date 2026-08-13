@@ -1303,8 +1303,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 continue
             decision = self.partial_reuse_batch_decision
             decision_applies = decision.request_id in (None, req_id)
-            reused_batch_rows = len(
-                self.partial_reuse_reused_batch_rows.get(req_id, ())
+            reused_batch_rows = (
+                len(decision.reused_batch_rows)
+                if decision.request_id == req_id
+                else 0
             )
             compute_batch_rows = int(num_scheduled_tokens[req_index])
             if decision.eligible and decision.request_id == req_id:
