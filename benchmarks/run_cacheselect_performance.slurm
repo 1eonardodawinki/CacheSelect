@@ -15,22 +15,28 @@ STORAGE_ROOT="${CACHESELECT_STORAGE_ROOT:-/vol/bitbucket/$USER}"
 CUDA_SETUP="${CACHESELECT_CUDA_SETUP:-/vol/cuda/13.0.0/setup.sh}"
 MODEL="${CACHESELECT_PERFORMANCE_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 REPETITIONS="${CACHESELECT_PERFORMANCE_REPETITIONS:-5}"
+EXPERIMENT_KIND="${CACHESELECT_EXPERIMENT_KIND:-performance}"
+EDIT_RADIUS="${CACHESELECT_EDIT_RADIUS:-1}"
+ANSWER_SENSITIVE="${CACHESELECT_ANSWER_SENSITIVE:-0}"
 
 TASK_ID="${SLURM_ARRAY_TASK_ID:?Run this file as a Slurm array job}"
-PERFORMANCE_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
+EXPERIMENT_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
 TARGETS=(256 1024 4096)
 POSITIONS=(early middle late)
-TARGET="${TARGETS[$TASK_ID]}"
-PORT=$((23000 + (PERFORMANCE_ID % 500) * 10 + TASK_ID))
+TARGET_INDEX="${CACHESELECT_TARGET_INDEX:-$TASK_ID}"
+MODE_ORDER_INDEX="${CACHESELECT_MODE_ORDER_INDEX:-$((TASK_ID % 3))}"
+TARGET="${TARGETS[$TARGET_INDEX]}"
+CONDITION_PATH="${CACHESELECT_CONDITION_PATH:-tokens-$TARGET}"
+PORT=$((23000 + (EXPERIMENT_ID % 500) * 10 + TASK_ID))
 
-EXPERIMENT_ROOT="$STORAGE_ROOT/cacheselect-results/performance-$PERFORMANCE_ID"
-RESULT_DIR="$EXPERIMENT_ROOT/tokens-$TARGET"
+EXPERIMENT_ROOT="$STORAGE_ROOT/cacheselect-results/$EXPERIMENT_KIND-$EXPERIMENT_ID"
+RESULT_DIR="$EXPERIMENT_ROOT/$CONDITION_PATH"
 MEASURED_DIR="$RESULT_DIR/measured"
 WARMUP_DIR="$RESULT_DIR/warmup"
 ANALYSIS_DIR="$RESULT_DIR/analysis"
-REQUEST_LOG_DIR="$STORAGE_ROOT/cacheselect-request-logs/performance-$PERFORMANCE_ID/tokens-$TARGET"
-SERVER_LOG_DIR="$STORAGE_ROOT/cacheselect-server-logs/performance-$PERFORMANCE_ID/tokens-$TARGET"
-TRACE_DIR="$STORAGE_ROOT/cacheselect-generated-traces/performance-$PERFORMANCE_ID/tokens-$TARGET"
+REQUEST_LOG_DIR="$STORAGE_ROOT/cacheselect-request-logs/$EXPERIMENT_KIND-$EXPERIMENT_ID/$CONDITION_PATH"
+SERVER_LOG_DIR="$STORAGE_ROOT/cacheselect-server-logs/$EXPERIMENT_KIND-$EXPERIMENT_ID/$CONDITION_PATH"
+TRACE_DIR="$STORAGE_ROOT/cacheselect-generated-traces/$EXPERIMENT_KIND-$EXPERIMENT_ID/$CONDITION_PATH"
 TMP_ROOT="$STORAGE_ROOT/tmp"
 
 mkdir -p \
@@ -61,8 +67,9 @@ PROJECT_COMMIT="$(git rev-parse HEAD)"
 VLLM_VERSION="$(vllm --version)"
 GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version --format=csv,noheader)"
 
-echo "CacheSelect repeated performance experiment"
-echo "performance_id=$PERFORMANCE_ID task_id=$TASK_ID target_tokens=$TARGET"
+echo "CacheSelect $EXPERIMENT_KIND experiment"
+echo "experiment_id=$EXPERIMENT_ID task_id=$TASK_ID target_tokens=$TARGET"
+echo "edit_radius=$EDIT_RADIUS answer_sensitive=$ANSWER_SENSITIVE"
 echo "host=$(hostname) port=$PORT repetitions=$REPETITIONS"
 echo "project_commit=$PROJECT_COMMIT"
 echo "model=$MODEL vllm_version=$VLLM_VERSION"
@@ -70,8 +77,8 @@ echo "gpu=$GPU_DESCRIPTION"
 
 # Preserve the essential run provenance beside the measured results.
 {
-  echo "experiment=cacheselect_repeated_performance"
-  echo "performance_id=$PERFORMANCE_ID"
+  echo "experiment=cacheselect_$EXPERIMENT_KIND"
+  echo "experiment_id=$EXPERIMENT_ID"
   echo "target_tokens=$TARGET"
   echo "repetitions=$REPETITIONS"
   echo "project_commit=$PROJECT_COMMIT"
@@ -79,15 +86,21 @@ echo "gpu=$GPU_DESCRIPTION"
   echo "vllm_version=$VLLM_VERSION"
   echo "gpu=$GPU_DESCRIPTION"
   echo "selector=edit_proximity"
-  echo "edit_radius=1"
+  echo "edit_radius=$EDIT_RADIUS"
+  echo "answer_sensitive=$ANSWER_SENSITIVE"
   echo "chunked_prefill=false"
   echo "max_num_batched_tokens=8192"
 } >"$RESULT_DIR/metadata.env"
 
+TRACE_ARGS=()
+if [[ "$ANSWER_SENSITIVE" == "1" ]]; then
+  TRACE_ARGS+=(--answer-sensitive)
+fi
 python -m benchmarks.generate_length_calibration \
   --model "$MODEL" \
   --target-prompt-tokens "$TARGET" \
-  --output-dir "$TRACE_DIR"
+  --output-dir "$TRACE_DIR" \
+  "${TRACE_ARGS[@]}"
 
 SERVER_PID=""
 
@@ -147,7 +160,7 @@ start_server() {
     cacheselect_args+=(
       --enable-cacheselect
       --cacheselect-repair-selector edit_proximity
-      --cacheselect-edit-radius 1
+      --cacheselect-edit-radius "$EDIT_RADIUS"
     )
     if [[ "$mode" == "active" ]]; then
       cacheselect_args+=(--cacheselect-execute-partial-reuse)
@@ -181,7 +194,7 @@ run_trial() {
   local output_dir="$4"
   local label="$5"
   local run_key="tokens-${TARGET}-${position}-${mode}-rep-${repetition}"
-  local cache_salt="performance-${PERFORMANCE_ID}-${TASK_ID}-${mode}-${position}-${label}"
+  local cache_salt="${EXPERIMENT_KIND}-${EXPERIMENT_ID}-${TASK_ID}-${mode}-${position}-${label}"
   local planner_mode="vllm"
   if [[ "$mode" == "native" ]]; then
     planner_mode="off"
@@ -195,7 +208,7 @@ run_trial() {
     --planner-mode "$planner_mode" \
     --cache-salt "$cache_salt" \
     --max-completion-tokens 96 \
-    --run-id "performance-$PERFORMANCE_ID-$TASK_ID-$mode-$position-$label" \
+    --run-id "$EXPERIMENT_KIND-$EXPERIMENT_ID-$TASK_ID-$mode-$position-$label" \
     --request-log-dir "$REQUEST_LOG_DIR" \
     --output "$output_dir/$run_key.json"
 }
@@ -218,7 +231,7 @@ run_mode() {
 }
 
 # Rotate condition order across GPUs to reduce systematic warm-machine bias.
-case "$TASK_ID" in
+case "$MODE_ORDER_INDEX" in
   0) MODES=(native shadow active) ;;
   1) MODES=(shadow active native) ;;
   2) MODES=(active native shadow) ;;
@@ -236,4 +249,4 @@ python -m benchmarks.analyze_cacheselect_performance \
 echo "results=$RESULT_DIR"
 echo "request_logs=$REQUEST_LOG_DIR"
 echo "server_logs=$SERVER_LOG_DIR"
-echo "CacheSelect performance task completed successfully"
+echo "CacheSelect $EXPERIMENT_KIND task completed successfully"
