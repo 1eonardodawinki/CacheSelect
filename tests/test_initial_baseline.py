@@ -217,8 +217,8 @@ class WorkloadTests(TestCase):
             }
 
             self.assertEqual(
-                base_segments["historical_fact"],
-                edited_segments["historical_fact"],
+                base_segments["historical_fact_1"],
+                edited_segments["historical_fact_1"],
             )
             self.assertIn("NORTH-731", base_segments[changed_segment_id].content)
             self.assertIn("NORTH-913", edited_segments[changed_segment_id].content)
@@ -230,6 +230,83 @@ class WorkloadTests(TestCase):
                 trace.transitions[0].ground_truth.changed_segment_ids,
                 [changed_segment_id],
             )
+
+    # Verify repeated-conflict scenarios add the requested stale evidence count.
+    def test_repeated_conflict_controls_stale_evidence_strength(self):
+        def count_words(messages):
+            return 5 + sum(len(message["content"].split()) for message in messages)
+
+        for quality_scenario, expected_count in (("conflict_3", 3), ("conflict_5", 5)):
+            trace = build_length_calibration_trace(
+                target_prompt_tokens=256,
+                edit_position="early",
+                token_counter=count_words,
+                tokenizer_name="word-counter-test",
+                answer_sensitive=True,
+                quality_scenario=quality_scenario,
+            )
+            edited = trace.requests[1]
+            historical_segments = [
+                segment
+                for segment in edited.segments
+                if segment.kind == "historical_fact"
+            ]
+
+            self.assertEqual(len(historical_segments), expected_count)
+            self.assertTrue(
+                all("NORTH-731" in segment.content for segment in historical_segments)
+            )
+            self.assertEqual(edited.ground_truth.expected_answer, "NORTH-913")
+
+    # Verify a changed pointer selects between two unchanged version mappings.
+    def test_pointer_stress_changes_only_the_active_version(self):
+        def count_words(messages):
+            return 5 + sum(len(message["content"].split()) for message in messages)
+
+        trace = build_length_calibration_trace(
+            target_prompt_tokens=256,
+            edit_position="middle",
+            token_counter=count_words,
+            tokenizer_name="word-counter-test",
+            answer_sensitive=True,
+            quality_scenario="pointer",
+        )
+        base, edited = trace.requests
+        base_segments = {segment.segment_id: segment for segment in base.segments}
+        edited_segments = {
+            segment.segment_id: segment for segment in edited.segments
+        }
+
+        self.assertEqual(base_segments["version_a_fact"], edited_segments["version_a_fact"])
+        self.assertEqual(base_segments["version_b_fact"], edited_segments["version_b_fact"])
+        self.assertIn("version: A", base_segments["middle_pointer"].content)
+        self.assertIn("version: B", edited_segments["middle_pointer"].content)
+        self.assertEqual(edited.ground_truth.expected_answer, "SOUTH-913")
+
+    # Verify a changed rule selects between two unchanged named records.
+    def test_rule_stress_changes_only_the_selection_rule(self):
+        def count_words(messages):
+            return 5 + sum(len(message["content"].split()) for message in messages)
+
+        trace = build_length_calibration_trace(
+            target_prompt_tokens=256,
+            edit_position="late",
+            token_counter=count_words,
+            tokenizer_name="word-counter-test",
+            answer_sensitive=True,
+            quality_scenario="rule",
+        )
+        base, edited = trace.requests
+        base_segments = {segment.segment_id: segment for segment in base.segments}
+        edited_segments = {
+            segment.segment_id: segment for segment in edited.segments
+        }
+
+        self.assertEqual(base_segments["alpha_record"], edited_segments["alpha_record"])
+        self.assertEqual(base_segments["beta_record"], edited_segments["beta_record"])
+        self.assertIn("ALPHA", base_segments["late_rule"].content)
+        self.assertIn("BETA", edited_segments["late_rule"].content)
+        self.assertEqual(edited.ground_truth.expected_answer, "SOUTH-913")
 
     def test_calibration_token_counter_accepts_transformers_return_shapes(self):
         class FakeTokenizer:

@@ -15,7 +15,15 @@ from benchmarks.schema import (
 )
 
 EDIT_POSITIONS = ("early", "middle", "late")
-QUALITY_SCENARIOS = ("direct", "composed", "conflict")
+QUALITY_SCENARIOS = (
+    "direct",
+    "composed",
+    "conflict",
+    "conflict_3",
+    "conflict_5",
+    "pointer",
+    "rule",
+)
 
 CALIBRATION_SYSTEM = (
     "Answer using only the supplied synthetic record. Return the project code "
@@ -32,13 +40,17 @@ COMPOSED_QUESTION = (
     "Combine the verified project region and serial as REGION-SERIAL. "
     "What is the verified project code?"
 )
-HISTORICAL_PROJECT_FACT = (
-    "Historical audit entry: the project code was NORTH-731. This entry is "
-    "retained for history and is not the current authoritative record."
-)
 CONFLICT_QUESTION = (
     "Ignore historical audit entries. According to the current authoritative "
     "record, what is the verified project code?"
+)
+POINTER_QUESTION = (
+    "Read the active version, then return the project code mapped to that "
+    "version. What is the verified project code?"
+)
+RULE_QUESTION = (
+    "Apply the current selection rule to the named records. What is the "
+    "verified project code?"
 )
 FILLER_WORDS = (
     "archive",
@@ -88,7 +100,7 @@ def _quality_fact(
             f"{position.title()} verified project serial: {serial}.",
             code,
         )
-    if quality_scenario == "conflict":
+    if quality_scenario.startswith("conflict"):
         serial = EDITED_PROJECT_SERIAL if edited else BASE_PROJECT_SERIAL
         code = f"{PROJECT_REGION}-{serial}"
         return (
@@ -96,7 +108,91 @@ def _quality_fact(
             f"{position.title()} current authoritative project code: {code}.",
             code,
         )
+    if quality_scenario == "pointer":
+        version = "B" if edited else "A"
+        code = EDITED_PROJECT_CODE if edited else BASE_PROJECT_CODE
+        return (
+            "pointer",
+            f"{position.title()} active project version: {version}.",
+            code,
+        )
+    if quality_scenario == "rule":
+        record = "BETA" if edited else "ALPHA"
+        code = EDITED_PROJECT_CODE if edited else BASE_PROJECT_CODE
+        return (
+            "rule",
+            f"{position.title()} current selection rule: use record {record}.",
+            code,
+        )
     raise ValueError(f"unsupported quality scenario: {quality_scenario}")
+
+
+# Return unchanged facts that a changed selector or correction must reinterpret.
+def _fixed_quality_facts(
+    quality_scenario: str,
+) -> list[tuple[str, str, str]]:
+    if quality_scenario == "composed":
+        return [
+            (
+                "region_fact",
+                "retrieved_fact",
+                f"The verified project region is {PROJECT_REGION}.",
+            )
+        ]
+    if quality_scenario.startswith("conflict"):
+        stale_count = 1
+        if "_" in quality_scenario:
+            stale_count = int(quality_scenario.rsplit("_", 1)[1])
+        return [
+            (
+                f"historical_fact_{index}",
+                "historical_fact",
+                f"Historical audit entry {index}: the project code was "
+                f"{BASE_PROJECT_CODE}. This entry is retained for history and "
+                "is not the current authoritative record.",
+            )
+            for index in range(1, stale_count + 1)
+        ]
+    if quality_scenario == "pointer":
+        return [
+            (
+                "version_a_fact",
+                "retrieved_fact",
+                f"Project version A maps to code {BASE_PROJECT_CODE}.",
+            ),
+            (
+                "version_b_fact",
+                "retrieved_fact",
+                f"Project version B maps to code {EDITED_PROJECT_CODE}.",
+            ),
+        ]
+    if quality_scenario == "rule":
+        return [
+            (
+                "alpha_record",
+                "retrieved_fact",
+                f"Record ALPHA contains project code {BASE_PROJECT_CODE}.",
+            ),
+            (
+                "beta_record",
+                "retrieved_fact",
+                f"Record BETA contains project code {EDITED_PROJECT_CODE}.",
+            ),
+        ]
+    return []
+
+
+# Select the question that defines how the synthetic facts must be interpreted.
+def _quality_question(quality_scenario: str) -> str:
+    if quality_scenario == "composed":
+        return COMPOSED_QUESTION
+    if quality_scenario.startswith("conflict"):
+        return CONFLICT_QUESTION
+    if quality_scenario == "pointer":
+        return POINTER_QUESTION
+    if quality_scenario == "rule":
+        return RULE_QUESTION
+    return CALIBRATION_QUESTION
 
 
 # Place either an irrelevant marker or an answer-bearing fact at the edit point.
@@ -148,17 +244,17 @@ def _messages(
     record_sections = [content for _, content, _ in parts]
     if not answer_sensitive:
         record_sections.append(CALIBRATION_FACT)
-    elif quality_scenario == "composed":
-        record_sections.append(f"The verified project region is {PROJECT_REGION}.")
-    elif quality_scenario == "conflict":
-        # Keep the stale fact near the query so it remains a credible distractor.
-        record_sections.append(HISTORICAL_PROJECT_FACT)
+    else:
+        # Fixed facts stay near the query so reused distractors remain credible.
+        record_sections.extend(
+            content for _, _, content in _fixed_quality_facts(quality_scenario)
+        )
     record = "\n\n".join(record_sections)
-    question = CALIBRATION_QUESTION
-    if answer_sensitive and quality_scenario == "composed":
-        question = COMPOSED_QUESTION
-    elif answer_sensitive and quality_scenario == "conflict":
-        question = CONFLICT_QUESTION
+    question = (
+        _quality_question(quality_scenario)
+        if answer_sensitive
+        else CALIBRATION_QUESTION
+    )
     user_content = (
         "Synthetic record [calibration_record]:\n\n"
         f"{record}\n\nQuestion: {question}"
@@ -203,34 +299,27 @@ def _request(
                 CALIBRATION_FACT,
             )
         )
-    elif quality_scenario == "composed":
-        fixed_fact_segments.append(
+    else:
+        fixed_fact_segments.extend(
             PromptSegment(
-                "region_fact",
+                segment_id,
                 "user",
-                "retrieved_fact",
+                kind,
                 1,
-                f"The verified project region is {PROJECT_REGION}.",
+                content,
             )
-        )
-    elif quality_scenario == "conflict":
-        fixed_fact_segments.append(
-            PromptSegment(
-                "historical_fact",
-                "user",
-                "historical_fact",
-                1,
-                HISTORICAL_PROJECT_FACT,
+            for segment_id, kind, content in _fixed_quality_facts(
+                quality_scenario
             )
         )
     request_prefix = (
         f"{workload}-{quality_scenario}" if answer_sensitive else workload
     )
-    question = CALIBRATION_QUESTION
-    if answer_sensitive and quality_scenario == "composed":
-        question = COMPOSED_QUESTION
-    elif answer_sensitive and quality_scenario == "conflict":
-        question = CONFLICT_QUESTION
+    question = (
+        _quality_question(quality_scenario)
+        if answer_sensitive
+        else CALIBRATION_QUESTION
+    )
     return RequestSpec(
         request_id=f"{request_prefix}-{edit_position}-{request_kind}",
         workload=workload,
@@ -253,7 +342,9 @@ def _request(
                     segment_id,
                     "user",
                     "retrieved_fact"
-                    if segment_id.endswith(("fact", "serial", "authority"))
+                    if segment_id.endswith(
+                        ("fact", "serial", "authority", "pointer", "rule")
+                    )
                     else "revision_marker"
                     if segment_id.endswith("marker")
                     else "document",
@@ -281,7 +372,11 @@ def _request(
                 if answer_sensitive and quality_scenario == "composed"
                 else "The changed authoritative fact must override the unchanged "
                 "historical distractor."
-                if answer_sensitive and quality_scenario == "conflict"
+                if answer_sensitive and quality_scenario.startswith("conflict")
+                else "The changed pointer must select between unchanged mappings."
+                if answer_sensitive and quality_scenario == "pointer"
+                else "The changed rule must select between unchanged records."
+                if answer_sensitive and quality_scenario == "rule"
                 else "The selected fact changes the correct answer."
                 if answer_sensitive
                 else "The revision marker is deliberately irrelevant to the "
