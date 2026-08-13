@@ -8,6 +8,7 @@ import json
 import re
 import statistics
 from collections import defaultdict
+from difflib import SequenceMatcher
 from pathlib import Path
 from typing import Any
 
@@ -48,8 +49,6 @@ def _load_trial(path: Path) -> dict[str, Any]:
         raise ValueError(f"{path}: missing CacheSelect timing metrics")
     if any(float(metrics[name]) < 0 for name in timing_names):
         raise ValueError(f"{path}: negative CacheSelect timing metric")
-    if not (edited.get("quality") or {}).get("passed"):
-        raise ValueError(f"{path}: edited response failed its quality gate")
     choices = (edited.get("raw_response") or {}).get("choices") or []
     if not choices or choices[0].get("finish_reason") != "stop":
         raise ValueError(f"{path}: edited response was truncated")
@@ -83,8 +82,20 @@ def _load_trial(path: Path) -> dict[str, Any]:
             metrics.get("cacheselect_forward_time_ms") or 0.0
         ),
         "ttft_ms": float(metrics["time_to_first_token_ms"]),
+        "output_text": str(edited.get("output_text") or ""),
+        "quality_passed": bool((edited.get("quality") or {}).get("passed")),
         "result_file": path.name,
     }
+
+
+# Measure word-sequence agreement without requiring the model tokenizer.
+def _text_similarity(reference: str, candidate: str) -> float:
+    return SequenceMatcher(
+        None,
+        reference.split(),
+        candidate.split(),
+        autojunk=False,
+    ).ratio()
 
 
 # Pair identical repetitions so condition deltas never mix unrelated trials.
@@ -105,6 +116,11 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             raise ValueError(f"active trial did not execute: {active['result_file']}")
         if active["executed"] and not active["execution_eligible"]:
             raise ValueError(f"ineligible trial executed: {active['result_file']}")
+        if not native["quality_passed"] or not shadow["quality_passed"]:
+            raise ValueError(
+                "full-computation reference failed its quality gate: "
+                f"{native['result_file']} or {shadow['result_file']}"
+            )
         comparable_names = ("prompt_tokens", "candidate_tokens", "reused_rows")
         if any(shadow[name] != active[name] for name in comparable_names):
             raise ValueError(
@@ -142,6 +158,17 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "active_vs_native_ttft_ms": active["ttft_ms"]
                 - native["ttft_ms"],
                 "ttft_delta_ms": active["ttft_ms"] - shadow["ttft_ms"],
+                "active_quality_passed": active["quality_passed"],
+                "active_matches_shadow": active["output_text"]
+                == shadow["output_text"],
+                "active_matches_native": active["output_text"]
+                == native["output_text"],
+                "active_shadow_word_similarity": _text_similarity(
+                    shadow["output_text"], active["output_text"]
+                ),
+                "active_native_word_similarity": _text_similarity(
+                    native["output_text"], active["output_text"]
+                ),
             }
         )
     return paired
@@ -192,6 +219,21 @@ def _summarize(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     rows, "active_vs_native_ttft_ms"
                 ),
                 "mean_ttft_delta_ms": _mean(rows, "ttft_delta_ms"),
+                "active_quality_pass_rate": _mean(
+                    rows, "active_quality_passed"
+                ),
+                "active_shadow_exact_match_rate": _mean(
+                    rows, "active_matches_shadow"
+                ),
+                "active_native_exact_match_rate": _mean(
+                    rows, "active_matches_native"
+                ),
+                "mean_active_shadow_word_similarity": _mean(
+                    rows, "active_shadow_word_similarity"
+                ),
+                "mean_active_native_word_similarity": _mean(
+                    rows, "active_native_word_similarity"
+                ),
             }
         )
     return summaries
@@ -230,7 +272,12 @@ def main() -> None:
             f"spans={summary['mean_span_count']:.1f} "
             f"forward_delta_ms={summary['mean_forward_delta_ms']:+.3f} "
             f"active_vs_native_ttft_ms="
-            f"{summary['mean_active_vs_native_ttft_ms']:+.3f}"
+            f"{summary['mean_active_vs_native_ttft_ms']:+.3f} "
+            f"quality_pass={summary['active_quality_pass_rate']:.1%} "
+            f"exact_shadow_match="
+            f"{summary['active_shadow_exact_match_rate']:.1%} "
+            f"shadow_word_similarity="
+            f"{summary['mean_active_shadow_word_similarity']:.3f}"
         )
 
 
