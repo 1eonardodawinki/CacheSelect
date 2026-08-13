@@ -8,10 +8,11 @@ import json
 from pathlib import Path
 from typing import Any
 
+from benchmarks.length_calibration import QUALITY_SCENARIOS
+
 TARGETS = (256, 1024, 4096)
 RADII = (0, 1, 2)
 POSITIONS = ("early", "middle", "late")
-QUALITY_SCENARIOS = ("direct", "composed", "conflict")
 
 
 # Parse the simple key-value provenance emitted beside each condition.
@@ -25,6 +26,13 @@ def _load_metadata(path: Path) -> dict[str, str]:
             raise ValueError(f"invalid metadata line in {path}: {line}")
         metadata[key] = value
     return metadata
+
+
+# Read single-run or suite scenario provenance with backward compatibility.
+def _recorded_quality_scenarios(metadata: dict[str, str]) -> tuple[str, ...]:
+    if metadata.get("quality_scenarios"):
+        return tuple(metadata["quality_scenarios"].split())
+    return (metadata.get("quality_scenario", "direct"),)
 
 
 # Load and validate one prompt-length and repair-radius condition summary.
@@ -47,15 +55,17 @@ def _load_condition(
                 f"{condition_dir}: expected {key}={expected}, "
                 f"got {metadata.get(key)!r}"
             )
-    # Older direct-fact runs predate the explicit scenario provenance field.
-    recorded_scenario = metadata.get("quality_scenario", "direct")
-    if recorded_scenario != quality_scenario:
+    recorded_scenarios = _recorded_quality_scenarios(metadata)
+    if quality_scenario not in recorded_scenarios:
         raise ValueError(
-            f"{condition_dir}: expected quality_scenario={quality_scenario}, "
-            f"got {recorded_scenario!r}"
+            f"{condition_dir}: quality scenario {quality_scenario!r} not in "
+            f"recorded suite {recorded_scenarios}"
         )
 
-    summary_path = condition_dir / "analysis" / "summary.json"
+    summary_dir = condition_dir / "analysis"
+    if len(recorded_scenarios) > 1:
+        summary_dir /= quality_scenario
+    summary_path = summary_dir / "summary.json"
     if not summary_path.is_file():
         raise ValueError(f"missing condition summary: {summary_path}")
     summaries = json.loads(summary_path.read_text(encoding="utf-8"))
@@ -92,27 +102,43 @@ def _load_condition(
 # Validate all nine conditions and return rows in stable report order.
 def analyze_quality_matrix(
     input_root: Path,
-    quality_scenario: str = "direct",
+    quality_scenarios: str | tuple[str, ...] | None = None,
 ) -> list[dict[str, Any]]:
-    if quality_scenario not in QUALITY_SCENARIOS:
-        raise ValueError(f"unsupported quality scenario: {quality_scenario}")
+    if quality_scenarios is None:
+        first_metadata = _load_metadata(
+            input_root / "tokens-256" / "radius-0" / "metadata.env"
+        )
+        selected_scenarios = _recorded_quality_scenarios(first_metadata)
+    elif isinstance(quality_scenarios, str):
+        selected_scenarios = (quality_scenarios,)
+    else:
+        selected_scenarios = quality_scenarios
+    unsupported = set(selected_scenarios) - set(QUALITY_SCENARIOS)
+    if unsupported:
+        raise ValueError(f"unsupported quality scenarios: {sorted(unsupported)}")
+
     rows = []
     for target_tokens in TARGETS:
         for edit_radius in RADII:
-            rows.extend(
-                _load_condition(
-                    input_root,
-                    target_tokens,
-                    edit_radius,
-                    quality_scenario,
+            for quality_scenario in selected_scenarios:
+                rows.extend(
+                    _load_condition(
+                        input_root,
+                        target_tokens,
+                        edit_radius,
+                        quality_scenario,
+                    )
                 )
-            )
     position_order = {position: index for index, position in enumerate(POSITIONS)}
+    scenario_order = {
+        scenario: index for index, scenario in enumerate(selected_scenarios)
+    }
     return sorted(
         rows,
         key=lambda row: (
             row["target_tokens"],
             row["edit_radius"],
+            scenario_order[row["quality_scenario"]],
             position_order[row["position"]],
         ),
     )
@@ -133,13 +159,14 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]]) -> None:
         "",
         "Negative TTFT deltas mean active CacheSelect was faster than native vLLM.",
         "",
-        "| Tokens | Radius | Position | Reused rows | TTFT delta | Quality | Exact match |",
-        "| ---: | ---: | :--- | ---: | ---: | ---: | ---: |",
+        "| Tokens | Radius | Family | Position | Reused rows | TTFT delta | Quality | Exact match |",
+        "| ---: | ---: | :--- | :--- | ---: | ---: | ---: | ---: |",
     ]
     for row in rows:
         lines.append(
             f"| {row['target_tokens']} | {row['edit_radius']} | "
-            f"{row['position']} | {float(row['mean_reused_rows']):.1f} | "
+            f"{row['quality_scenario']} | {row['position']} | "
+            f"{float(row['mean_reused_rows']):.1f} | "
             f"{float(row['mean_active_vs_native_ttft_ms']):+.3f} ms | "
             f"{float(row['active_quality_pass_rate']):.1%} | "
             f"{float(row['active_shadow_exact_match_rate']):.1%} |"
@@ -155,11 +182,12 @@ def main() -> None:
     parser.add_argument(
         "--quality-scenario",
         choices=QUALITY_SCENARIOS,
-        default="direct",
+        action="append",
+        dest="quality_scenarios",
     )
     args = parser.parse_args()
 
-    rows = analyze_quality_matrix(args.input_root, args.quality_scenario)
+    rows = analyze_quality_matrix(args.input_root, args.quality_scenarios)
     args.output_dir.mkdir(parents=True, exist_ok=True)
     _write_csv(args.output_dir / "quality-matrix.csv", rows)
     (args.output_dir / "quality-matrix.json").write_text(
