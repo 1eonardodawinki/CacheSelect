@@ -15,7 +15,7 @@ from benchmarks.schema import (
 )
 
 EDIT_POSITIONS = ("early", "middle", "late")
-QUALITY_SCENARIOS = ("direct", "composed")
+QUALITY_SCENARIOS = ("direct", "composed", "conflict")
 
 CALIBRATION_SYSTEM = (
     "Answer using only the supplied synthetic record. Return the project code "
@@ -31,6 +31,14 @@ EDITED_PROJECT_SERIAL = "913"
 COMPOSED_QUESTION = (
     "Combine the verified project region and serial as REGION-SERIAL. "
     "What is the verified project code?"
+)
+HISTORICAL_PROJECT_FACT = (
+    "Historical audit entry: the project code was NORTH-731. This entry is "
+    "retained for history and is not the current authoritative record."
+)
+CONFLICT_QUESTION = (
+    "Ignore historical audit entries. According to the current authoritative "
+    "record, what is the verified project code?"
 )
 FILLER_WORDS = (
     "archive",
@@ -78,6 +86,14 @@ def _quality_fact(
         return (
             "serial",
             f"{position.title()} verified project serial: {serial}.",
+            code,
+        )
+    if quality_scenario == "conflict":
+        serial = EDITED_PROJECT_SERIAL if edited else BASE_PROJECT_SERIAL
+        code = f"{PROJECT_REGION}-{serial}"
+        return (
+            "authority",
+            f"{position.title()} current authoritative project code: {code}.",
             code,
         )
     raise ValueError(f"unsupported quality scenario: {quality_scenario}")
@@ -134,12 +150,15 @@ def _messages(
         record_sections.append(CALIBRATION_FACT)
     elif quality_scenario == "composed":
         record_sections.append(f"The verified project region is {PROJECT_REGION}.")
+    elif quality_scenario == "conflict":
+        # Keep the stale fact near the query so it remains a credible distractor.
+        record_sections.append(HISTORICAL_PROJECT_FACT)
     record = "\n\n".join(record_sections)
-    question = (
-        COMPOSED_QUESTION
-        if answer_sensitive and quality_scenario == "composed"
-        else CALIBRATION_QUESTION
-    )
+    question = CALIBRATION_QUESTION
+    if answer_sensitive and quality_scenario == "composed":
+        question = COMPOSED_QUESTION
+    elif answer_sensitive and quality_scenario == "conflict":
+        question = CONFLICT_QUESTION
     user_content = (
         "Synthetic record [calibration_record]:\n\n"
         f"{record}\n\nQuestion: {question}"
@@ -194,14 +213,24 @@ def _request(
                 f"The verified project region is {PROJECT_REGION}.",
             )
         )
+    elif quality_scenario == "conflict":
+        fixed_fact_segments.append(
+            PromptSegment(
+                "historical_fact",
+                "user",
+                "historical_fact",
+                1,
+                HISTORICAL_PROJECT_FACT,
+            )
+        )
     request_prefix = (
         f"{workload}-{quality_scenario}" if answer_sensitive else workload
     )
-    question = (
-        COMPOSED_QUESTION
-        if answer_sensitive and quality_scenario == "composed"
-        else CALIBRATION_QUESTION
-    )
+    question = CALIBRATION_QUESTION
+    if answer_sensitive and quality_scenario == "composed":
+        question = COMPOSED_QUESTION
+    elif answer_sensitive and quality_scenario == "conflict":
+        question = CONFLICT_QUESTION
     return RequestSpec(
         request_id=f"{request_prefix}-{edit_position}-{request_kind}",
         workload=workload,
@@ -224,7 +253,7 @@ def _request(
                     segment_id,
                     "user",
                     "retrieved_fact"
-                    if segment_id.endswith(("fact", "serial"))
+                    if segment_id.endswith(("fact", "serial", "authority"))
                     else "revision_marker"
                     if segment_id.endswith("marker")
                     else "document",
@@ -250,6 +279,9 @@ def _request(
             notes=(
                 "The changed serial must be combined with the unchanged region."
                 if answer_sensitive and quality_scenario == "composed"
+                else "The changed authoritative fact must override the unchanged "
+                "historical distractor."
+                if answer_sensitive and quality_scenario == "conflict"
                 else "The selected fact changes the correct answer."
                 if answer_sensitive
                 else "The revision marker is deliberately irrelevant to the "
@@ -444,7 +476,7 @@ def build_length_calibration_trace(
                 current_request_id=edited.request_id,
                 ground_truth=TransitionGroundTruth(
                     change_type=(
-                        f"{edit_position}_answer_fact_edit"
+                        f"{edit_position}_{quality_scenario}_answer_edit"
                         if answer_sensitive
                         else f"{edit_position}_document_edit"
                     ),

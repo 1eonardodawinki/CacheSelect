@@ -193,6 +193,44 @@ class WorkloadTests(TestCase):
             ["middle_serial"],
         )
 
+    # Verify the correction must override an unchanged historical distractor.
+    def test_conflict_stress_keeps_old_fact_but_changes_authority(self):
+        def count_words(messages):
+            return 5 + sum(len(message["content"].split()) for message in messages)
+
+        for edit_position in EDIT_POSITIONS:
+            trace = build_length_calibration_trace(
+                target_prompt_tokens=256,
+                edit_position=edit_position,
+                token_counter=count_words,
+                tokenizer_name="word-counter-test",
+                answer_sensitive=True,
+                quality_scenario="conflict",
+            )
+            base, edited = trace.requests
+            changed_segment_id = f"{edit_position}_authority"
+            base_segments = {
+                segment.segment_id: segment for segment in base.segments
+            }
+            edited_segments = {
+                segment.segment_id: segment for segment in edited.segments
+            }
+
+            self.assertEqual(
+                base_segments["historical_fact"],
+                edited_segments["historical_fact"],
+            )
+            self.assertIn("NORTH-731", base_segments[changed_segment_id].content)
+            self.assertIn("NORTH-913", edited_segments[changed_segment_id].content)
+            self.assertIn("NORTH-731", edited.messages[1]["content"])
+            self.assertIn("NORTH-913", edited.messages[1]["content"])
+            self.assertEqual(base.ground_truth.expected_answer, "NORTH-731")
+            self.assertEqual(edited.ground_truth.expected_answer, "NORTH-913")
+            self.assertEqual(
+                trace.transitions[0].ground_truth.changed_segment_ids,
+                [changed_segment_id],
+            )
+
     def test_calibration_token_counter_accepts_transformers_return_shapes(self):
         class FakeTokenizer:
             def __init__(self, encoded):
