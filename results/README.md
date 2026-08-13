@@ -17,3 +17,8 @@ Only synthetic or public benchmark data may be committed. Credentials and API
 keys must never be recorded. Large future bundles should keep their curated
 analysis and provenance here while placing oversized raw artifacts in a
 versioned release or other durable research-data archive.
+
+## Curated bundles
+
+- `quality-273641/`: first answer-sensitive CacheSelect speed-quality matrix,
+  covering three prompt lengths, three repair radii, and three edit positions.
