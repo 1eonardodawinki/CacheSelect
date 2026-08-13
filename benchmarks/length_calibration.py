@@ -22,6 +22,8 @@ CALIBRATION_SYSTEM = (
 )
 CALIBRATION_FACT = "The verified project code is NORTH-731."
 CALIBRATION_QUESTION = "What is the verified project code?"
+BASE_PROJECT_CODE = "NORTH-731"
+EDITED_PROJECT_CODE = "SOUTH-913"
 FILLER_WORDS = (
     "archive",
     "sensor",
@@ -36,10 +38,12 @@ FILLER_WORDS = (
 TokenCounter = Callable[[list[dict[str, str]]], int]
 
 
+# Repeat a stable vocabulary to make prompts longer without adding new facts.
 def _filler_words(count: int) -> list[str]:
     return [FILLER_WORDS[index % len(FILLER_WORDS)] for index in range(count)]
 
 
+# Divide filler evenly around the early, middle, and late edit locations.
 def _split_filler(count: int) -> tuple[str, str, str]:
     words = _filler_words(count)
     first_boundary = count // 3
@@ -51,12 +55,15 @@ def _split_filler(count: int) -> tuple[str, str, str]:
     )
 
 
+# Place either an irrelevant marker or an answer-bearing fact at the edit point.
 def _record_parts(
     filler_word_count: int,
     *,
-    edit_position: str | None,
+    edit_position: str,
+    edited: bool,
+    answer_sensitive: bool,
 ) -> list[tuple[str, str, int]]:
-    if edit_position is not None and edit_position not in EDIT_POSITIONS:
+    if edit_position not in EDIT_POSITIONS:
         raise ValueError(f"unsupported edit position: {edit_position}")
 
     early_filler, middle_filler, late_filler = _split_filler(filler_word_count)
@@ -66,27 +73,38 @@ def _record_parts(
         (early_filler, middle_filler, late_filler),
         strict=True,
     ):
-        marker = "B" if edit_position == position else "A"
-        version = 2 if edit_position == position else 1
+        is_changed_segment = edit_position == position
+        if answer_sensitive and is_changed_segment:
+            code = EDITED_PROJECT_CODE if edited else BASE_PROJECT_CODE
+            segment_id = f"{position}_fact"
+            content = f"{position.title()} verified project code: {code}."
+        else:
+            marker = "B" if edited and is_changed_segment else "A"
+            segment_id = f"{position}_marker"
+            content = f"{position.title()} revision marker: {marker}."
+        version = 2 if edited and is_changed_segment else 1
         parts.extend(
             [
-                (
-                    f"{position}_marker",
-                    f"{position.title()} revision marker: {marker}.",
-                    version,
-                ),
+                (segment_id, content, version),
                 (f"{position}_filler", filler, 1),
             ]
         )
     return parts
 
 
-def _messages(parts: list[tuple[str, str, int]]) -> list[dict[str, str]]:
-    record = "\n\n".join(content for _, content, _ in parts)
+# Render the synthetic record and question as a two-message chat request.
+def _messages(
+    parts: list[tuple[str, str, int]],
+    *,
+    answer_sensitive: bool,
+) -> list[dict[str, str]]:
+    record_sections = [content for _, content, _ in parts]
+    if not answer_sensitive:
+        record_sections.append(CALIBRATION_FACT)
+    record = "\n\n".join(record_sections)
     user_content = (
         "Synthetic record [calibration_record]:\n\n"
-        f"{record}\n\n{CALIBRATION_FACT}\n\n"
-        f"Question: {CALIBRATION_QUESTION}"
+        f"{record}\n\nQuestion: {CALIBRATION_QUESTION}"
     )
     return [
         {"role": "system", "content": CALIBRATION_SYSTEM},
@@ -94,20 +112,41 @@ def _messages(parts: list[tuple[str, str, int]]) -> list[dict[str, str]]:
     ]
 
 
+# Build one source or edited request with its private evaluation answer key.
 def _request(
     *,
     edit_position: str,
     edited: bool,
     filler_word_count: int,
+    answer_sensitive: bool,
 ) -> RequestSpec:
-    applied_edit = edit_position if edited else None
-    parts = _record_parts(filler_word_count, edit_position=applied_edit)
+    parts = _record_parts(
+        filler_word_count,
+        edit_position=edit_position,
+        edited=edited,
+        answer_sensitive=answer_sensitive,
+    )
     request_kind = "edited" if edited else "base"
+    workload = "quality_stress" if answer_sensitive else "length_calibration"
+    expected_code = (
+        EDITED_PROJECT_CODE if answer_sensitive and edited else BASE_PROJECT_CODE
+    )
+    fixed_fact_segments = []
+    if not answer_sensitive:
+        fixed_fact_segments.append(
+            PromptSegment(
+                "fact",
+                "user",
+                "retrieved_fact",
+                1,
+                CALIBRATION_FACT,
+            )
+        )
     return RequestSpec(
-        request_id=f"calibration-{edit_position}-{request_kind}",
-        workload="length_calibration",
+        request_id=f"{workload}-{edit_position}-{request_kind}",
+        workload=workload,
         sequence_index=int(edited),
-        messages=_messages(parts),
+        messages=_messages(parts, answer_sensitive=answer_sensitive),
         segments=[
             PromptSegment(
                 "system",
@@ -120,19 +159,17 @@ def _request(
                 PromptSegment(
                     segment_id,
                     "user",
-                    "revision_marker" if segment_id.endswith("marker") else "document",
+                    "retrieved_fact"
+                    if segment_id.endswith("fact")
+                    else "revision_marker"
+                    if segment_id.endswith("marker")
+                    else "document",
                     version,
                     content,
                 )
                 for segment_id, content, version in parts
             ],
-            PromptSegment(
-                "fact",
-                "user",
-                "retrieved_fact",
-                1,
-                CALIBRATION_FACT,
-            ),
+            *fixed_fact_segments,
             PromptSegment(
                 "query",
                 "user",
@@ -142,43 +179,51 @@ def _request(
             ),
         ],
         ground_truth=RequestGroundTruth(
-            expected_answer="NORTH-731",
+            expected_answer=expected_code,
             requirements=[
-                AnswerRequirement("project_code", ["north-731"]),
+                AnswerRequirement("project_code", [expected_code.casefold()]),
             ],
             notes=(
-                "The revision marker is deliberately irrelevant to the answer. "
-                "The calibration quality gate checks semantic fact retrieval, "
-                "not citation-format compliance."
+                "The selected fact changes the correct answer."
+                if answer_sensitive
+                else "The revision marker is deliberately irrelevant to the "
+                "answer. The calibration quality gate checks semantic fact "
+                "retrieval, not citation-format compliance."
             ),
         ),
     )
 
 
+# Count both prompts because an edit can change their tokenizer lengths.
 def _prompt_counts(
     filler_word_count: int,
     *,
     edit_position: str,
     token_counter: TokenCounter,
+    answer_sensitive: bool,
 ) -> tuple[int, int]:
     base = _request(
         edit_position=edit_position,
         edited=False,
         filler_word_count=filler_word_count,
+        answer_sensitive=answer_sensitive,
     )
     edited = _request(
         edit_position=edit_position,
         edited=True,
         filler_word_count=filler_word_count,
+        answer_sensitive=answer_sensitive,
     )
     return token_counter(base.messages), token_counter(edited.messages)
 
 
+# Search for a filler size that brings both rendered prompts near the target.
 def _choose_filler_word_count(
     target_prompt_tokens: int,
     *,
     edit_position: str,
     token_counter: TokenCounter,
+    answer_sensitive: bool,
 ) -> tuple[int, tuple[int, int]]:
     if target_prompt_tokens < 1:
         raise ValueError("target_prompt_tokens must be positive")
@@ -187,6 +232,7 @@ def _choose_filler_word_count(
         0,
         edit_position=edit_position,
         token_counter=token_counter,
+        answer_sensitive=answer_sensitive,
     )
     if max(empty_counts) > target_prompt_tokens:
         raise ValueError(
@@ -202,6 +248,7 @@ def _choose_filler_word_count(
                 upper,
                 edit_position=edit_position,
                 token_counter=token_counter,
+                answer_sensitive=answer_sensitive,
             )
         )
         < target_prompt_tokens
@@ -218,6 +265,7 @@ def _choose_filler_word_count(
             middle,
             edit_position=edit_position,
             token_counter=token_counter,
+            answer_sensitive=answer_sensitive,
         )
         if max(counts) < target_prompt_tokens:
             lower = middle
@@ -233,6 +281,7 @@ def _choose_filler_word_count(
                 count,
                 edit_position=edit_position,
                 token_counter=token_counter,
+                answer_sensitive=answer_sensitive,
             )
         ),
     )
@@ -240,9 +289,11 @@ def _choose_filler_word_count(
         best_count,
         edit_position=edit_position,
         token_counter=token_counter,
+        answer_sensitive=answer_sensitive,
     )
 
 
+# Build one calibrated source/edit trace for performance or quality testing.
 def build_length_calibration_trace(
     *,
     target_prompt_tokens: int,
@@ -250,6 +301,7 @@ def build_length_calibration_trace(
     token_counter: TokenCounter,
     tokenizer_name: str,
     tolerance_tokens: int = 16,
+    answer_sensitive: bool = False,
 ) -> WorkloadTrace:
     """Build one cold-donor/edit pair close to a rendered token target."""
     if edit_position not in EDIT_POSITIONS:
@@ -259,6 +311,7 @@ def build_length_calibration_trace(
         target_prompt_tokens,
         edit_position=edit_position,
         token_counter=token_counter,
+        answer_sensitive=answer_sensitive,
     )
     if (
         max(abs(count - target_prompt_tokens) for count in measured_counts)
@@ -273,15 +326,23 @@ def build_length_calibration_trace(
         edit_position=edit_position,
         edited=False,
         filler_word_count=filler_word_count,
+        answer_sensitive=answer_sensitive,
     )
     edited = _request(
         edit_position=edit_position,
         edited=True,
         filler_word_count=filler_word_count,
+        answer_sensitive=answer_sensitive,
+    )
+    trace_kind = "quality-stress" if answer_sensitive else "length-calibration"
+    changed_segment_id = (
+        f"{edit_position}_fact"
+        if answer_sensitive
+        else f"{edit_position}_marker"
     )
     return WorkloadTrace(
-        trace_id=f"length-calibration-{target_prompt_tokens}-{edit_position}-v1",
-        workload="length_calibration",
+        trace_id=f"{trace_kind}-{target_prompt_tokens}-{edit_position}-v1",
+        workload="quality_stress" if answer_sensitive else "length_calibration",
         description=(
             f"Tokenizer-aware {edit_position} edit calibration targeting "
             f"{target_prompt_tokens} rendered prompt tokens; generated with "
@@ -294,14 +355,20 @@ def build_length_calibration_trace(
                 previous_request_id=base.request_id,
                 current_request_id=edited.request_id,
                 ground_truth=TransitionGroundTruth(
-                    change_type=f"{edit_position}_document_edit",
-                    changed_segment_ids=[f"{edit_position}_marker"],
+                    change_type=(
+                        f"{edit_position}_answer_fact_edit"
+                        if answer_sensitive
+                        else f"{edit_position}_document_edit"
+                    ),
+                    changed_segment_ids=[changed_segment_id],
                     expected_native_behavior=(
-                        f"prefix_hit_until_{edit_position}_marker"
+                        f"prefix_hit_until_{changed_segment_id}"
                     ),
                     notes=(
-                        "Only one position-controlled marker changes; all later "
-                        "tokens and the required answer remain identical."
+                        "The position-controlled fact and required answer change."
+                        if answer_sensitive
+                        else "Only one position-controlled marker changes; all "
+                        "later tokens and the required answer remain identical."
                     ),
                 ),
             )
