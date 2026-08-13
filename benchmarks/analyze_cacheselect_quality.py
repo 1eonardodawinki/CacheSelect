@@ -76,7 +76,10 @@ def _load_condition(
     for summary in summaries:
         if int(summary.get("target_tokens", -1)) != target_tokens:
             raise ValueError(f"{summary_path}: incorrect target token label")
+        # Older summaries only existed after their references had passed.
+        summary.setdefault("reference_quality_pass_rate", 1.0)
         for quality_name in (
+            "reference_quality_pass_rate",
             "active_quality_pass_rate",
             "active_shadow_exact_match_rate",
             "mean_active_shadow_word_similarity",
@@ -159,8 +162,8 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]]) -> None:
         "",
         "Negative TTFT deltas mean active CacheSelect was faster than native vLLM.",
         "",
-        "| Tokens | Radius | Family | Position | Reused rows | TTFT delta | Quality | Exact match |",
-        "| ---: | ---: | :--- | :--- | ---: | ---: | ---: | ---: |",
+        "| Tokens | Radius | Family | Position | Reused rows | TTFT delta | Reference | Active | Exact match |",
+        "| ---: | ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in rows:
         lines.append(
@@ -168,6 +171,7 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]]) -> None:
             f"{row['quality_scenario']} | {row['position']} | "
             f"{float(row['mean_reused_rows']):.1f} | "
             f"{float(row['mean_active_vs_native_ttft_ms']):+.3f} ms | "
+            f"{float(row['reference_quality_pass_rate']):.1%} | "
             f"{float(row['active_quality_pass_rate']):.1%} | "
             f"{float(row['active_shadow_exact_match_rate']):.1%} |"
         )

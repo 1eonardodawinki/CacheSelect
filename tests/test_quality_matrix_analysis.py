@@ -35,6 +35,7 @@ def _write_condition(
                 "repetitions": 3,
                 "mean_reused_rows": 64.0,
                 "mean_active_vs_native_ttft_ms": -10.0,
+                "reference_quality_pass_rate": 1.0,
                 "active_quality_pass_rate": 1.0,
                 "active_shadow_exact_match_rate": 1.0,
                 "mean_active_shadow_word_similarity": 1.0,

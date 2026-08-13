@@ -47,3 +47,18 @@ class CacheSelectPerformanceAnalysisTests(TestCase):
         self.assertLess(pair["active_shadow_word_similarity"], 1.0)
         self.assertEqual(summary["active_quality_pass_rate"], 0.0)
         self.assertEqual(summary["active_shadow_exact_match_rate"], 0.0)
+
+    # Verify an invalid full-compute workload is labelled without aborting the run.
+    def test_reference_quality_failure_is_reported(self):
+        rows = [
+            _trial("native", "The access code is UNKNOWN.", False),
+            _trial("shadow", "The access code is UNKNOWN.", False),
+            _trial("active", "The access code is UNKNOWN.", False),
+        ]
+
+        pair = _pair_trials(rows)[0]
+        summary = _summarize([pair])[0]
+
+        self.assertFalse(pair["reference_quality_passed"])
+        self.assertEqual(summary["reference_quality_pass_rate"], 0.0)
+        self.assertEqual(summary["active_quality_pass_rate"], 0.0)

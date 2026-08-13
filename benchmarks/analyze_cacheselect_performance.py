@@ -116,11 +116,6 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
             raise ValueError(f"active trial did not execute: {active['result_file']}")
         if active["executed"] and not active["execution_eligible"]:
             raise ValueError(f"ineligible trial executed: {active['result_file']}")
-        if not native["quality_passed"] or not shadow["quality_passed"]:
-            raise ValueError(
-                "full-computation reference failed its quality gate: "
-                f"{native['result_file']} or {shadow['result_file']}"
-            )
         comparable_names = ("prompt_tokens", "candidate_tokens", "reused_rows")
         if any(shadow[name] != active[name] for name in comparable_names):
             raise ValueError(
@@ -158,7 +153,13 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "active_vs_native_ttft_ms": active["ttft_ms"]
                 - native["ttft_ms"],
                 "ttft_delta_ms": active["ttft_ms"] - shadow["ttft_ms"],
+                "native_quality_passed": native["quality_passed"],
+                "shadow_quality_passed": shadow["quality_passed"],
+                "reference_quality_passed": native["quality_passed"]
+                and shadow["quality_passed"],
                 "active_quality_passed": active["quality_passed"],
+                "shadow_matches_native": shadow["output_text"]
+                == native["output_text"],
                 "active_matches_shadow": active["output_text"]
                 == shadow["output_text"],
                 "active_matches_native": active["output_text"]
@@ -219,8 +220,20 @@ def _summarize(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     rows, "active_vs_native_ttft_ms"
                 ),
                 "mean_ttft_delta_ms": _mean(rows, "ttft_delta_ms"),
+                "native_quality_pass_rate": _mean(
+                    rows, "native_quality_passed"
+                ),
+                "shadow_quality_pass_rate": _mean(
+                    rows, "shadow_quality_passed"
+                ),
+                "reference_quality_pass_rate": _mean(
+                    rows, "reference_quality_passed"
+                ),
                 "active_quality_pass_rate": _mean(
                     rows, "active_quality_passed"
+                ),
+                "shadow_native_exact_match_rate": _mean(
+                    rows, "shadow_matches_native"
                 ),
                 "active_shadow_exact_match_rate": _mean(
                     rows, "active_matches_shadow"
@@ -273,6 +286,8 @@ def main() -> None:
             f"forward_delta_ms={summary['mean_forward_delta_ms']:+.3f} "
             f"active_vs_native_ttft_ms="
             f"{summary['mean_active_vs_native_ttft_ms']:+.3f} "
+            f"reference_quality="
+            f"{summary['reference_quality_pass_rate']:.1%} "
             f"quality_pass={summary['active_quality_pass_rate']:.1%} "
             f"exact_shadow_match="
             f"{summary['active_shadow_exact_match_rate']:.1%} "
