@@ -7,7 +7,10 @@ from cacheselect.planner import (
     PolicyDecision,
     ReusePolicy,
 )
-from cacheselect.tokenization import rendered_chat_token_ids
+from cacheselect.tokenization import (
+    rendered_chat_token_ids,
+    rendered_chat_tokenization,
+)
 
 
 class NativeAPCFallbackPlannerTests(TestCase):
@@ -113,3 +116,23 @@ class TokenizationTests(TestCase):
                 self.FakeTokenizer([[1, 2], [3, 4]]),
                 messages,
             )
+
+    # Verify rendered text, token IDs, and character offsets remain aligned.
+    def test_recovers_offsets_for_rendered_chat_tokens(self):
+        class OffsetTokenizer:
+            # Return either rendered text or its two model token IDs.
+            def apply_chat_template(self, *args, tokenize, **kwargs):
+                return [10, 20] if tokenize else "alpha beta"
+
+            # Return the fast-tokenizer offsets for the rendered text.
+            def __call__(self, text, **kwargs):
+                return {
+                    "input_ids": [10, 20],
+                    "offset_mapping": [(0, 5), (6, 10)],
+                }
+
+        rendered = rendered_chat_tokenization(OffsetTokenizer(), [])
+
+        self.assertEqual(rendered.text, "alpha beta")
+        self.assertEqual(rendered.token_ids, (10, 20))
+        self.assertEqual(rendered.token_offsets, ((0, 5), (6, 10)))
