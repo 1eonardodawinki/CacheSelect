@@ -55,12 +55,37 @@ class BlockDatasetGenerationTests(TestCase):
             ["left_fact", "right_fact", "query"],
         )
 
+    # Verify dependent mapping facts move relative to stable neutral text.
+    def test_varies_dependency_layout(self):
+        facts_early = build_pointer_dependency_trace(
+            variant=POINTER_VARIANTS[0],
+            filler_word_count=64,
+            edit_position="early",
+            dependency_layout="facts_early",
+        ).requests[1]
+        facts_late = build_pointer_dependency_trace(
+            variant=POINTER_VARIANTS[0],
+            filler_word_count=64,
+            edit_position="early",
+            dependency_layout="facts_late",
+        ).requests[1]
+        early_text = facts_early.messages[1]["content"]
+        late_text = facts_late.messages[1]["content"]
+        early_pointer = early_text.index("The active version")
+        late_pointer = late_text.index("The active version")
+        early_suffix_filler = early_text.index("archive", early_pointer)
+        late_suffix_filler = late_text.index("archive", late_pointer)
+
+        self.assertLess(early_text.index("Version A"), early_suffix_filler)
+        self.assertGreater(late_text.index("Version A"), late_suffix_filler)
+
     # Verify held-out wording families and both decisions reach the dataset.
     def test_generates_family_level_splits(self):
         rows = generate_pointer_block_dataset(
             tokenizer=WordTokenizer(),
             filler_word_counts=[32],
             edit_positions=["middle"],
+            dependency_layouts=["facts_middle"],
             block_size=4,
         )
 

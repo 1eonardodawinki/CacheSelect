@@ -26,6 +26,13 @@ from benchmarks.schema import (
 )
 
 EDIT_POSITIONS = ("early", "middle", "late")
+DEPENDENCY_LAYOUTS = (
+    "facts_early",
+    "facts_middle",
+    "facts_late",
+    "facts_separated",
+    "facts_reversed",
+)
 FILLER_WORDS = (
     "archive",
     "sensor",
@@ -139,12 +146,67 @@ def _filler_sides(word_count: int, position: str) -> tuple[str, str]:
     return _filler(before_count), _filler(word_count - before_count)
 
 
+# Split neutral suffix text without changing its token order.
+def _split_words(text: str, first_fraction: float) -> tuple[str, str]:
+    words = text.split()
+    boundary = int(len(words) * first_fraction)
+    return " ".join(words[:boundary]), " ".join(words[boundary:])
+
+
+# Interleave dependent facts with neutral text using one controlled layout.
+def _post_pointer_parts(
+    *,
+    after_filler: str,
+    left_fact: str,
+    right_fact: str,
+    dependency_layout: str,
+) -> list[tuple[str, str]]:
+    if dependency_layout not in DEPENDENCY_LAYOUTS:
+        raise ValueError(f"unsupported dependency layout: {dependency_layout}")
+    if dependency_layout == "facts_early":
+        parts = [
+            ("left_fact", left_fact),
+            ("right_fact", right_fact),
+            ("after_filler", after_filler),
+        ]
+    elif dependency_layout in ("facts_middle", "facts_late"):
+        fraction = 0.5 if dependency_layout == "facts_middle" else 0.8
+        filler_before, filler_after = _split_words(after_filler, fraction)
+        parts = [
+            ("after_filler_before", filler_before),
+            ("left_fact", left_fact),
+            ("right_fact", right_fact),
+            ("after_filler_after", filler_after),
+        ]
+    else:
+        filler_before, filler_after = _split_words(after_filler, 0.5)
+        first_fact = (
+            ("right_fact", right_fact)
+            if dependency_layout == "facts_reversed"
+            else ("left_fact", left_fact)
+        )
+        second_fact = (
+            ("left_fact", left_fact)
+            if dependency_layout == "facts_reversed"
+            else ("right_fact", right_fact)
+        )
+        parts = [
+            first_fact,
+            ("after_filler_before", filler_before),
+            second_fact,
+            ("after_filler_after", filler_after),
+        ]
+    # Very short late-edit traces can produce empty neutral partitions.
+    return [(segment_id, content) for segment_id, content in parts if content]
+
+
 # Build one source/edit trace with a known distant semantic dependency.
 def build_pointer_dependency_trace(
     *,
     variant: PointerVariant,
     filler_word_count: int,
     edit_position: str,
+    dependency_layout: str = "facts_middle",
 ) -> WorkloadTrace:
     if filler_word_count < 1:
         raise ValueError("filler_word_count must be positive")
@@ -164,14 +226,20 @@ def build_pointer_dependency_trace(
             key=variant.right_key,
             value=variant.right_value,
         )
-        record = "\n\n".join(
-            (before_filler, pointer, after_filler, left_fact, right_fact)
+        post_pointer_parts = _post_pointer_parts(
+            after_filler=after_filler,
+            left_fact=left_fact,
+            right_fact=right_fact,
+            dependency_layout=dependency_layout,
         )
+        record_parts = [before_filler, pointer]
+        record_parts.extend(content for _, content in post_pointer_parts)
+        record = "\n\n".join(content for content in record_parts if content)
         request_kind = "edited" if edited else "base"
         return RequestSpec(
             request_id=(
                 f"dependency-{variant.variant_id}-{filler_word_count}-"
-                f"{edit_position}-{request_kind}"
+                f"{edit_position}-{dependency_layout}-{request_kind}"
             ),
             workload="block_dependency",
             sequence_index=int(edited),
@@ -186,9 +254,18 @@ def build_pointer_dependency_trace(
                 PromptSegment("system", "system", "instruction", 1, system),
                 PromptSegment("before_filler", "user", "document", 1, before_filler),
                 PromptSegment("pointer", "user", "pointer", 2 if edited else 1, pointer),
-                PromptSegment("after_filler", "user", "document", 1, after_filler),
-                PromptSegment("left_fact", "user", "retrieved_fact", 1, left_fact),
-                PromptSegment("right_fact", "user", "retrieved_fact", 1, right_fact),
+                *[
+                    PromptSegment(segment_id, "user", "document", 1, content)
+                    if segment_id.startswith("after_filler")
+                    else PromptSegment(
+                        segment_id,
+                        "user",
+                        "retrieved_fact",
+                        1,
+                        content,
+                    )
+                    for segment_id, content in post_pointer_parts
+                ],
                 PromptSegment("query", "user", "query", 1, variant.question),
             ],
             ground_truth=RequestGroundTruth(
@@ -201,7 +278,8 @@ def build_pointer_dependency_trace(
     base = request(edited=False)
     edited = request(edited=True)
     trace_id = (
-        f"dependency-{variant.variant_id}-{filler_word_count}-{edit_position}-v1"
+        f"dependency-{variant.variant_id}-{filler_word_count}-{edit_position}-"
+        f"{dependency_layout}-v1"
     )
     return WorkloadTrace(
         trace_id=trace_id,
@@ -231,6 +309,7 @@ def generate_pointer_block_dataset(
     tokenizer: object,
     filler_word_counts: Sequence[int],
     edit_positions: Sequence[str] = EDIT_POSITIONS,
+    dependency_layouts: Sequence[str] = DEPENDENCY_LAYOUTS,
     block_size: int = 16,
 ) -> tuple[SplitCandidateBlock, ...]:
     examples = []
@@ -239,23 +318,25 @@ def generate_pointer_block_dataset(
     for variant in POINTER_VARIANTS:
         for filler_word_count in filler_word_counts:
             for edit_position in edit_positions:
-                trace = build_pointer_dependency_trace(
-                    variant=variant,
-                    filler_word_count=filler_word_count,
-                    edit_position=edit_position,
-                )
-                trace_examples = build_trace_dependency_examples(
-                    trace=trace,
-                    tokenizer=tokenizer,
-                    block_size=block_size,
-                )
-                if not trace_examples:
-                    continue
-                examples.extend(trace_examples)
-                if variant.split == DatasetSplit.VALIDATION:
-                    validation_trace_ids.add(trace.trace_id)
-                elif variant.split == DatasetSplit.TEST:
-                    test_trace_ids.add(trace.trace_id)
+                for dependency_layout in dependency_layouts:
+                    trace = build_pointer_dependency_trace(
+                        variant=variant,
+                        filler_word_count=filler_word_count,
+                        edit_position=edit_position,
+                        dependency_layout=dependency_layout,
+                    )
+                    trace_examples = build_trace_dependency_examples(
+                        trace=trace,
+                        tokenizer=tokenizer,
+                        block_size=block_size,
+                    )
+                    if not trace_examples:
+                        continue
+                    examples.extend(trace_examples)
+                    if variant.split == DatasetSplit.VALIDATION:
+                        validation_trace_ids.add(trace.trace_id)
+                    elif variant.split == DatasetSplit.TEST:
+                        test_trace_ids.add(trace.trace_id)
     return assign_trace_splits(
         examples,
         validation_trace_ids=validation_trace_ids,
@@ -281,6 +362,12 @@ def main() -> None:
         action="append",
         dest="edit_positions",
     )
+    parser.add_argument(
+        "--dependency-layout",
+        choices=DEPENDENCY_LAYOUTS,
+        action="append",
+        dest="dependency_layouts",
+    )
     args = parser.parse_args()
 
     from transformers import AutoTokenizer
@@ -290,6 +377,7 @@ def main() -> None:
         tokenizer=tokenizer,
         filler_word_counts=args.filler_words,
         edit_positions=args.edit_positions or EDIT_POSITIONS,
+        dependency_layouts=args.dependency_layouts or DEPENDENCY_LAYOUTS,
         block_size=args.block_size,
     )
     save_block_dataset_csv(rows, args.output)
