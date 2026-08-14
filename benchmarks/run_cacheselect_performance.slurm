@@ -21,6 +21,7 @@ ANSWER_SENSITIVE="${CACHESELECT_ANSWER_SENSITIVE:-0}"
 QUALITY_SCENARIO="${CACHESELECT_QUALITY_SCENARIO:-direct}"
 QUALITY_SCENARIOS_VALUE="${CACHESELECT_QUALITY_SCENARIOS:-$QUALITY_SCENARIO}"
 HF_OFFLINE="${CACHESELECT_HF_OFFLINE:-1}"
+RESUME_EXISTING="${CACHESELECT_RESUME_EXISTING:-0}"
 read -r -a QUALITY_SCENARIOS <<<"$QUALITY_SCENARIOS_VALUE"
 SUITE_MODE=0
 if (( ${#QUALITY_SCENARIOS[@]} > 1 )); then
@@ -28,14 +29,16 @@ if (( ${#QUALITY_SCENARIOS[@]} > 1 )); then
 fi
 
 TASK_ID="${SLURM_ARRAY_TASK_ID:?Run this file as a Slurm array job}"
-EXPERIMENT_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
+SLURM_EXPERIMENT_ID="${SLURM_ARRAY_JOB_ID:?Missing Slurm array job ID}"
+EXPERIMENT_ID="${CACHESELECT_EXPERIMENT_ID:-$SLURM_EXPERIMENT_ID}"
 TARGETS=(256 1024 4096)
 POSITIONS=(early middle late)
 TARGET_INDEX="${CACHESELECT_TARGET_INDEX:-$TASK_ID}"
 MODE_ORDER_INDEX="${CACHESELECT_MODE_ORDER_INDEX:-$((TASK_ID % 3))}"
 TARGET="${TARGETS[$TARGET_INDEX]}"
 CONDITION_PATH="${CACHESELECT_CONDITION_PATH:-tokens-$TARGET}"
-PORT=$((23000 + (EXPERIMENT_ID % 500) * 10 + TASK_ID))
+# Use the current Slurm ID for ports even when resuming an older result set.
+PORT=$((23000 + (SLURM_EXPERIMENT_ID % 500) * 10 + TASK_ID))
 
 EXPERIMENT_ROOT="$STORAGE_ROOT/cacheselect-results/$EXPERIMENT_KIND-$EXPERIMENT_ID"
 RESULT_DIR="$EXPERIMENT_ROOT/$CONDITION_PATH"
@@ -80,6 +83,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
 
 echo "CacheSelect $EXPERIMENT_KIND experiment"
 echo "experiment_id=$EXPERIMENT_ID task_id=$TASK_ID target_tokens=$TARGET"
+echo "slurm_experiment_id=$SLURM_EXPERIMENT_ID resume_existing=$RESUME_EXISTING"
 echo "edit_radius=$EDIT_RADIUS answer_sensitive=$ANSWER_SENSITIVE quality_scenarios=$QUALITY_SCENARIOS_VALUE"
 echo "hf_offline=$HF_OFFLINE"
 echo "host=$(hostname) port=$PORT repetitions=$REPETITIONS"
@@ -87,24 +91,62 @@ echo "project_commit=$PROJECT_COMMIT"
 echo "model=$MODEL vllm_version=$VLLM_VERSION"
 echo "gpu=$GPU_DESCRIPTION"
 
+# Check whether every expected raw result exists for safe analysis-only resume.
+measurements_complete() {
+  local expected_count=$(( ${#POSITIONS[@]} * 3 * REPETITIONS ))
+  local scenario
+  local scenario_dir
+  local actual_count
+  for scenario in "${QUALITY_SCENARIOS[@]}"; do
+    scenario_dir="$MEASURED_DIR"
+    if (( SUITE_MODE )); then
+      scenario_dir="$MEASURED_DIR/$scenario"
+    fi
+    if [[ ! -d "$scenario_dir" ]]; then
+      return 1
+    fi
+    actual_count="$(
+      find "$scenario_dir" -maxdepth 1 -type f \
+        -name "tokens-${TARGET}-*.json" | wc -l | tr -d ' '
+    )"
+    if [[ "$actual_count" != "$expected_count" ]]; then
+      return 1
+    fi
+  done
+}
+
+REUSE_MEASUREMENTS=0
+if [[ "$RESUME_EXISTING" == "1" ]] && measurements_complete; then
+  REUSE_MEASUREMENTS=1
+fi
+
 # Preserve the essential run provenance beside the measured results.
+if (( ! REUSE_MEASUREMENTS )); then
+  {
+    echo "experiment=cacheselect_$EXPERIMENT_KIND"
+    echo "experiment_id=$EXPERIMENT_ID"
+    echo "target_tokens=$TARGET"
+    echo "repetitions=$REPETITIONS"
+    echo "project_commit=$PROJECT_COMMIT"
+    echo "model=$MODEL"
+    echo "vllm_version=$VLLM_VERSION"
+    echo "gpu=$GPU_DESCRIPTION"
+    echo "selector=edit_proximity"
+    echo "edit_radius=$EDIT_RADIUS"
+    echo "answer_sensitive=$ANSWER_SENSITIVE"
+    echo "quality_scenarios=$QUALITY_SCENARIOS_VALUE"
+    echo "hf_offline=$HF_OFFLINE"
+    echo "chunked_prefill=false"
+    echo "max_num_batched_tokens=8192"
+  } >"$RESULT_DIR/metadata.env"
+fi
+
+# Record which code analyzed the data without overwriting measurement provenance.
 {
-  echo "experiment=cacheselect_$EXPERIMENT_KIND"
-  echo "experiment_id=$EXPERIMENT_ID"
-  echo "target_tokens=$TARGET"
-  echo "repetitions=$REPETITIONS"
-  echo "project_commit=$PROJECT_COMMIT"
-  echo "model=$MODEL"
-  echo "vllm_version=$VLLM_VERSION"
-  echo "gpu=$GPU_DESCRIPTION"
-  echo "selector=edit_proximity"
-  echo "edit_radius=$EDIT_RADIUS"
-  echo "answer_sensitive=$ANSWER_SENSITIVE"
-  echo "quality_scenarios=$QUALITY_SCENARIOS_VALUE"
-  echo "hf_offline=$HF_OFFLINE"
-  echo "chunked_prefill=false"
-  echo "max_num_batched_tokens=8192"
-} >"$RESULT_DIR/metadata.env"
+  echo "analysis_project_commit=$PROJECT_COMMIT"
+  echo "analysis_slurm_experiment_id=$SLURM_EXPERIMENT_ID"
+  echo "reused_existing_measurements=$REUSE_MEASUREMENTS"
+} >"$RESULT_DIR/analysis-metadata.env"
 
 TRACE_ARGS=()
 if [[ "$ANSWER_SENSITIVE" == "1" ]]; then
@@ -259,15 +301,19 @@ run_mode() {
   stop_server
 }
 
-# Rotate condition order across GPUs to reduce systematic warm-machine bias.
-case "$MODE_ORDER_INDEX" in
-  0) MODES=(native shadow active) ;;
-  1) MODES=(shadow active native) ;;
-  2) MODES=(active native shadow) ;;
-esac
-for mode in "${MODES[@]}"; do
-  run_mode "$mode"
-done
+if (( REUSE_MEASUREMENTS )); then
+  echo "Reusing complete measurements from $RESULT_DIR"
+else
+  # Rotate condition order across GPUs to reduce systematic warm-machine bias.
+  case "$MODE_ORDER_INDEX" in
+    0) MODES=(native shadow active) ;;
+    1) MODES=(shadow active native) ;;
+    2) MODES=(active native shadow) ;;
+  esac
+  for mode in "${MODES[@]}"; do
+    run_mode "$mode"
+  done
+fi
 
 for scenario in "${QUALITY_SCENARIOS[@]}"; do
   scenario_input_dir="$MEASURED_DIR"
