@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
+from cacheselect.reuse_opportunity import CandidateBlock, ReuseOpportunity
+
 
 @dataclass(frozen=True)
 class ChangedTokenRegion:
@@ -74,7 +76,91 @@ class CandidateBlockFeatures:
     candidate_share_of_native_recompute: float
     same_position_match: bool
     requires_repacking: bool
-    changed_candidate_token_overlap_ratio: float
-    introduced_candidate_token_overlap_ratio: float
-    removed_candidate_token_overlap_ratio: float
-    changed_candidate_token_jaccard: float
+    changed_candidate_token_overlap_ratio: float | None
+    introduced_candidate_token_overlap_ratio: float | None
+    removed_candidate_token_overlap_ratio: float | None
+    changed_candidate_token_jaccard: float | None
+
+
+# Convert a possibly empty current edit interval into inclusive block bounds.
+def _changed_block_bounds(
+    region: ChangedTokenRegion, block_size: int
+) -> tuple[int, int]:
+    first_block = region.current_start // block_size
+    if region.current_start == region.current_end:
+        return first_block, first_block
+    return first_block, (region.current_end - 1) // block_size
+
+
+# Measure signed block distance from a candidate to the nearest changed block.
+def _relative_block_offset(
+    candidate_block_index: int, first_changed_block: int, last_changed_block: int
+) -> int:
+    if candidate_block_index < first_changed_block:
+        return candidate_block_index - first_changed_block
+    if candidate_block_index > last_changed_block:
+        return candidate_block_index - last_changed_block
+    return 0
+
+
+# Pick the identical source occurrence closest to the candidate's new position.
+def _nearest_source_start(candidate: CandidateBlock) -> int:
+    return min(
+        candidate.previous_starts,
+        key=lambda start: (abs(start - candidate.current_start), start),
+    )
+
+
+# Extract geometry-only vectors for every content-identical candidate block.
+def extract_candidate_block_geometry(
+    previous_tokens: Sequence[int],
+    current_tokens: Sequence[int],
+    opportunity: ReuseOpportunity,
+) -> tuple[CandidateBlockFeatures, ...]:
+    if opportunity.previous_token_count != len(previous_tokens):
+        raise ValueError("previous token count does not match reuse opportunity")
+    if opportunity.current_token_count != len(current_tokens):
+        raise ValueError("current token count does not match reuse opportunity")
+
+    region = locate_changed_token_region(previous_tokens, current_tokens)
+    first_changed_block, last_changed_block = _changed_block_bounds(
+        region, opportunity.block_size
+    )
+    vectors = []
+    for candidate in opportunity.candidate_blocks:
+        relative_offset = _relative_block_offset(
+            candidate.current_block_index,
+            first_changed_block,
+            last_changed_block,
+        )
+        source_start = _nearest_source_start(candidate)
+        vectors.append(
+            CandidateBlockFeatures(
+                previous_token_count=len(previous_tokens),
+                current_token_count=len(current_tokens),
+                previous_changed_token_count=(
+                    region.previous_end - region.previous_start
+                ),
+                current_changed_token_count=(region.current_end - region.current_start),
+                block_size=opportunity.block_size,
+                candidate_block_index=candidate.current_block_index,
+                candidate_position_ratio=(
+                    candidate.current_start / max(len(current_tokens), 1)
+                ),
+                relative_block_offset=relative_offset,
+                nearest_changed_block_distance=abs(relative_offset),
+                source_displacement_blocks=(
+                    (candidate.current_start - source_start) / opportunity.block_size
+                ),
+                candidate_share_of_native_recompute=(
+                    opportunity.candidate_share_of_native_recompute
+                ),
+                same_position_match=candidate.same_position_match,
+                requires_repacking=candidate.requires_repacking,
+                changed_candidate_token_overlap_ratio=None,
+                introduced_candidate_token_overlap_ratio=None,
+                removed_candidate_token_overlap_ratio=None,
+                changed_candidate_token_jaccard=None,
+            )
+        )
+    return tuple(vectors)
