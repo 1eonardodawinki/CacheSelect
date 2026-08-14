@@ -98,3 +98,21 @@ class CacheSelectPerformanceAnalysisTests(TestCase):
         self.assertEqual(summary["valid_repetitions"], 1)
         self.assertEqual(summary["invalid_repetitions"], 2)
         self.assertAlmostEqual(summary["valid_measurement_rate"], 1 / 3)
+
+    # Verify a wholly invalid position remains visible with unavailable metrics.
+    def test_summary_preserves_position_without_valid_repetitions(self):
+        rows = [
+            _trial("native", "answer", True),
+            _trial("shadow", "answer", True),
+            _trial("active", "answer", True),
+        ]
+
+        summaries = _summarize(
+            _pair_trials(rows), attempted_repetitions=3, target_tokens=1024
+        )
+        early = next(row for row in summaries if row["position"] == "early")
+
+        self.assertEqual(len(summaries), 3)
+        self.assertEqual(early["valid_repetitions"], 0)
+        self.assertEqual(early["invalid_repetitions"], 3)
+        self.assertIsNone(early["mean_active_vs_native_ttft_ms"])

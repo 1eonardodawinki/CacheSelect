@@ -52,8 +52,7 @@ def _load_condition(
     for key, expected in expected_metadata.items():
         if metadata.get(key) != expected:
             raise ValueError(
-                f"{condition_dir}: expected {key}={expected}, "
-                f"got {metadata.get(key)!r}"
+                f"{condition_dir}: expected {key}={expected}, got {metadata.get(key)!r}"
             )
     recorded_scenarios = _recorded_quality_scenarios(metadata)
     if quality_scenario not in recorded_scenarios:
@@ -79,6 +78,7 @@ def _load_condition(
         # Older summaries only existed after their references had passed.
         summary.setdefault("reference_quality_pass_rate", 1.0)
         summary.setdefault("valid_measurement_rate", 1.0)
+        valid_measurement_rate = float(summary["valid_measurement_rate"])
         for quality_name in (
             "valid_measurement_rate",
             "reference_quality_pass_rate",
@@ -86,7 +86,10 @@ def _load_condition(
             "active_shadow_exact_match_rate",
             "mean_active_shadow_word_similarity",
         ):
-            quality_value = float(summary.get(quality_name, -1.0))
+            quality_value = summary.get(quality_name)
+            if quality_value is None and valid_measurement_rate == 0.0:
+                continue
+            quality_value = float(quality_value if quality_value is not None else -1.0)
             if not 0.0 <= quality_value <= 1.0:
                 raise ValueError(f"{summary_path}: invalid {quality_name}")
         rows.append(
@@ -168,15 +171,24 @@ def _write_markdown(path: Path, rows: list[dict[str, Any]]) -> None:
         "| ---: | ---: | :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for row in rows:
+        reused_rows = row["mean_reused_rows"]
+        ttft_delta = row["mean_active_vs_native_ttft_ms"]
+        reference_rate = row["reference_quality_pass_rate"]
+        active_rate = row["active_quality_pass_rate"]
+        exact_rate = row["active_shadow_exact_match_rate"]
+        reused_text = "n/a" if reused_rows is None else f"{float(reused_rows):.1f}"
+        ttft_text = "n/a" if ttft_delta is None else f"{float(ttft_delta):+.3f} ms"
+        reference_text = (
+            "n/a" if reference_rate is None else f"{float(reference_rate):.1%}"
+        )
+        active_text = "n/a" if active_rate is None else f"{float(active_rate):.1%}"
+        exact_text = "n/a" if exact_rate is None else f"{float(exact_rate):.1%}"
         lines.append(
             f"| {row['target_tokens']} | {row['edit_radius']} | "
             f"{row['quality_scenario']} | {row['position']} | "
             f"{float(row['valid_measurement_rate']):.1%} | "
-            f"{float(row['mean_reused_rows']):.1f} | "
-            f"{float(row['mean_active_vs_native_ttft_ms']):+.3f} ms | "
-            f"{float(row['reference_quality_pass_rate']):.1%} | "
-            f"{float(row['active_quality_pass_rate']):.1%} | "
-            f"{float(row['active_shadow_exact_match_rate']):.1%} |"
+            f"{reused_text} | {ttft_text} | {reference_text} | "
+            f"{active_text} | {exact_text} |"
         )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 

@@ -3,7 +3,10 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
 
-from benchmarks.analyze_cacheselect_quality import analyze_quality_matrix
+from benchmarks.analyze_cacheselect_quality import (
+    _write_markdown,
+    analyze_quality_matrix,
+)
 
 
 # Write one complete synthetic condition in the production directory layout.
@@ -113,6 +116,25 @@ class QualityMatrixAnalysisTests(TestCase):
             {row["quality_scenario"] for row in rows},
             set(scenarios),
         )
-        self.assertTrue(
-            all(row["valid_measurement_rate"] == 2 / 3 for row in rows)
-        )
+        self.assertTrue(all(row["valid_measurement_rate"] == 2 / 3 for row in rows))
+
+    # Verify unavailable measurements remain explicit in report-ready output.
+    def test_invalid_measurement_cell_is_rendered_as_unavailable(self):
+        row = {
+            "target_tokens": 256,
+            "edit_radius": 0,
+            "quality_scenario": "rule",
+            "position": "late",
+            "valid_measurement_rate": 0.0,
+            "mean_reused_rows": None,
+            "mean_active_vs_native_ttft_ms": None,
+            "reference_quality_pass_rate": None,
+            "active_quality_pass_rate": None,
+            "active_shadow_exact_match_rate": None,
+        }
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "matrix.md"
+            _write_markdown(output, [row])
+            markdown = output.read_text(encoding="utf-8")
+
+        self.assertIn("| 0.0% | n/a | n/a | n/a | n/a | n/a |", markdown)

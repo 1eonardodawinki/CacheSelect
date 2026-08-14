@@ -56,9 +56,7 @@ def _load_trial(path: Path) -> dict[str, Any]:
             "cacheselect_forward_time_ms",
         )
     if any(metrics.get(name) is None for name in timing_names):
-        raise InvalidTimingMeasurement(
-            f"{path}: missing CacheSelect timing metrics"
-        )
+        raise InvalidTimingMeasurement(f"{path}: missing CacheSelect timing metrics")
     if any(float(metrics[name]) < 0 for name in timing_names):
         raise ValueError(f"{path}: negative CacheSelect timing metric")
     choices = (edited.get("raw_response") or {}).get("choices") or []
@@ -81,18 +79,14 @@ def _load_trial(path: Path) -> dict[str, Any]:
         "reused_rows": int(metrics.get("cacheselect_reused_batch_rows") or 0),
         "compute_rows": int(metrics.get("cacheselect_compute_batch_rows") or 0),
         "span_count": int(metrics.get("cacheselect_compute_span_count") or 0),
-        "execution_eligible": bool(
-            metrics.get("cacheselect_execution_eligible")
-        ),
+        "execution_eligible": bool(metrics.get("cacheselect_execution_eligible")),
         "execution_reason": metrics.get("cacheselect_execution_reason"),
         "executed": bool(metrics.get("cacheselect_compacted_batch_executed")),
         "copy_time_ms": float(metrics.get("cacheselect_copy_time_ms") or 0.0),
         "preparation_time_ms": float(
             metrics.get("cacheselect_preparation_time_ms") or 0.0
         ),
-        "forward_time_ms": float(
-            metrics.get("cacheselect_forward_time_ms") or 0.0
-        ),
+        "forward_time_ms": float(metrics.get("cacheselect_forward_time_ms") or 0.0),
         "ttft_ms": float(metrics["time_to_first_token_ms"]),
         "output_text": str(edited.get("output_text") or ""),
         "quality_passed": bool((edited.get("quality") or {}).get("passed")),
@@ -129,8 +123,7 @@ def _exclude_invalid_repetitions(
     rows: list[dict[str, Any]], invalid: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     invalid_keys = {
-        (row["target_tokens"], row["position"], row["repetition"])
-        for row in invalid
+        (row["target_tokens"], row["position"], row["repetition"]) for row in invalid
     }
     return [
         row
@@ -202,20 +195,16 @@ def _pair_trials(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "shadow_ttft_ms": shadow["ttft_ms"],
                 "active_ttft_ms": active["ttft_ms"],
                 "selector_overhead_ms": shadow["ttft_ms"] - native["ttft_ms"],
-                "active_vs_native_ttft_ms": active["ttft_ms"]
-                - native["ttft_ms"],
+                "active_vs_native_ttft_ms": active["ttft_ms"] - native["ttft_ms"],
                 "ttft_delta_ms": active["ttft_ms"] - shadow["ttft_ms"],
                 "native_quality_passed": native["quality_passed"],
                 "shadow_quality_passed": shadow["quality_passed"],
                 "reference_quality_passed": native["quality_passed"]
                 and shadow["quality_passed"],
                 "active_quality_passed": active["quality_passed"],
-                "shadow_matches_native": shadow["output_text"]
-                == native["output_text"],
-                "active_matches_shadow": active["output_text"]
-                == shadow["output_text"],
-                "active_matches_native": active["output_text"]
-                == native["output_text"],
+                "shadow_matches_native": shadow["output_text"] == native["output_text"],
+                "active_matches_shadow": active["output_text"] == shadow["output_text"],
+                "active_matches_native": active["output_text"] == native["output_text"],
                 "active_shadow_word_similarity": _text_similarity(
                     shadow["output_text"], active["output_text"]
                 ),
@@ -243,14 +232,55 @@ def _mean(rows: list[dict[str, Any]], name: str) -> float:
 
 # Aggregate paired repetitions by prompt length and edit position.
 def _summarize(
-    pairs: list[dict[str, Any]], attempted_repetitions: int | None = None
+    pairs: list[dict[str, Any]],
+    attempted_repetitions: int | None = None,
+    target_tokens: int | None = None,
 ) -> list[dict[str, Any]]:
     grouped: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
     for pair in pairs:
         grouped[(pair["target_tokens"], pair["position"])].append(pair)
+    summary_keys = sorted(grouped)
+    if target_tokens is not None:
+        summary_keys = [(target_tokens, position) for position in POSITIONS]
     summaries = []
-    for (target, position), rows in sorted(grouped.items()):
+    for target, position in summary_keys:
+        rows = grouped.get((target, position), [])
         attempted = attempted_repetitions or len(rows)
+        if not rows:
+            # Keep missing measurements visible without fabricating performance.
+            summaries.append(
+                {
+                    "target_tokens": target,
+                    "position": position,
+                    "repetitions": attempted,
+                    "valid_repetitions": 0,
+                    "invalid_repetitions": attempted,
+                    "valid_measurement_rate": 0.0,
+                    "executed_repetitions": 0,
+                    "execution_reasons": "invalid_measurements",
+                    "mean_selected_reuse_rows": None,
+                    "mean_reused_rows": None,
+                    "mean_span_count": None,
+                    "mean_shadow_forward_ms": None,
+                    "mean_active_preparation_ms": None,
+                    "mean_active_copy_ms": None,
+                    "mean_active_forward_ms": None,
+                    "mean_forward_delta_ms": None,
+                    "mean_selector_overhead_ms": None,
+                    "mean_active_vs_native_ttft_ms": None,
+                    "mean_ttft_delta_ms": None,
+                    "native_quality_pass_rate": None,
+                    "shadow_quality_pass_rate": None,
+                    "reference_quality_pass_rate": None,
+                    "active_quality_pass_rate": None,
+                    "shadow_native_exact_match_rate": None,
+                    "active_shadow_exact_match_rate": None,
+                    "active_native_exact_match_rate": None,
+                    "mean_active_shadow_word_similarity": None,
+                    "mean_active_native_word_similarity": None,
+                }
+            )
+            continue
         summaries.append(
             {
                 "target_tokens": target,
@@ -267,9 +297,7 @@ def _summarize(
                 "mean_reused_rows": _mean(rows, "reused_rows"),
                 "mean_span_count": _mean(rows, "span_count"),
                 "mean_shadow_forward_ms": _mean(rows, "shadow_forward_ms"),
-                "mean_active_preparation_ms": _mean(
-                    rows, "active_preparation_ms"
-                ),
+                "mean_active_preparation_ms": _mean(rows, "active_preparation_ms"),
                 "mean_active_copy_ms": _mean(rows, "active_copy_ms"),
                 "mean_active_forward_ms": _mean(rows, "active_forward_ms"),
                 "mean_forward_delta_ms": _mean(rows, "forward_delta_ms"),
@@ -278,27 +306,13 @@ def _summarize(
                     rows, "active_vs_native_ttft_ms"
                 ),
                 "mean_ttft_delta_ms": _mean(rows, "ttft_delta_ms"),
-                "native_quality_pass_rate": _mean(
-                    rows, "native_quality_passed"
-                ),
-                "shadow_quality_pass_rate": _mean(
-                    rows, "shadow_quality_passed"
-                ),
-                "reference_quality_pass_rate": _mean(
-                    rows, "reference_quality_passed"
-                ),
-                "active_quality_pass_rate": _mean(
-                    rows, "active_quality_passed"
-                ),
-                "shadow_native_exact_match_rate": _mean(
-                    rows, "shadow_matches_native"
-                ),
-                "active_shadow_exact_match_rate": _mean(
-                    rows, "active_matches_shadow"
-                ),
-                "active_native_exact_match_rate": _mean(
-                    rows, "active_matches_native"
-                ),
+                "native_quality_pass_rate": _mean(rows, "native_quality_passed"),
+                "shadow_quality_pass_rate": _mean(rows, "shadow_quality_passed"),
+                "reference_quality_pass_rate": _mean(rows, "reference_quality_passed"),
+                "active_quality_pass_rate": _mean(rows, "active_quality_passed"),
+                "shadow_native_exact_match_rate": _mean(rows, "shadow_matches_native"),
+                "active_shadow_exact_match_rate": _mean(rows, "active_matches_shadow"),
+                "active_native_exact_match_rate": _mean(rows, "active_matches_native"),
                 "mean_active_shadow_word_similarity": _mean(
                     rows, "active_shadow_word_similarity"
                 ),
@@ -327,7 +341,11 @@ def main() -> None:
     rows = [row for row in rows if row["target_tokens"] == args.target_tokens]
     rows = _exclude_invalid_repetitions(rows, invalid)
     pairs = _pair_trials(rows)
-    summaries = _summarize(pairs, attempted_repetitions=args.repetitions)
+    summaries = _summarize(
+        pairs,
+        attempted_repetitions=args.repetitions,
+        target_tokens=args.target_tokens,
+    )
     _write_csv(args.output_dir / "paired-trials.csv", pairs)
     _write_csv(args.output_dir / "summary.csv", summaries)
     (args.output_dir / "summary.json").write_text(
@@ -339,6 +357,13 @@ def main() -> None:
         encoding="utf-8",
     )
     for summary in summaries:
+        if summary["valid_repetitions"] == 0:
+            print(
+                f"tokens={summary['target_tokens']} "
+                f"position={summary['position']} valid=0/"
+                f"{summary['repetitions']} metrics=unavailable"
+            )
+            continue
         print(
             f"tokens={summary['target_tokens']} position={summary['position']} "
             f"selected={summary['mean_selected_reuse_rows']:.1f} "
