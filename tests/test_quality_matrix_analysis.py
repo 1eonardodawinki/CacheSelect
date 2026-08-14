@@ -33,6 +33,7 @@ def _write_condition(
                 "target_tokens": target_tokens,
                 "position": position,
                 "repetitions": 3,
+                "valid_measurement_rate": 2 / 3,
                 "mean_reused_rows": 64.0,
                 "mean_active_vs_native_ttft_ms": -10.0,
                 "reference_quality_pass_rate": 1.0,
@@ -111,4 +112,7 @@ class QualityMatrixAnalysisTests(TestCase):
         self.assertEqual(
             {row["quality_scenario"] for row in rows},
             set(scenarios),
+        )
+        self.assertTrue(
+            all(row["valid_measurement_rate"] == 2 / 3 for row in rows)
         )

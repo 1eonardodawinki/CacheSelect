@@ -19,12 +19,22 @@ RESULT_NAME = re.compile(
 )
 
 
-# Extract one edited-request measurement from a completed two-request trial.
-def _load_trial(path: Path) -> dict[str, Any]:
+class InvalidTimingMeasurement(ValueError):
+    """Mark a completed trial whose timing data cannot support comparison."""
+
+
+# Parse the comparison identity encoded in one stable result filename.
+def _result_identity(path: Path) -> tuple[int, str, str, int]:
     match = RESULT_NAME.fullmatch(path.name)
     if match is None:
         raise ValueError(f"unexpected performance result: {path.name}")
     target, position, mode, repetition = match.groups()
+    return int(target), position, mode, int(repetition)
+
+
+# Extract one edited-request measurement from a completed two-request trial.
+def _load_trial(path: Path) -> dict[str, Any]:
+    target, position, mode, repetition = _result_identity(path)
     result = json.loads(path.read_text(encoding="utf-8"))
     observations = result.get("observations") or []
     if len(observations) != 2:
@@ -46,7 +56,9 @@ def _load_trial(path: Path) -> dict[str, Any]:
             "cacheselect_forward_time_ms",
         )
     if any(metrics.get(name) is None for name in timing_names):
-        raise ValueError(f"{path}: missing CacheSelect timing metrics")
+        raise InvalidTimingMeasurement(
+            f"{path}: missing CacheSelect timing metrics"
+        )
     if any(float(metrics[name]) < 0 for name in timing_names):
         raise ValueError(f"{path}: negative CacheSelect timing metric")
     choices = (edited.get("raw_response") or {}).get("choices") or []
@@ -58,10 +70,10 @@ def _load_trial(path: Path) -> dict[str, Any]:
             f"{path}: prompt length {prompt_tokens} missed target {target}"
         )
     return {
-        "target_tokens": int(target),
+        "target_tokens": target,
         "position": position,
         "mode": mode,
-        "repetition": int(repetition),
+        "repetition": repetition,
         "prompt_tokens": prompt_tokens,
         "native_cached_tokens": int(edited["cached_tokens"]),
         # Native vLLM exposes these optional schema fields as null, not absent.
@@ -86,6 +98,46 @@ def _load_trial(path: Path) -> dict[str, Any]:
         "quality_passed": bool((edited.get("quality") or {}).get("passed")),
         "result_file": path.name,
     }
+
+
+# Load valid trials while retaining unusable timing records as evidence.
+def _load_trials(
+    paths: list[Path],
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    rows = []
+    invalid = []
+    for path in paths:
+        try:
+            rows.append(_load_trial(path))
+        except InvalidTimingMeasurement as error:
+            target, position, mode, repetition = _result_identity(path)
+            invalid.append(
+                {
+                    "target_tokens": target,
+                    "position": position,
+                    "mode": mode,
+                    "repetition": repetition,
+                    "reason": str(error),
+                    "result_file": path.name,
+                }
+            )
+    return rows, invalid
+
+
+# Remove all three modes when one member of a paired repetition is invalid.
+def _exclude_invalid_repetitions(
+    rows: list[dict[str, Any]], invalid: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    invalid_keys = {
+        (row["target_tokens"], row["position"], row["repetition"])
+        for row in invalid
+    }
+    return [
+        row
+        for row in rows
+        if (row["target_tokens"], row["position"], row["repetition"])
+        not in invalid_keys
+    ]
 
 
 # Measure word-sequence agreement without requiring the model tokenizer.
@@ -190,17 +242,23 @@ def _mean(rows: list[dict[str, Any]], name: str) -> float:
 
 
 # Aggregate paired repetitions by prompt length and edit position.
-def _summarize(pairs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def _summarize(
+    pairs: list[dict[str, Any]], attempted_repetitions: int | None = None
+) -> list[dict[str, Any]]:
     grouped: dict[tuple[int, str], list[dict[str, Any]]] = defaultdict(list)
     for pair in pairs:
         grouped[(pair["target_tokens"], pair["position"])].append(pair)
     summaries = []
     for (target, position), rows in sorted(grouped.items()):
+        attempted = attempted_repetitions or len(rows)
         summaries.append(
             {
                 "target_tokens": target,
                 "position": position,
-                "repetitions": len(rows),
+                "repetitions": attempted,
+                "valid_repetitions": len(rows),
+                "invalid_repetitions": attempted - len(rows),
+                "valid_measurement_rate": len(rows) / attempted,
                 "executed_repetitions": sum(row["executed"] for row in rows),
                 "execution_reasons": ",".join(
                     sorted({str(row["execution_reason"]) for row in rows})
@@ -261,17 +319,23 @@ def main() -> None:
     parser.add_argument("--repetitions", type=int, required=True)
     args = parser.parse_args()
 
-    rows = [_load_trial(path) for path in sorted(args.input_dir.glob("*.json"))]
-    rows = [row for row in rows if row["target_tokens"] == args.target_tokens]
+    paths = sorted(args.input_dir.glob("*.json"))
     expected = len(POSITIONS) * len(MODES) * args.repetitions
-    if len(rows) != expected:
-        raise ValueError(f"expected {expected} trials, found {len(rows)}")
+    if len(paths) != expected:
+        raise ValueError(f"expected {expected} trials, found {len(paths)}")
+    rows, invalid = _load_trials(paths)
+    rows = [row for row in rows if row["target_tokens"] == args.target_tokens]
+    rows = _exclude_invalid_repetitions(rows, invalid)
     pairs = _pair_trials(rows)
-    summaries = _summarize(pairs)
+    summaries = _summarize(pairs, attempted_repetitions=args.repetitions)
     _write_csv(args.output_dir / "paired-trials.csv", pairs)
     _write_csv(args.output_dir / "summary.csv", summaries)
     (args.output_dir / "summary.json").write_text(
         json.dumps(summaries, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    (args.output_dir / "invalid-trials.json").write_text(
+        json.dumps(invalid, indent=2) + "\n",
         encoding="utf-8",
     )
     for summary in summaries:
@@ -280,6 +344,8 @@ def main() -> None:
             f"selected={summary['mean_selected_reuse_rows']:.1f} "
             f"reused={summary['mean_reused_rows']:.1f} "
             f"executed={summary['executed_repetitions']}/"
+            f"{summary['valid_repetitions']} "
+            f"valid={summary['valid_repetitions']}/"
             f"{summary['repetitions']} "
             f"reason={summary['execution_reasons']} "
             f"spans={summary['mean_span_count']:.1f} "

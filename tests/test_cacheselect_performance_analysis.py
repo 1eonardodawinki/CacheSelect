@@ -1,6 +1,10 @@
 from unittest import TestCase
 
-from benchmarks.analyze_cacheselect_performance import _pair_trials, _summarize
+from benchmarks.analyze_cacheselect_performance import (
+    _exclude_invalid_repetitions,
+    _pair_trials,
+    _summarize,
+)
 
 
 # Build the smallest complete analyzer row for one synthetic serving mode.
@@ -62,3 +66,35 @@ class CacheSelectPerformanceAnalysisTests(TestCase):
         self.assertFalse(pair["reference_quality_passed"])
         self.assertEqual(summary["reference_quality_pass_rate"], 0.0)
         self.assertEqual(summary["active_quality_pass_rate"], 0.0)
+
+    # Verify one invalid mode removes only its corresponding paired repetition.
+    def test_invalid_timing_repetition_is_excluded(self):
+        rows = [
+            _trial("native", "answer", True),
+            _trial("shadow", "answer", True),
+            _trial("active", "answer", True),
+        ]
+        invalid = [
+            {
+                "target_tokens": 1024,
+                "position": "middle",
+                "mode": "active",
+                "repetition": 1,
+            }
+        ]
+
+        self.assertEqual(_exclude_invalid_repetitions(rows, invalid), [])
+
+    # Verify summaries expose discarded measurements instead of hiding them.
+    def test_summary_reports_invalid_repetition_count(self):
+        rows = [
+            _trial("native", "answer", True),
+            _trial("shadow", "answer", True),
+            _trial("active", "answer", True),
+        ]
+
+        summary = _summarize(_pair_trials(rows), attempted_repetitions=3)[0]
+
+        self.assertEqual(summary["valid_repetitions"], 1)
+        self.assertEqual(summary["invalid_repetitions"], 2)
+        self.assertAlmostEqual(summary["valid_measurement_rate"], 1 / 3)
