@@ -75,6 +75,7 @@ class TransitionGroundTruth:
     changed_segment_ids: list[str]
     expected_native_behavior: str
     notes: str = ""
+    dependent_segment_ids: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)

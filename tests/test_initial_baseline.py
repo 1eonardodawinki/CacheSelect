@@ -282,6 +282,10 @@ class WorkloadTests(TestCase):
         self.assertIn("version: A", base_segments["middle_pointer"].content)
         self.assertIn("version: B", edited_segments["middle_pointer"].content)
         self.assertEqual(edited.ground_truth.expected_answer, "SOUTH-913")
+        self.assertEqual(
+            trace.transitions[0].ground_truth.dependent_segment_ids,
+            ["version_a_fact", "version_b_fact", "query"],
+        )
 
     # Verify a changed rule selects between two unchanged named records.
     def test_rule_stress_changes_only_the_selection_rule(self):

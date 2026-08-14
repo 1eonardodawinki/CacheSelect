@@ -195,6 +195,14 @@ def _quality_question(quality_scenario: str) -> str:
     return CALIBRATION_QUESTION
 
 
+# Name unchanged segments whose meaning can depend on the changed pointer.
+def _known_dependent_segments(quality_scenario: str) -> list[str]:
+    if quality_scenario == "pointer":
+        return ["version_a_fact", "version_b_fact", "query"]
+    # Unannotated scenarios are excluded from supervised block labels for now.
+    return []
+
+
 # Place either an irrelevant marker or an answer-bearing fact at the edit point.
 def _record_parts(
     filler_word_count: int,
@@ -584,6 +592,11 @@ def build_length_calibration_trace(
                         if answer_sensitive
                         else "Only one position-controlled marker changes; all "
                         "later tokens and the required answer remain identical."
+                    ),
+                    dependent_segment_ids=(
+                        _known_dependent_segments(quality_scenario)
+                        if answer_sensitive
+                        else []
                     ),
                 ),
             )
