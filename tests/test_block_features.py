@@ -1,6 +1,7 @@
 from unittest import TestCase
 
 from cacheselect.block_features import (
+    extract_candidate_block_features,
     extract_candidate_block_geometry,
     locate_changed_token_region,
 )
@@ -75,3 +76,34 @@ class CandidateBlockGeometryTests(TestCase):
 
         self.assertEqual([row.source_displacement_blocks for row in vectors], [-1, 1])
         self.assertTrue(all(not row.same_position_match for row in vectors))
+
+
+class CandidateBlockLexicalTests(TestCase):
+    # Verify new and removed reference tokens link an edit to one candidate block.
+    def test_extracts_changed_token_relationships(self):
+        prefix = [1, 2, 3, 4]
+        previous_edit = [10, 99, 12, 13]
+        current_edit = [10, 88, 12, 13]
+        linked_block = [99, 88, 20, 21]
+        unrelated_block = [30, 31, 32, 33]
+        previous = prefix + previous_edit + linked_block + unrelated_block
+        current = prefix + current_edit + linked_block + unrelated_block
+        opportunity = analyze_reuse_opportunity(
+            previous,
+            current,
+            native_cached_tokens=4,
+            block_size=4,
+        )
+
+        linked, unrelated = extract_candidate_block_features(
+            previous, current, opportunity
+        )
+
+        self.assertEqual(linked.changed_candidate_token_overlap_ratio, 1.0)
+        self.assertEqual(linked.introduced_candidate_token_overlap_ratio, 1.0)
+        self.assertEqual(linked.removed_candidate_token_overlap_ratio, 1.0)
+        self.assertEqual(linked.changed_candidate_token_jaccard, 0.25)
+        self.assertEqual(unrelated.changed_candidate_token_overlap_ratio, 0.0)
+        self.assertEqual(unrelated.introduced_candidate_token_overlap_ratio, 0.0)
+        self.assertEqual(unrelated.removed_candidate_token_overlap_ratio, 0.0)
+        self.assertEqual(unrelated.changed_candidate_token_jaccard, 0.0)

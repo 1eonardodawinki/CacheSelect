@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, replace
 from typing import Sequence
 
 from cacheselect.reuse_opportunity import CandidateBlock, ReuseOpportunity
@@ -161,6 +162,72 @@ def extract_candidate_block_geometry(
                 introduced_candidate_token_overlap_ratio=None,
                 removed_candidate_token_overlap_ratio=None,
                 changed_candidate_token_jaccard=None,
+            )
+        )
+    return tuple(vectors)
+
+
+# Retain token multiplicity when isolating additions or removals from an edit.
+def _token_difference(
+    left_tokens: Sequence[int], right_tokens: Sequence[int]
+) -> tuple[int, ...]:
+    difference = Counter(left_tokens) - Counter(right_tokens)
+    return tuple(difference.elements())
+
+
+# Measure how much of one token region also appears inside a candidate block.
+def _token_overlap_ratio(
+    source_tokens: Sequence[int], candidate_tokens: Sequence[int]
+) -> float:
+    if not source_tokens:
+        return 0.0
+    overlap = Counter(source_tokens) & Counter(candidate_tokens)
+    return sum(overlap.values()) / len(source_tokens)
+
+
+# Measure set-level token similarity without overcounting repeated filler text.
+def _token_jaccard(left_tokens: Sequence[int], right_tokens: Sequence[int]) -> float:
+    left = set(left_tokens)
+    right = set(right_tokens)
+    union = left | right
+    return len(left & right) / len(union) if union else 1.0
+
+
+# Add lexical edit-to-block relationships to the geometry-only feature vectors.
+def extract_candidate_block_features(
+    previous_tokens: Sequence[int],
+    current_tokens: Sequence[int],
+    opportunity: ReuseOpportunity,
+) -> tuple[CandidateBlockFeatures, ...]:
+    geometry = extract_candidate_block_geometry(
+        previous_tokens, current_tokens, opportunity
+    )
+    region = locate_changed_token_region(previous_tokens, current_tokens)
+    previous_changed = previous_tokens[region.previous_start : region.previous_end]
+    current_changed = current_tokens[region.current_start : region.current_end]
+    introduced = _token_difference(current_changed, previous_changed)
+    removed = _token_difference(previous_changed, current_changed)
+
+    vectors = []
+    for row, candidate in zip(geometry, opportunity.candidate_blocks, strict=True):
+        candidate_tokens = current_tokens[
+            candidate.current_start : candidate.current_start + opportunity.block_size
+        ]
+        vectors.append(
+            replace(
+                row,
+                changed_candidate_token_overlap_ratio=_token_overlap_ratio(
+                    current_changed, candidate_tokens
+                ),
+                introduced_candidate_token_overlap_ratio=_token_overlap_ratio(
+                    introduced, candidate_tokens
+                ),
+                removed_candidate_token_overlap_ratio=_token_overlap_ratio(
+                    removed, candidate_tokens
+                ),
+                changed_candidate_token_jaccard=_token_jaccard(
+                    current_changed, candidate_tokens
+                ),
             )
         )
     return tuple(vectors)
