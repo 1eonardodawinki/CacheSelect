@@ -22,3 +22,5 @@ versioned release or other durable research-data archive.
 
 - `quality-273641/`: first answer-sensitive CacheSelect speed-quality matrix,
   covering three prompt lengths, three repair radii, and three edit positions.
+- `quality-274080/`: seven-family quality-boundary matrix that identifies
+  pointer dependencies as a failure case for distance-only repair selection.
