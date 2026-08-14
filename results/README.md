@@ -20,6 +20,8 @@ versioned release or other durable research-data archive.
 
 ## Curated bundles
 
+- `block-dataset-v1/`: Qwen-tokenized synthetic candidate-block labels with
+  family-level splits and varied dependency positions.
 - `quality-273641/`: first answer-sensitive CacheSelect speed-quality matrix,
   covering three prompt lengths, three repair radii, and three edit positions.
 - `quality-274080/`: seven-family quality-boundary matrix that identifies
