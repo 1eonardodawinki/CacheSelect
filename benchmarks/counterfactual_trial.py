@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from typing import Any
 from uuid import uuid4
@@ -32,6 +33,105 @@ class CounterfactualTrialResult:
     execution_evidence: CounterfactualExecutionEvidence
     label_result: CounterfactualLabelResult
     label: BlockRepairLabel | None
+
+
+@dataclass(frozen=True)
+class CounterfactualCandidateDiscovery:
+    """Validated block candidates found in one vLLM discovery response."""
+
+    trace_id: str
+    transition_id: str
+    block_size: int
+    candidate_block_indices: tuple[int, ...]
+    testable_block_indices: tuple[int, ...]
+    excluded_output_block_index: int | None
+
+
+# Convert vLLM's raw plan metrics into blocks suitable for isolated trials.
+def extract_counterfactual_candidate_discovery(
+    *,
+    trace_id: str,
+    transition_id: str,
+    observation: Mapping[str, Any],
+) -> CounterfactualCandidateDiscovery:
+    if not trace_id or not transition_id:
+        raise ValueError("trace and transition IDs must not be empty")
+    token_ids = observation.get("prompt_token_ids")
+    prompt_token_count = observation.get("prompt_token_count")
+    if not isinstance(token_ids, (list, tuple)) or not token_ids:
+        raise ValueError("discovery requires prompt token IDs")
+    if (
+        not isinstance(prompt_token_count, int)
+        or isinstance(prompt_token_count, bool)
+        or prompt_token_count != len(token_ids)
+    ):
+        raise ValueError("prompt token count does not match the recorded token IDs")
+
+    metrics = observation.get("server_metrics")
+    raw_plan = (
+        metrics.get("cacheselect_partial_reuse_plan")
+        if isinstance(metrics, Mapping)
+        else None
+    )
+    if not isinstance(raw_plan, Mapping):
+        raise ValueError("discovery response has no partial-reuse plan")
+    if raw_plan.get("transition_id") != transition_id:
+        raise ValueError("discovery plan has the wrong transition ID")
+
+    block_size = raw_plan.get("block_size")
+    native_cached_tokens = raw_plan.get("native_cached_tokens")
+    if (
+        not isinstance(block_size, int)
+        or isinstance(block_size, bool)
+        or block_size < 1
+    ):
+        raise ValueError("discovery block size must be a positive integer")
+    if (
+        not isinstance(native_cached_tokens, int)
+        or isinstance(native_cached_tokens, bool)
+        or native_cached_tokens < 0
+        or native_cached_tokens > prompt_token_count
+    ):
+        raise ValueError("native cached tokens must be a non-negative integer")
+
+    raw_candidates = raw_plan.get("candidates")
+    if not isinstance(raw_candidates, list):
+        raise ValueError("discovery plan candidates must be a list")
+    if raw_plan.get("candidate_block_count") != len(raw_candidates):
+        raise ValueError("discovery candidate-block count is inconsistent")
+    if raw_plan.get("candidate_token_count") != len(raw_candidates) * block_size:
+        raise ValueError("discovery candidate-token count is inconsistent")
+
+    first_uncached_block = (native_cached_tokens + block_size - 1) // block_size
+    full_prompt_blocks = prompt_token_count // block_size
+    targets: list[int] = []
+    for candidate in raw_candidates:
+        if not isinstance(candidate, Mapping):
+            raise ValueError("each discovery candidate must be an object")
+        target = candidate.get("target_block_index")
+        if not isinstance(target, int) or isinstance(target, bool):
+            raise ValueError("candidate target block must be an integer")
+        if target < first_uncached_block or target >= full_prompt_blocks:
+            raise ValueError("candidate target block is outside the reusable suffix")
+        if candidate.get("source_resident") is not True:
+            raise ValueError("every discovery source block must be resident")
+        targets.append(target)
+    if len(set(targets)) != len(targets):
+        raise ValueError("candidate target blocks must be unique")
+
+    ordered_targets = tuple(sorted(targets))
+    output_block = (prompt_token_count - 1) // block_size
+    excluded = output_block if output_block in ordered_targets else None
+    # The final prompt row must still run because it produces the first output logits.
+    testable = tuple(target for target in ordered_targets if target != output_block)
+    return CounterfactualCandidateDiscovery(
+        trace_id,
+        transition_id,
+        block_size,
+        ordered_targets,
+        testable,
+        excluded,
+    )
 
 
 # Reject a reference or donor that unexpectedly used cached model computation.

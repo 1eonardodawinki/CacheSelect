@@ -10,7 +10,10 @@ from benchmarks.counterfactual_labels import (
     score_single_block_intervention,
     validate_counterfactual_execution,
 )
-from benchmarks.counterfactual_trial import run_single_block_counterfactual_trial
+from benchmarks.counterfactual_trial import (
+    extract_counterfactual_candidate_discovery,
+    run_single_block_counterfactual_trial,
+)
 from benchmarks.workloads import build_rag_trace
 
 
@@ -55,6 +58,44 @@ def _successful_execution(
 
 
 class CounterfactualLabelTests(TestCase):
+    # Verify discovery keeps all candidates but makes the output block untestable.
+    def test_extracts_safe_counterfactual_candidates(self):
+        observation = {
+            "prompt_token_ids": list(range(12)),
+            "prompt_token_count": 12,
+            "server_metrics": {
+                "cacheselect_partial_reuse_plan": {
+                    "transition_id": "base-to-edit",
+                    "block_size": 4,
+                    "native_cached_tokens": 4,
+                    "candidate_block_count": 2,
+                    "candidate_token_count": 8,
+                    "candidates": [
+                        {
+                            "source_block_index": 7,
+                            "target_block_index": 2,
+                            "source_resident": True,
+                        },
+                        {
+                            "source_block_index": 7,
+                            "target_block_index": 1,
+                            "source_resident": True,
+                        },
+                    ],
+                }
+            },
+        }
+
+        discovery = extract_counterfactual_candidate_discovery(
+            trace_id="rag-trace",
+            transition_id="base-to-edit",
+            observation=observation,
+        )
+
+        self.assertEqual(discovery.candidate_block_indices, (1, 2))
+        self.assertEqual(discovery.testable_block_indices, (1,))
+        self.assertEqual(discovery.excluded_output_block_index, 2)
+
     # Verify every trial reuses exactly one block and repairs all its peers.
     def test_builds_isolated_single_block_interventions(self):
         interventions = build_single_block_interventions(
