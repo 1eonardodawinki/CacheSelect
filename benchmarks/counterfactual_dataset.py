@@ -3,9 +3,19 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from pathlib import Path
 from typing import Any
 
-from benchmarks.counterfactual_trial import CounterfactualTrialResult
+from benchmarks.block_dataset import (
+    DatasetSplit,
+    SplitCandidateBlock,
+    label_candidate_block,
+    save_block_dataset_csv,
+)
+from benchmarks.counterfactual_trial import (
+    CounterfactualTrialBatchResult,
+    CounterfactualTrialResult,
+)
 from cacheselect.block_features import (
     CandidateBlockFeatures,
     extract_candidate_block_features,
@@ -72,3 +82,54 @@ def extract_counterfactual_trial_feature(
     if len(matches) != 1 or matches[0].requires_repacking:
         raise ValueError("tested block has no unique aligned feature row")
     return matches[0]
+
+
+# Save verified causal labels in the selector's existing training-table format.
+def save_counterfactual_training_dataset(
+    batch: CounterfactualTrialBatchResult,
+    *,
+    split: DatasetSplit,
+    path: Path,
+) -> int:
+    discovery = batch.discovery
+    selected_blocks = tuple(
+        trial.intervention.reused_block_index for trial in batch.trials
+    )
+    if selected_blocks != discovery.testable_block_indices:
+        raise ValueError("trial results do not match the discovered block order")
+
+    rows: list[SplitCandidateBlock] = []
+    for trial in batch.trials:
+        intervention = trial.intervention
+        if (
+            intervention.trace_id != discovery.trace_id
+            or intervention.transition_id != discovery.transition_id
+            or intervention.candidate_block_indices != discovery.candidate_block_indices
+        ):
+            raise ValueError("trial result does not belong to this discovery")
+        if trial.label is None:
+            continue
+        if (
+            not trial.execution_evidence.valid
+            or trial.label_result.decision != trial.label.decision
+        ):
+            raise ValueError("label is inconsistent with its execution evidence")
+        features = extract_counterfactual_trial_feature(
+            trial,
+            block_size=discovery.block_size,
+        )
+        rows.append(
+            SplitCandidateBlock(
+                example=label_candidate_block(
+                    trace_id=discovery.trace_id,
+                    transition_id=discovery.transition_id,
+                    features=features,
+                    decision=trial.label.decision,
+                    source=trial.label.source,
+                    reason=trial.label.reason,
+                ),
+                split=split,
+            )
+        )
+    save_block_dataset_csv(rows, path)
+    return len(rows)

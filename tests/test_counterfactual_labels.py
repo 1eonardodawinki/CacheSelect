@@ -1,8 +1,19 @@
+import csv
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
 
-from benchmarks.block_dataset import LabelSource, RepairDecision
-from benchmarks.counterfactual_dataset import extract_counterfactual_trial_feature
+from benchmarks.block_dataset import (
+    BlockRepairLabel,
+    DatasetSplit,
+    LabelSource,
+    RepairDecision,
+)
+from benchmarks.counterfactual_dataset import (
+    extract_counterfactual_trial_feature,
+    save_counterfactual_training_dataset,
+)
 from benchmarks.counterfactual_labels import (
     CounterfactualExecutionEvidence,
     CounterfactualLabelResult,
@@ -14,6 +25,7 @@ from benchmarks.counterfactual_labels import (
 )
 from benchmarks.counterfactual_trial import (
     CounterfactualCandidateDiscovery,
+    CounterfactualTrialBatchResult,
     CounterfactualTrialResult,
     build_discovered_counterfactual_interventions,
     extract_counterfactual_candidate_discovery,
@@ -96,6 +108,54 @@ class CounterfactualLabelTests(TestCase):
         self.assertEqual(features.candidate_block_index, 2)
         self.assertFalse(features.requires_repacking)
         self.assertEqual(features.nearest_changed_block_distance, 1)
+
+    # Verify causal labels are persisted in the shared selector CSV schema.
+    def test_saves_counterfactual_training_dataset(self):
+        intervention = SingleBlockIntervention("trace", "transition", (2, 3), 2)
+        label = BlockRepairLabel(
+            RepairDecision.REUSE,
+            LabelSource.COUNTERFACTUAL_EXECUTION,
+            "Quality remained correct.",
+        )
+        previous_tokens = list(range(16))
+        current_tokens = previous_tokens[:4] + [90, 91, 92, 93] + previous_tokens[8:]
+        trial = CounterfactualTrialResult(
+            "trial",
+            intervention,
+            {},
+            {"prompt_token_ids": previous_tokens},
+            {
+                "prompt_token_ids": current_tokens,
+                "server_metrics": {
+                    "cacheselect_partial_reuse_plan": {
+                        "block_size": 4,
+                        "native_cached_tokens": 4,
+                    }
+                },
+            },
+            CounterfactualExecutionEvidence(True, "executed", 4),
+            CounterfactualLabelResult(
+                intervention, True, True, RepairDecision.REUSE, True, 1.0, "safe"
+            ),
+            label,
+        )
+        batch = CounterfactualTrialBatchResult(
+            CounterfactualCandidateDiscovery("trace", "transition", 4, (2, 3), (2,), 3),
+            (trial,),
+        )
+
+        with TemporaryDirectory() as temporary_directory:
+            output = Path(temporary_directory) / "counterfactual-blocks.csv"
+            count = save_counterfactual_training_dataset(
+                batch, split=DatasetSplit.TRAIN, path=output
+            )
+            with output.open(newline="") as input_file:
+                rows = list(csv.DictReader(input_file))
+
+        self.assertEqual(count, 1)
+        self.assertEqual(rows[0]["candidate_block_index"], "2")
+        self.assertEqual(rows[0]["decision"], "reuse")
+        self.assertEqual(rows[0]["label_source"], "counterfactual_execution")
 
     # Verify discovery keeps all candidates but makes the output block untestable.
     def test_extracts_safe_counterfactual_candidates(self):
