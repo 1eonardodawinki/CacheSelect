@@ -2,8 +2,10 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from benchmarks.block_dataset import LabelSource, RepairDecision
+from benchmarks.counterfactual_dataset import extract_counterfactual_trial_feature
 from benchmarks.counterfactual_labels import (
     CounterfactualExecutionEvidence,
+    CounterfactualLabelResult,
     SingleBlockIntervention,
     build_single_block_interventions,
     counterfactual_block_label,
@@ -12,6 +14,7 @@ from benchmarks.counterfactual_labels import (
 )
 from benchmarks.counterfactual_trial import (
     CounterfactualCandidateDiscovery,
+    CounterfactualTrialResult,
     build_discovered_counterfactual_interventions,
     extract_counterfactual_candidate_discovery,
     run_discovered_counterfactual_trials,
@@ -61,6 +64,39 @@ def _successful_execution(
 
 
 class CounterfactualLabelTests(TestCase):
+    # Verify a trial reconstructs the tested block's model-ready feature row.
+    def test_extracts_counterfactual_trial_feature(self):
+        intervention = SingleBlockIntervention("trace", "transition", (2, 3), 2)
+        score = CounterfactualLabelResult(
+            intervention, False, False, None, False, 0.0, "unused"
+        )
+        previous_tokens = list(range(16))
+        current_tokens = previous_tokens[:4] + [90, 91, 92, 93] + previous_tokens[8:]
+        trial = CounterfactualTrialResult(
+            "trial",
+            intervention,
+            {},
+            {"prompt_token_ids": previous_tokens},
+            {
+                "prompt_token_ids": current_tokens,
+                "server_metrics": {
+                    "cacheselect_partial_reuse_plan": {
+                        "block_size": 4,
+                        "native_cached_tokens": 4,
+                    }
+                },
+            },
+            CounterfactualExecutionEvidence(False, "unused", None),
+            score,
+            None,
+        )
+
+        features = extract_counterfactual_trial_feature(trial, block_size=4)
+
+        self.assertEqual(features.candidate_block_index, 2)
+        self.assertFalse(features.requires_repacking)
+        self.assertEqual(features.nearest_changed_block_distance, 1)
+
     # Verify discovery keeps all candidates but makes the output block untestable.
     def test_extracts_safe_counterfactual_candidates(self):
         observation = {
