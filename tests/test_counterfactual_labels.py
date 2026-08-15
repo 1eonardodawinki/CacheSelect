@@ -1,4 +1,5 @@
 from unittest import TestCase
+from unittest.mock import patch
 
 from benchmarks.block_dataset import LabelSource, RepairDecision
 from benchmarks.counterfactual_labels import (
@@ -9,6 +10,8 @@ from benchmarks.counterfactual_labels import (
     score_single_block_intervention,
     validate_counterfactual_execution,
 )
+from benchmarks.counterfactual_trial import run_single_block_counterfactual_trial
+from benchmarks.workloads import build_rag_trace
 
 
 # Build the server evidence required before a block may receive a label.
@@ -139,3 +142,58 @@ class CounterfactualLabelTests(TestCase):
         self.assertFalse(wrong_target.valid)
         self.assertFalse(result.valid_execution)
         self.assertIsNone(result.decision)
+
+    # Verify one trial isolates and orders its reference, donor, and intervention.
+    def test_runs_one_isolated_counterfactual_trial(self):
+        trace = build_rag_trace()
+        source, edited = trace.requests[:2]
+        intervention = SingleBlockIntervention(
+            trace.trace_id, trace.transitions[0].transition_id, (4,), 4
+        )
+        fresh = {
+            "output_text": edited.ground_truth.expected_answer,
+            "quality": {"passed": True},
+            "cached_tokens": 0,
+            "runtime_policy": {"policy": "FULL_RECOMPUTE"},
+            "server_metrics": {},
+        }
+        observations = [fresh, {**fresh}, {**fresh}]
+
+        with (
+            patch(
+                "benchmarks.counterfactual_trial._observe_request",
+                side_effect=observations,
+            ) as observe,
+            patch(
+                "benchmarks.counterfactual_trial.validate_counterfactual_execution",
+                return_value=_successful_execution(intervention),
+            ),
+        ):
+            result = run_single_block_counterfactual_trial(
+                source_request=source,
+                edited_request=edited,
+                intervention=intervention,
+                block_size=4,
+                url="http://vllm.test/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=8,
+                api_key=None,
+                timeout_seconds=2.0,
+                recorder=object(),
+            )
+
+        calls = observe.call_args_list
+        roles = [call.args[0].request_id.rsplit(":", 1)[1] for call in calls]
+        self.assertEqual(roles, ["reference", "donor", "intervention"])
+        self.assertNotEqual(
+            calls[0].kwargs["cache_salt"], calls[1].kwargs["cache_salt"]
+        )
+        self.assertEqual(calls[1].kwargs["cache_salt"], calls[2].kwargs["cache_salt"])
+        active_xargs = calls[2].kwargs["vllm_xargs"]
+        self.assertEqual(
+            active_xargs["cacheselect_counterfactual_reuse_block_index"], "4"
+        )
+        self.assertEqual(
+            active_xargs["cacheselect_source_request_id"], calls[1].args[0].request_id
+        )
+        self.assertEqual(result.label.decision, RepairDecision.REUSE)
