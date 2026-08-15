@@ -58,7 +58,29 @@ class StreamingUpdate:
         )
 
 
+# Parse one request-scoped experimental block index without accepting booleans.
+def _parse_counterfactual_reuse_block_index(value: Any) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or not isinstance(value, (int, str)):
+        raise ValueError(
+            "cacheselect_counterfactual_reuse_block_index must be an integer"
+        )
+    try:
+        block_index = int(value)
+    except ValueError as error:
+        raise ValueError(
+            "cacheselect_counterfactual_reuse_block_index must be an integer"
+        ) from error
+    if block_index < 0:
+        raise ValueError(
+            "cacheselect_counterfactual_reuse_block_index must be non-negative"
+        )
+    return block_index
+
+
 class Request:
+    # Initialize one engine request and validate optional CacheSelect metadata.
     def __init__(
         self,
         request_id: str,
@@ -107,6 +129,7 @@ class Request:
         self.cacheselect_request_id: str | None = None
         self.cacheselect_source_request_id: str | None = None
         self.cacheselect_transition_id: str | None = None
+        self.cacheselect_counterfactual_reuse_block_index: int | None = None
 
         if pooling_params is not None:
             # Pooling models.
@@ -137,6 +160,13 @@ class Request:
                     if value is not None and not isinstance(value, str):
                         raise ValueError(f"{key} must be a string")
                     setattr(self, attribute, value)
+                self.cacheselect_counterfactual_reuse_block_index = (
+                    _parse_counterfactual_reuse_block_index(
+                        extra_args.get(
+                            "cacheselect_counterfactual_reuse_block_index"
+                        )
+                    )
+                )
             else:
                 self.kv_cache_report_mode = "incremental"
         else:

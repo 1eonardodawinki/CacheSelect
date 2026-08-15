@@ -399,7 +399,9 @@ def test_cacheselect_preserves_native_prefix_reuse():
     assert req1.kv_reuse_decision.policy == KVReusePolicy.VLLM_NATIVE_APC
 
 
-def test_cacheselect_request_metadata_is_read_from_sampling_params():
+# Check CacheSelect IDs and integer-like experiment metadata enter the request.
+@pytest.mark.parametrize("block_index", [11, "11"])
+def test_cacheselect_request_metadata_is_read_from_sampling_params(block_index):
     request = make_request(
         "target",
         [1, 2, 3],
@@ -409,12 +411,14 @@ def test_cacheselect_request_metadata_is_read_from_sampling_params():
             "cacheselect_request_id": "target",
             "cacheselect_source_request_id": "source",
             "cacheselect_transition_id": "source-to-target",
+            "cacheselect_counterfactual_reuse_block_index": block_index,
         },
     )
 
     assert request.cacheselect_request_id == "target"
     assert request.cacheselect_source_request_id == "source"
     assert request.cacheselect_transition_id == "source-to-target"
+    assert request.cacheselect_counterfactual_reuse_block_index == 11
 
 
 def test_cacheselect_request_metadata_rejects_non_string_ids():
@@ -428,6 +432,24 @@ def test_cacheselect_request_metadata_rejects_non_string_ids():
         )
 
 
+# Check malformed experiment block indices fail before reaching the scheduler.
+@pytest.mark.parametrize("value", [True, 1.5, "invalid", "-1"])
+def test_cacheselect_rejects_invalid_counterfactual_block_index(
+    value: object,
+):
+    with pytest.raises(ValueError, match="counterfactual_reuse_block_index"):
+        make_request(
+            "target",
+            [1, 2, 3],
+            16,
+            sha256,
+            extra_args={
+                "cacheselect_counterfactual_reuse_block_index": value
+            },
+        )
+
+
+# Check the locator carries request-scoped experiments into its reuse plan.
 def test_cacheselect_locates_resident_aligned_blocks_without_reusing_them():
     block_size = 16
     manager = make_kv_cache_manager(
@@ -471,6 +493,7 @@ def test_cacheselect_locates_resident_aligned_blocks_without_reusing_them():
             "cacheselect_request_id": "target",
             "cacheselect_source_request_id": "source",
             "cacheselect_transition_id": "source-to-target",
+            "cacheselect_counterfactual_reuse_block_index": 3,
         },
     )
 
@@ -480,6 +503,7 @@ def test_cacheselect_locates_resident_aligned_blocks_without_reusing_them():
     assert target.partial_reuse_plan is not None
     assert target.partial_reuse_plan.reason == "aligned_candidates"
     assert target.partial_reuse_plan.candidate_block_count == 3
+    assert target.partial_reuse_plan.counterfactual_reuse_block_index == 3
     assert target.partial_reuse_plan.resident_candidate_block_count == 3
     assert [
         (candidate.source_block_index, candidate.target_block_index)

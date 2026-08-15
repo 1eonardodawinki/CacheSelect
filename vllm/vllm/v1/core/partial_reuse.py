@@ -61,6 +61,7 @@ class PartialReusePlan:
     block_size: int
     native_cached_tokens: int
     reason: str
+    counterfactual_reuse_block_index: int | None = None
     candidates: tuple[PartialReuseCandidate, ...] = ()
 
     @property
@@ -326,6 +327,7 @@ class AlignedBlockReuseLocator:
             for candidate in candidates
         )
 
+    # Assemble one plan while preserving request-scoped experiment metadata.
     def _plan(
         self,
         request: Request,
@@ -342,6 +344,9 @@ class AlignedBlockReuseLocator:
             block_size=self.block_size,
             native_cached_tokens=native_cached_tokens,
             reason=reason,
+            counterfactual_reuse_block_index=(
+                request.cacheselect_counterfactual_reuse_block_index
+            ),
             candidates=candidates,
         )
 

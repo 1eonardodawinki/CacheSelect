@@ -23,6 +23,7 @@ from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 from vllm.v1.worker.gpu.attn_utils import build_attn_metadata
 
 PartialReuseForwardPath: TypeAlias = Literal["full", "spans"]
+COUNTERFACTUAL_REPAIR_SELECTOR = "counterfactual_single_block"
 
 
 @dataclass(frozen=True)
@@ -1031,6 +1032,31 @@ def build_full_block_repair_instructions(
             )
         )
     return tuple(instructions)
+
+
+# Repair every affected candidate except one explicitly selected target block.
+def build_counterfactual_repair_instructions(
+    candidates: Sequence[ResolvedPartialReuseCandidate],
+    block_size: int,
+    reused_target_block_index: int,
+) -> tuple[PartialReuseRepairInstruction, ...]:
+    if reused_target_block_index < 0:
+        raise ValueError("counterfactual target block index must be non-negative")
+    matching_candidates = tuple(
+        candidate
+        for candidate in candidates
+        if candidate.target_block_index == reused_target_block_index
+    )
+    if len(matching_candidates) != 1:
+        raise ValueError(
+            "counterfactual target must identify exactly one resolved candidate"
+        )
+    repair_candidates = tuple(
+        candidate
+        for candidate in candidates
+        if candidate.target_block_index != reused_target_block_index
+    )
+    return build_full_block_repair_instructions(repair_candidates, block_size)
 
 
 class FullBlockRepairSelector:

@@ -254,7 +254,11 @@ def test_partial_reuse_plan_follows_request_lifecycle(
         block_displacement=0,
         nearest_changed_block_distance=1,
     )
-    plan = SimpleNamespace(candidates=(candidate,), block_size=1)
+    plan = SimpleNamespace(
+        candidates=(candidate,),
+        block_size=1,
+        counterfactual_reuse_block_index=5,
+    )
     request_data = NewRequestData(
         req_id=req_id,
         prompt_token_ids=[1, 2, 3, 4, 5, 6],
@@ -281,15 +285,13 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert instructions[0].target_block_id == 63
     assert instructions[0].requires_repair
     repair_instructions = runner.partial_reuse_repair_instructions[req_id]
-    assert len(repair_instructions) == 1
-    assert repair_instructions[0].target_block_id == 63
-    assert repair_instructions[0].target_token_indices == (5,)
-    assert runner.partial_reuse_reused_token_indices[req_id] == ()
+    assert repair_instructions == ()
+    assert runner.partial_reuse_reused_token_indices[req_id] == (5,)
     metrics = runner.pending_cacheselect_repair_metrics[req_id]
-    assert metrics.selector == "full_block"
+    assert metrics.selector == "counterfactual_single_block"
     assert metrics.candidate_tokens == 1
-    assert metrics.repair_tokens == 1
-    assert metrics.skipped_repair_tokens == 0
+    assert metrics.repair_tokens == 0
+    assert metrics.skipped_repair_tokens == 1
     assert metrics.copied_blocks == 0
     assert metrics.copied_tokens == 0
     assert not metrics.execution_eligible

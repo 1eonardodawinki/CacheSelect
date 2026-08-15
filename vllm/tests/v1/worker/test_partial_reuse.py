@@ -20,6 +20,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseSpanInputs,
     ResolvedPartialReuseCandidate,
     assess_partial_reuse_batch,
+    build_counterfactual_repair_instructions,
     build_full_block_repair_instructions,
     build_kv_cache_block_copies,
     build_partial_reuse_compacted_batch,
@@ -199,6 +200,52 @@ def test_full_block_repair_selector() -> None:
 def test_build_full_block_repair_rejects_invalid_block_size() -> None:
     with pytest.raises(ValueError, match="block_size must be positive"):
         build_full_block_repair_instructions((), block_size=0)
+
+
+# Check one absolute target index is reused while every peer is repaired.
+def test_build_counterfactual_repair_instructions() -> None:
+    candidate = ResolvedPartialReuseCandidate(
+        source_block_index=3,
+        target_block_index=5,
+        source_block_id=42,
+        target_block_id=63,
+        source_resident=True,
+        requires_repair=True,
+    )
+    candidates = (
+        candidate,
+        replace(
+            candidate,
+            source_block_index=6,
+            target_block_index=8,
+            source_block_id=43,
+            target_block_id=64,
+        ),
+        replace(
+            candidate,
+            source_block_index=9,
+            target_block_index=11,
+            source_block_id=44,
+            target_block_id=65,
+        ),
+    )
+
+    repairs = build_counterfactual_repair_instructions(
+        candidates, block_size=4, reused_target_block_index=8
+    )
+    copies = build_partial_reuse_copy_instructions(candidates)
+
+    assert [repair.target_block_index for repair in repairs] == [5, 11]
+    assert build_reused_token_indices(copies, repairs, block_size=4) == (
+        32,
+        33,
+        34,
+        35,
+    )
+    with pytest.raises(ValueError, match="exactly one resolved candidate"):
+        build_counterfactual_repair_instructions(
+            candidates, block_size=4, reused_target_block_index=7
+        )
 
 
 # Check that edit proximity repairs nearby and unknown blocks but skips far ones.

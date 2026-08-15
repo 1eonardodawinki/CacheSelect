@@ -104,6 +104,7 @@ from vllm.v1.worker.gpu.mm.encoder_cache import EncoderCache
 from vllm.v1.worker.gpu.mm.lora import set_active_mm_loras
 from vllm.v1.worker.gpu.model_states import init_model_state
 from vllm.v1.worker.gpu.partial_reuse import (
+    COUNTERFACTUAL_REPAIR_SELECTOR,
     PartialReuseBatchDecision,
     PartialReuseCompactedBatch,
     PartialReuseCopyInstruction,
@@ -113,6 +114,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     PartialReuseSpanExecutionStep,
     ResolvedPartialReuseCandidate,
     assess_partial_reuse_batch,
+    build_counterfactual_repair_instructions,
     build_kv_cache_block_copies,
     build_partial_reuse_compacted_batch,
     build_partial_reuse_compute_rows,
@@ -924,13 +926,22 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 if resolved_candidates is not None
                 else None
             )
-            repair_instructions = (
-                self.partial_reuse_repair_selector.select(
-                    resolved_candidates, plan.block_size
-                )
-                if resolved_candidates is not None and plan is not None
-                else None
-            )
+            repair_selector_name = self.cache_config.cacheselect_repair_selector
+            repair_instructions = None
+            if resolved_candidates is not None and plan is not None:
+                counterfactual_index = plan.counterfactual_reuse_block_index
+                if counterfactual_index is None:
+                    repair_instructions = self.partial_reuse_repair_selector.select(
+                        resolved_candidates, plan.block_size
+                    )
+                else:
+                    # A counterfactual request overrides the normal global policy.
+                    repair_selector_name = COUNTERFACTUAL_REPAIR_SELECTOR
+                    repair_instructions = build_counterfactual_repair_instructions(
+                        resolved_candidates,
+                        plan.block_size,
+                        counterfactual_index,
+                    )
             reused_token_indices = (
                 build_reused_token_indices(
                     copy_instructions,
@@ -964,7 +975,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 self.partial_reuse_reused_token_indices[req_id] = reused_token_indices
                 self.pending_cacheselect_repair_metrics[req_id] = (
                     summarize_repair_selection(
-                        self.cache_config.cacheselect_repair_selector,
+                        repair_selector_name,
                         resolved_candidates,
                         repair_instructions,
                         plan.block_size,
