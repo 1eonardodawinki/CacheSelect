@@ -1,6 +1,7 @@
 from pathlib import Path
 from unittest import TestCase
 
+from benchmarks.compare_selectors import compare_validation_selectors
 from benchmarks.train_boosted_selector import train_boosted_selector
 
 
@@ -13,7 +14,23 @@ class BoostedSelectorTests(TestCase):
         )
 
         self.assertEqual(report["model"], "hist_gradient_boosting")
-        self.assertGreaterEqual(report["validation"]["repair_recall"], 0.95)
-        self.assertEqual(report["validation"]["examples"], 745)
+        metrics = report["validation"]["hist_gradient_boosting"]
+        self.assertGreaterEqual(metrics["repair_recall"], 0.95)
+        self.assertEqual(metrics["examples"], 745)
         self.assertNotIn("test", report)
         self.assertEqual(model.n_features_in_, 17)
+
+    # Verify the shared scoreboard compares models without opening test data.
+    def test_compares_validation_operating_points(self):
+        report = compare_validation_selectors(
+            Path("results/block-dataset-v1/candidate-blocks.csv")
+        )
+        logistic = report["models"]["logistic_regression"]
+        boosted = report["models"]["hist_gradient_boosting"]
+
+        self.assertFalse(report["test_split_evaluated"])
+        self.assertEqual(set(boosted["operating_points"]), {"0.90", "0.95", "0.99", "1.00"})
+        self.assertGreater(
+            boosted["metrics"]["selected_reuse_rate"],
+            logistic["metrics"]["selected_reuse_rate"],
+        )

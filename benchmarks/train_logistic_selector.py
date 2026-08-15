@@ -146,7 +146,7 @@ def select_repair_threshold(
 
 
 # Evaluate transparent heuristic policies beside the learned selector.
-def _baseline_metrics(
+def baseline_metrics(
     features: np.ndarray,
     labels: np.ndarray,
 ) -> dict[str, dict[str, float | int]]:
@@ -171,7 +171,7 @@ def _baseline_metrics(
 
 
 # Report the reuse available at several increasingly strict safety targets.
-def _operating_points(
+def operating_points(
     labels: np.ndarray,
     repair_probabilities: np.ndarray,
 ) -> dict[str, dict[str, float | int]]:
@@ -240,11 +240,11 @@ def train_logistic_selector(
                 validation_probabilities >= threshold,
                 repair_probabilities=validation_probabilities,
             ),
-            "baselines": _baseline_metrics(
+            "baselines": baseline_metrics(
                 validation_features,
                 validation_labels,
             ),
-            "operating_points": _operating_points(
+            "operating_points": operating_points(
                 validation_labels,
                 validation_probabilities,
             ),
@@ -259,7 +259,7 @@ def train_logistic_selector(
                 test_probabilities >= threshold,
                 repair_probabilities=test_probabilities,
             ),
-            "baselines": _baseline_metrics(test_features, test_labels),
+            "baselines": baseline_metrics(test_features, test_labels),
         }
     return model, report
 

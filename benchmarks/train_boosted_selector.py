@@ -10,6 +10,7 @@ from benchmarks.train_logistic_selector import (
     FEATURE_NAMES,
     evaluate_selector,
     load_selector_dataset,
+    operating_points,
     select_repair_threshold,
 )
 
@@ -54,10 +55,16 @@ def train_boosted_selector(
             "l2_regularization": 1.0,
             "class_weight": "balanced",
         },
-        "validation": evaluate_selector(
-            validation_labels,
-            validation_probabilities >= threshold,
-            repair_probabilities=validation_probabilities,
-        ),
+        "validation": {
+            "hist_gradient_boosting": evaluate_selector(
+                validation_labels,
+                validation_probabilities >= threshold,
+                repair_probabilities=validation_probabilities,
+            ),
+            "operating_points": operating_points(
+                validation_labels,
+                validation_probabilities,
+            ),
+        },
     }
     return model, report
