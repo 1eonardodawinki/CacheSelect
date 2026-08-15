@@ -11,6 +11,8 @@ from benchmarks.counterfactual_labels import (
     validate_counterfactual_execution,
 )
 from benchmarks.counterfactual_trial import (
+    CounterfactualCandidateDiscovery,
+    build_discovered_counterfactual_interventions,
     extract_counterfactual_candidate_discovery,
     run_single_block_counterfactual_trial,
 )
@@ -95,6 +97,24 @@ class CounterfactualLabelTests(TestCase):
         self.assertEqual(discovery.candidate_block_indices, (1, 2))
         self.assertEqual(discovery.testable_block_indices, (1,))
         self.assertEqual(discovery.excluded_output_block_index, 2)
+        interventions = build_discovered_counterfactual_interventions(discovery)
+        self.assertEqual([item.reused_block_index for item in interventions], [1])
+        self.assertEqual(interventions[0].candidate_block_indices, (1, 2))
+        self.assertEqual(interventions[0].repaired_block_indices, (2,))
+
+    # Verify an inconsistent discovery cannot create misleading trial instructions.
+    def test_rejects_inconsistent_discovered_interventions(self):
+        discovery = CounterfactualCandidateDiscovery(
+            trace_id="trace",
+            transition_id="transition",
+            block_size=4,
+            candidate_block_indices=(1, 2),
+            testable_block_indices=(1, 2),
+            excluded_output_block_index=2,
+        )
+
+        with self.assertRaisesRegex(ValueError, "do not match"):
+            build_discovered_counterfactual_interventions(discovery)
 
     # Verify every trial reuses exactly one block and repairs all its peers.
     def test_builds_isolated_single_block_interventions(self):

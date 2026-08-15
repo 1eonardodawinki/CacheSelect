@@ -47,6 +47,48 @@ class CounterfactualCandidateDiscovery:
     excluded_output_block_index: int | None
 
 
+# Create one isolated trial instruction for each safe discovered target block.
+def build_discovered_counterfactual_interventions(
+    discovery: CounterfactualCandidateDiscovery,
+) -> tuple[SingleBlockIntervention, ...]:
+    candidates = discovery.candidate_block_indices
+    testable = discovery.testable_block_indices
+    for name, indices in (("candidate", candidates), ("testable", testable)):
+        if any(
+            not isinstance(index, int) or isinstance(index, bool) or index < 0
+            for index in indices
+        ):
+            raise ValueError(f"{name} block indices must be non-negative integers")
+        if indices != tuple(sorted(set(indices))):
+            raise ValueError(f"{name} block indices must be sorted and unique")
+    if not discovery.trace_id or not discovery.transition_id:
+        raise ValueError("trace and transition IDs must not be empty")
+    if (
+        not isinstance(discovery.block_size, int)
+        or isinstance(discovery.block_size, bool)
+        or discovery.block_size < 1
+    ):
+        raise ValueError("discovery block size must be positive")
+
+    excluded = discovery.excluded_output_block_index
+    if excluded is not None and excluded not in candidates:
+        raise ValueError("excluded output block must belong to the candidates")
+    expected_testable = tuple(index for index in candidates if index != excluded)
+    if testable != expected_testable:
+        raise ValueError("testable blocks do not match the discovery candidates")
+
+    # Every instruction retains all peers so vLLM repairs every non-selected block.
+    return tuple(
+        SingleBlockIntervention(
+            trace_id=discovery.trace_id,
+            transition_id=discovery.transition_id,
+            candidate_block_indices=candidates,
+            reused_block_index=reused_block_index,
+        )
+        for reused_block_index in testable
+    )
+
+
 # Convert vLLM's raw plan metrics into blocks suitable for isolated trials.
 def extract_counterfactual_candidate_discovery(
     *,
