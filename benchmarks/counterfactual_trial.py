@@ -17,7 +17,7 @@ from benchmarks.counterfactual_labels import (
     validate_counterfactual_execution,
 )
 from benchmarks.run_vllm_baseline import _observe_request
-from benchmarks.schema import RequestSpec
+from benchmarks.schema import RequestSpec, RequestTransition
 from observability.request_recorder import RequestRecorder
 
 
@@ -45,6 +45,16 @@ class CounterfactualCandidateDiscovery:
     candidate_block_indices: tuple[int, ...]
     testable_block_indices: tuple[int, ...]
     excluded_output_block_index: int | None
+
+
+@dataclass(frozen=True)
+class CounterfactualDiscoveryRunResult:
+    """Recorded source/edit observations and their validated candidate set."""
+
+    discovery_id: str
+    source_observation: dict[str, Any]
+    edited_observation: dict[str, Any]
+    discovery: CounterfactualCandidateDiscovery
 
 
 @dataclass(frozen=True)
@@ -197,6 +207,97 @@ def _require_fresh_full_recompute(
         or metrics.get("cacheselect_compacted_batch_executed") is True
     ):
         raise RuntimeError(f"counterfactual {role} was not a fresh full recompute")
+
+
+# Run a conservative source/edit pair that only discovers candidate KV blocks.
+def run_counterfactual_candidate_discovery(
+    *,
+    trace_id: str,
+    transition: RequestTransition,
+    source_request: RequestSpec,
+    edited_request: RequestSpec,
+    url: str,
+    model: str,
+    max_completion_tokens: int,
+    api_key: str | None,
+    timeout_seconds: float,
+    recorder: RequestRecorder,
+) -> CounterfactualDiscoveryRunResult:
+    if (
+        transition.previous_request_id != source_request.request_id
+        or transition.current_request_id != edited_request.request_id
+    ):
+        raise ValueError("discovery requests do not match the transition")
+    discovery_id = uuid4().hex
+    cache_salt = f"{discovery_id}:discovery"
+    source = replace(source_request, request_id=f"{discovery_id}:source")
+    edited = replace(edited_request, request_id=f"{discovery_id}:edited")
+
+    # Use the same observer so both discovery requests enter the request ledger.
+    def observe(
+        request: RequestSpec,
+        role: str,
+        vllm_xargs: dict[str, str],
+    ) -> dict[str, Any]:
+        return _observe_request(
+            request,
+            url=url,
+            model=model,
+            max_completion_tokens=max_completion_tokens,
+            api_key=api_key,
+            timeout_seconds=timeout_seconds,
+            recorder=recorder,
+            policy_metadata={
+                "counterfactual_discovery_id": discovery_id,
+                "counterfactual_role": role,
+            },
+            require_cacheselect_metrics=True,
+            vllm_xargs=vllm_xargs,
+            cache_salt=cache_salt,
+        )
+
+    source_observation = observe(
+        source,
+        "discovery_source",
+        {"cacheselect_request_id": source.request_id},
+    )
+    _require_fresh_full_recompute(source_observation, "discovery source")
+    edited_observation = observe(
+        edited,
+        "discovery_edit",
+        {
+            "cacheselect_request_id": edited.request_id,
+            "cacheselect_source_request_id": source.request_id,
+            "cacheselect_transition_id": transition.transition_id,
+        },
+    )
+    discovery = extract_counterfactual_candidate_discovery(
+        trace_id=trace_id,
+        transition_id=transition.transition_id,
+        observation=edited_observation,
+    )
+
+    metrics = edited_observation.get("server_metrics") or {}
+    expected_tokens = len(discovery.candidate_block_indices) * discovery.block_size
+    if discovery.candidate_block_indices and (
+        metrics.get("cacheselect_repair_selector") != "full_block"
+        or metrics.get("cacheselect_candidate_tokens") != expected_tokens
+        or metrics.get("cacheselect_repair_tokens") != expected_tokens
+        or metrics.get("cacheselect_skipped_repair_tokens") != 0
+        or metrics.get("cacheselect_compacted_batch_executed") is True
+    ):
+        raise RuntimeError("discovery did not conservatively repair every candidate")
+    if not all(
+        bool((observation.get("quality") or {}).get("passed"))
+        for observation in (source_observation, edited_observation)
+    ):
+        raise RuntimeError("counterfactual discovery failed its quality gate")
+    return CounterfactualDiscoveryRunResult(
+        discovery_id,
+        source_observation,
+        edited_observation,
+        discovery,
+    )
 
 
 # Run an uncached reference, its donor, and one isolated reuse intervention.
