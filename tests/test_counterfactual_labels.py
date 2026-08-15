@@ -25,10 +25,12 @@ from benchmarks.counterfactual_labels import (
 )
 from benchmarks.counterfactual_trial import (
     CounterfactualCandidateDiscovery,
+    CounterfactualDiscoveryRunResult,
     CounterfactualTrialBatchResult,
     CounterfactualTrialResult,
     build_discovered_counterfactual_interventions,
     extract_counterfactual_candidate_discovery,
+    run_counterfactual_candidate_discovery,
     run_discovered_counterfactual_trials,
     run_single_block_counterfactual_trial,
 )
@@ -76,6 +78,66 @@ def _successful_execution(
 
 
 class CounterfactualLabelTests(TestCase):
+    # Verify discovery sends a fresh source then a conservatively repaired edit.
+    def test_runs_counterfactual_candidate_discovery(self):
+        trace = build_rag_trace()
+        source, edited = trace.requests[:2]
+        source_observation = {
+            "cached_tokens": 0,
+            "runtime_policy": {"policy": "FULL_RECOMPUTE"},
+            "server_metrics": {},
+            "quality": {"passed": True},
+        }
+        edited_observation = {
+            "prompt_token_ids": list(range(12)),
+            "prompt_token_count": 12,
+            "quality": {"passed": True},
+            "server_metrics": {
+                "cacheselect_partial_reuse_plan": {
+                    "transition_id": trace.transitions[0].transition_id,
+                    "block_size": 4,
+                    "native_cached_tokens": 0,
+                    "candidate_block_count": 2,
+                    "candidate_token_count": 8,
+                    "candidates": [
+                        {"target_block_index": 1, "source_resident": True},
+                        {"target_block_index": 2, "source_resident": True},
+                    ],
+                },
+                "cacheselect_repair_selector": "full_block",
+                "cacheselect_candidate_tokens": 8,
+                "cacheselect_repair_tokens": 8,
+                "cacheselect_skipped_repair_tokens": 0,
+                "cacheselect_compacted_batch_executed": False,
+            },
+        }
+
+        with patch(
+            "benchmarks.counterfactual_trial._observe_request",
+            side_effect=(source_observation, edited_observation),
+        ) as observe:
+            result = run_counterfactual_candidate_discovery(
+                trace_id=trace.trace_id,
+                transition=trace.transitions[0],
+                source_request=source,
+                edited_request=edited,
+                url="http://vllm.test/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=8,
+                api_key=None,
+                timeout_seconds=2.0,
+                recorder=object(),
+            )
+
+        self.assertIsInstance(result, CounterfactualDiscoveryRunResult)
+        self.assertEqual(result.discovery.testable_block_indices, (1,))
+        calls = observe.call_args_list
+        self.assertEqual(calls[0].kwargs["cache_salt"], calls[1].kwargs["cache_salt"])
+        self.assertEqual(
+            calls[1].kwargs["vllm_xargs"]["cacheselect_source_request_id"],
+            calls[0].args[0].request_id,
+        )
+
     # Verify a trial reconstructs the tested block's model-ready feature row.
     def test_extracts_counterfactual_trial_feature(self):
         intervention = SingleBlockIntervention("trace", "transition", (2, 3), 2)
