@@ -47,6 +47,14 @@ class CounterfactualCandidateDiscovery:
     excluded_output_block_index: int | None
 
 
+@dataclass(frozen=True)
+class CounterfactualTrialBatchResult:
+    """Ordered results from every safe block in one discovery."""
+
+    discovery: CounterfactualCandidateDiscovery
+    trials: tuple[CounterfactualTrialResult, ...]
+
+
 # Create one isolated trial instruction for each safe discovered target block.
 def build_discovered_counterfactual_interventions(
     discovery: CounterfactualCandidateDiscovery,
@@ -282,3 +290,37 @@ def run_single_block_counterfactual_trial(
     return CounterfactualTrialResult(
         trial_id, intervention, reference, donor, active, evidence, result, label
     )
+
+
+# Run every discovered block trial sequentially to keep its cache state isolated.
+def run_discovered_counterfactual_trials(
+    *,
+    discovery: CounterfactualCandidateDiscovery,
+    source_request: RequestSpec,
+    edited_request: RequestSpec,
+    url: str,
+    model: str,
+    max_completion_tokens: int,
+    api_key: str | None,
+    timeout_seconds: float,
+    recorder: RequestRecorder,
+) -> CounterfactualTrialBatchResult:
+    interventions = build_discovered_counterfactual_interventions(discovery)
+    trials: list[CounterfactualTrialResult] = []
+    for intervention in interventions:
+        # Each call creates a new salt namespace and donor for this block only.
+        trials.append(
+            run_single_block_counterfactual_trial(
+                source_request=source_request,
+                edited_request=edited_request,
+                intervention=intervention,
+                block_size=discovery.block_size,
+                url=url,
+                model=model,
+                max_completion_tokens=max_completion_tokens,
+                api_key=api_key,
+                timeout_seconds=timeout_seconds,
+                recorder=recorder,
+            )
+        )
+    return CounterfactualTrialBatchResult(discovery, tuple(trials))

@@ -14,6 +14,7 @@ from benchmarks.counterfactual_trial import (
     CounterfactualCandidateDiscovery,
     build_discovered_counterfactual_interventions,
     extract_counterfactual_candidate_discovery,
+    run_discovered_counterfactual_trials,
     run_single_block_counterfactual_trial,
 )
 from benchmarks.workloads import build_rag_trace
@@ -115,6 +116,50 @@ class CounterfactualLabelTests(TestCase):
 
         with self.assertRaisesRegex(ValueError, "do not match"):
             build_discovered_counterfactual_interventions(discovery)
+
+    # Verify discovered blocks run in order through fresh single-block trials.
+    def test_runs_discovered_counterfactual_trials_sequentially(self):
+        trace = build_rag_trace()
+        source, edited = trace.requests[:2]
+        discovery = CounterfactualCandidateDiscovery(
+            trace_id=trace.trace_id,
+            transition_id=trace.transitions[0].transition_id,
+            block_size=4,
+            candidate_block_indices=(1, 2, 3),
+            testable_block_indices=(1, 2),
+            excluded_output_block_index=3,
+        )
+        recorder = object()
+
+        # Return the selected index so the test can inspect ordering directly.
+        def fake_trial(**kwargs):
+            return kwargs["intervention"].reused_block_index
+
+        with patch(
+            "benchmarks.counterfactual_trial.run_single_block_counterfactual_trial",
+            side_effect=fake_trial,
+        ) as run_trial:
+            result = run_discovered_counterfactual_trials(
+                discovery=discovery,
+                source_request=source,
+                edited_request=edited,
+                url="http://vllm.test/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=8,
+                api_key=None,
+                timeout_seconds=2.0,
+                recorder=recorder,
+            )
+
+        self.assertEqual(result.trials, (1, 2))
+        self.assertEqual(
+            [call.kwargs["block_size"] for call in run_trial.call_args_list], [4, 4]
+        )
+        self.assertTrue(
+            all(
+                call.kwargs["recorder"] is recorder for call in run_trial.call_args_list
+            )
+        )
 
     # Verify every trial reuses exactly one block and repairs all its peers.
     def test_builds_isolated_single_block_interventions(self):
