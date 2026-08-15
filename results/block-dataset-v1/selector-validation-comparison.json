@@ -1,0 +1,228 @@
+{
+  "dataset": "results/block-dataset-v1/candidate-blocks.csv",
+  "evaluation_split": "validation",
+  "test_split_evaluated": false,
+  "minimum_repair_recall": 0.95,
+  "feature_names": [
+    "previous_token_count",
+    "current_token_count",
+    "previous_changed_token_count",
+    "current_changed_token_count",
+    "block_size",
+    "candidate_block_index",
+    "candidate_position_ratio",
+    "relative_block_offset",
+    "nearest_changed_block_distance",
+    "source_displacement_blocks",
+    "candidate_share_of_native_recompute",
+    "changed_candidate_token_overlap_ratio",
+    "introduced_candidate_token_overlap_ratio",
+    "removed_candidate_token_overlap_ratio",
+    "changed_candidate_token_jaccard",
+    "same_position_match",
+    "requires_repacking"
+  ],
+  "models": {
+    "logistic_regression": {
+      "selected_threshold": 0.07068256571265141,
+      "metrics": {
+        "examples": 745,
+        "true_repair": 134,
+        "missed_repair": 6,
+        "unnecessary_repair": 297,
+        "safe_reuse": 308,
+        "accuracy": 0.5932885906040268,
+        "repair_precision": 0.3109048723897912,
+        "repair_recall": 0.9571428571428572,
+        "repair_f1": 0.46935201401050786,
+        "selected_reuse_rate": 0.4214765100671141,
+        "safe_reuse_precision": 0.9808917197452229,
+        "roc_auc": 0.9166233766233766,
+        "average_precision": 0.8385431418415367
+      },
+      "operating_points": {
+        "0.90": {
+          "threshold": 0.13774833077352727,
+          "examples": 745,
+          "true_repair": 128,
+          "missed_repair": 12,
+          "unnecessary_repair": 160,
+          "safe_reuse": 445,
+          "accuracy": 0.7691275167785235,
+          "repair_precision": 0.4444444444444444,
+          "repair_recall": 0.9142857142857143,
+          "repair_f1": 0.5981308411214952,
+          "selected_reuse_rate": 0.6134228187919463,
+          "safe_reuse_precision": 0.973741794310722
+        },
+        "0.95": {
+          "threshold": 0.07068256571265141,
+          "examples": 745,
+          "true_repair": 134,
+          "missed_repair": 6,
+          "unnecessary_repair": 297,
+          "safe_reuse": 308,
+          "accuracy": 0.5932885906040268,
+          "repair_precision": 0.3109048723897912,
+          "repair_recall": 0.9571428571428572,
+          "repair_f1": 0.46935201401050786,
+          "selected_reuse_rate": 0.4214765100671141,
+          "safe_reuse_precision": 0.9808917197452229
+        },
+        "0.99": {
+          "threshold": 0.004541167859751624,
+          "examples": 745,
+          "true_repair": 140,
+          "missed_repair": 0,
+          "unnecessary_repair": 605,
+          "safe_reuse": 0,
+          "accuracy": 0.18791946308724833,
+          "repair_precision": 0.18791946308724833,
+          "repair_recall": 1.0,
+          "repair_f1": 0.3163841807909605,
+          "selected_reuse_rate": 0.0,
+          "safe_reuse_precision": 0.0
+        },
+        "1.00": {
+          "threshold": 0.004541167859751624,
+          "examples": 745,
+          "true_repair": 140,
+          "missed_repair": 0,
+          "unnecessary_repair": 605,
+          "safe_reuse": 0,
+          "accuracy": 0.18791946308724833,
+          "repair_precision": 0.18791946308724833,
+          "repair_recall": 1.0,
+          "repair_f1": 0.3163841807909605,
+          "selected_reuse_rate": 0.0,
+          "safe_reuse_precision": 0.0
+        }
+      }
+    },
+    "hist_gradient_boosting": {
+      "selected_threshold": 0.040607571490453,
+      "hyperparameters": {
+        "learning_rate": 0.05,
+        "max_iter": 200,
+        "max_leaf_nodes": 7,
+        "min_samples_leaf": 20,
+        "l2_regularization": 1.0,
+        "class_weight": "balanced"
+      },
+      "metrics": {
+        "examples": 745,
+        "true_repair": 134,
+        "missed_repair": 6,
+        "unnecessary_repair": 143,
+        "safe_reuse": 462,
+        "accuracy": 0.8,
+        "repair_precision": 0.48375451263537905,
+        "repair_recall": 0.9571428571428572,
+        "repair_f1": 0.6426858513189448,
+        "selected_reuse_rate": 0.6281879194630873,
+        "safe_reuse_precision": 0.9871794871794872,
+        "roc_auc": 0.9624970484061393,
+        "average_precision": 0.9339253444230355
+      },
+      "operating_points": {
+        "0.90": {
+          "threshold": 0.4652928152944252,
+          "examples": 745,
+          "true_repair": 126,
+          "missed_repair": 14,
+          "unnecessary_repair": 31,
+          "safe_reuse": 574,
+          "accuracy": 0.9395973154362416,
+          "repair_precision": 0.802547770700637,
+          "repair_recall": 0.9,
+          "repair_f1": 0.8484848484848485,
+          "selected_reuse_rate": 0.789261744966443,
+          "safe_reuse_precision": 0.9761904761904762
+        },
+        "0.95": {
+          "threshold": 0.040607571490453,
+          "examples": 745,
+          "true_repair": 134,
+          "missed_repair": 6,
+          "unnecessary_repair": 143,
+          "safe_reuse": 462,
+          "accuracy": 0.8,
+          "repair_precision": 0.48375451263537905,
+          "repair_recall": 0.9571428571428572,
+          "repair_f1": 0.6426858513189448,
+          "selected_reuse_rate": 0.6281879194630873,
+          "safe_reuse_precision": 0.9871794871794872
+        },
+        "0.99": {
+          "threshold": 0.001577299487521267,
+          "examples": 745,
+          "true_repair": 139,
+          "missed_repair": 1,
+          "unnecessary_repair": 536,
+          "safe_reuse": 69,
+          "accuracy": 0.2791946308724832,
+          "repair_precision": 0.20592592592592593,
+          "repair_recall": 0.9928571428571429,
+          "repair_f1": 0.34110429447852764,
+          "selected_reuse_rate": 0.09395973154362416,
+          "safe_reuse_precision": 0.9857142857142858
+        },
+        "1.00": {
+          "threshold": 0.0015369846265786778,
+          "examples": 745,
+          "true_repair": 140,
+          "missed_repair": 0,
+          "unnecessary_repair": 550,
+          "safe_reuse": 55,
+          "accuracy": 0.26174496644295303,
+          "repair_precision": 0.2028985507246377,
+          "repair_recall": 1.0,
+          "repair_f1": 0.3373493975903615,
+          "selected_reuse_rate": 0.0738255033557047,
+          "safe_reuse_precision": 1.0
+        }
+      }
+    }
+  },
+  "baselines": {
+    "always_repair": {
+      "examples": 745,
+      "true_repair": 140,
+      "missed_repair": 0,
+      "unnecessary_repair": 605,
+      "safe_reuse": 0,
+      "accuracy": 0.18791946308724833,
+      "repair_precision": 0.18791946308724833,
+      "repair_recall": 1.0,
+      "repair_f1": 0.3163841807909605,
+      "selected_reuse_rate": 0.0,
+      "safe_reuse_precision": 0.0
+    },
+    "radius_1": {
+      "examples": 745,
+      "true_repair": 27,
+      "missed_repair": 113,
+      "unnecessary_repair": 18,
+      "safe_reuse": 587,
+      "accuracy": 0.8241610738255034,
+      "repair_precision": 0.6,
+      "repair_recall": 0.19285714285714287,
+      "repair_f1": 0.2918918918918919,
+      "selected_reuse_rate": 0.9395973154362416,
+      "safe_reuse_precision": 0.8385714285714285
+    },
+    "keyword_overlap": {
+      "examples": 745,
+      "true_repair": 64,
+      "missed_repair": 76,
+      "unnecessary_repair": 0,
+      "safe_reuse": 605,
+      "accuracy": 0.897986577181208,
+      "repair_precision": 1.0,
+      "repair_recall": 0.45714285714285713,
+      "repair_f1": 0.6274509803921569,
+      "selected_reuse_rate": 0.9140939597315436,
+      "safe_reuse_precision": 0.8883994126284875
+    }
+  }
+}

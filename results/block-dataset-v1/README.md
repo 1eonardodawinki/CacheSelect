@@ -11,6 +11,8 @@ The benchmark generator therefore knows which unchanged blocks require repair.
   `Qwen/Qwen2.5-1.5B-Instruct` at block size 16.
 - `logistic-validation.json`: first class-balanced logistic-regression report;
   the held-out test split was deliberately not evaluated.
+- `selector-validation-comparison.json`: shared logistic and boosted-tree
+  operating points; the held-out test split remains unevaluated.
 - Generator commit: `1fbfb46eb385f415cc04792974ea931cf0c5a007`.
 - SHA-256: `406f725da9168acc3249ac827db1578098c1363a23af8aa065d3258633e8bed1`.
 
@@ -53,6 +55,12 @@ The stricter operating-point analysis is important: at the current 99% and
 100% repair-recall targets, the model selects no reuse. This is an explicit
 limitation of the current features rather than a hidden positive result. The
 test family remains untouched until model and feature selection are frozen.
+
+The compact boosted-tree selector improves this trade-off. At 0.957 repair
+recall it selects 0.628 of candidates for reuse, compared with 0.421 for
+logistic regression. At 1.000 annotated repair recall it still selects 0.074
+for reuse, while logistic regression repairs every candidate. These figures
+measure agreement with synthetic annotations, not yet causal output safety.
 
 ## Limitation
 
