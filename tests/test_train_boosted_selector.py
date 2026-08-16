@@ -27,10 +27,15 @@ class BoostedSelectorTests(TestCase):
         )
         logistic = report["models"]["logistic_regression"]
         boosted = report["models"]["hist_gradient_boosting"]
+        mlp = report["models"]["mlp"]
 
         self.assertFalse(report["test_split_evaluated"])
         self.assertEqual(set(boosted["operating_points"]), {"0.90", "0.95", "0.99", "1.00"})
         self.assertGreater(
             boosted["metrics"]["selected_reuse_rate"],
             logistic["metrics"]["selected_reuse_rate"],
+        )
+        self.assertGreater(
+            mlp["metrics"]["selected_reuse_rate"],
+            boosted["metrics"]["selected_reuse_rate"],
         )

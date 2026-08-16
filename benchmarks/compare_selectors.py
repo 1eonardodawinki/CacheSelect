@@ -8,9 +8,10 @@ from pathlib import Path
 
 from benchmarks.train_boosted_selector import train_boosted_selector
 from benchmarks.train_logistic_selector import train_logistic_selector
+from benchmarks.train_mlp_selector import train_mlp_selector
 
 
-# Train both learned selectors and place their validation results side by side.
+# Train all learned selectors and place their validation results side by side.
 def compare_validation_selectors(
     dataset_path: Path,
     *,
@@ -24,8 +25,13 @@ def compare_validation_selectors(
         dataset_path,
         minimum_repair_recall=minimum_repair_recall,
     )
+    _, mlp = train_mlp_selector(
+        dataset_path,
+        minimum_repair_recall=minimum_repair_recall,
+    )
     logistic_validation = logistic["validation"]
     boosted_validation = boosted["validation"]
+    mlp_validation = mlp["validation"]
     return {
         "dataset": str(dataset_path),
         "evaluation_split": "validation",
@@ -43,6 +49,13 @@ def compare_validation_selectors(
                 "hyperparameters": boosted["hyperparameters"],
                 "metrics": boosted_validation["hist_gradient_boosting"],
                 "operating_points": boosted_validation["operating_points"],
+            },
+            "mlp": {
+                "selected_threshold": mlp["selected_threshold"],
+                "hyperparameters": mlp["hyperparameters"],
+                "training": mlp["training"],
+                "metrics": mlp_validation["mlp"],
+                "operating_points": mlp_validation["operating_points"],
             },
         },
         "baselines": logistic_validation["baselines"],
