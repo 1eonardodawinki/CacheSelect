@@ -1,0 +1,97 @@
+"""Run frozen MTRAG cases through the existing counterfactual workflow."""
+
+from __future__ import annotations
+
+import json
+from collections import Counter
+from collections.abc import Sequence
+from pathlib import Path
+from typing import Any
+
+from benchmarks.counterfactual_workflow import run_counterfactual_dataset_workflow
+from benchmarks.mtrag_quality import MtragManualQualityAudit
+from benchmarks.mtrag_trace import MtragCounterfactualCase
+from benchmarks.schema import save_trace
+from observability.request_recorder import RequestRecorder
+
+
+# Execute every frozen case sequentially against one already-running vLLM server.
+def run_mtrag_counterfactual_cases(
+    cases: Sequence[MtragCounterfactualCase],
+    *,
+    audit: MtragManualQualityAudit,
+    output_dir: Path,
+    url: str,
+    model: str,
+    max_completion_tokens: int,
+    api_key: str | None,
+    timeout_seconds: float,
+    recorder: RequestRecorder,
+) -> dict[str, Any]:
+    if not cases:
+        raise ValueError("MTRAG pilot contains no cases")
+    summaries = []
+    totals: Counter[str] = Counter()
+    for index, case in enumerate(cases, start=1):
+        if len(case.trace.transitions) != 1:
+            raise ValueError("each MTRAG case must contain exactly one transition")
+        transition = case.trace.transitions[0]
+        try:
+            approved_output = audit.approved_reference_outputs[
+                transition.current_request_id
+            ]
+        except KeyError as error:
+            raise ValueError("MTRAG case has no approved reference output") from error
+
+        case_dir = output_dir / f"case-{index:02d}"
+        trace_path = case_dir / "trace.json"
+        dataset_path = case_dir / "counterfactual-blocks.csv"
+        summary_path = case_dir / "summary.json"
+        case_dir.mkdir(parents=True, exist_ok=True)
+        save_trace(case.trace, trace_path)
+        result = run_counterfactual_dataset_workflow(
+            trace=case.trace,
+            transition_id=transition.transition_id,
+            split=case.split,
+            output_path=dataset_path,
+            url=url,
+            model=model,
+            max_completion_tokens=max_completion_tokens,
+            api_key=api_key,
+            timeout_seconds=timeout_seconds,
+            recorder=recorder,
+            expected_block_size=case.block_size,
+            expected_candidate_block_indices=case.expected_candidate_block_indices,
+            expected_testable_block_indices=case.expected_testable_block_indices,
+            selected_block_indices=case.target_block_indices,
+            required_reference_output=approved_output,
+            require_exact_output_match=True,
+        )
+        summary = {
+            "collection": case.collection,
+            "current_task_id": transition.current_request_id,
+            "trace_path": str(trace_path),
+            **result,
+        }
+        summary_path.write_text(
+            json.dumps(summary, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        summaries.append(summary)
+        for field in (
+            "trial_count",
+            "valid_training_rows",
+            "invalid_trials",
+            "abstained_trials",
+            "repair_labels",
+            "reuse_labels",
+        ):
+            totals[field] += result[field]
+
+    return {
+        "schema_version": 1,
+        "experiment": "mtrag-counterfactual-pilot",
+        "case_count": len(summaries),
+        **totals,
+        "cases": summaries,
+    }
