@@ -28,8 +28,22 @@ class CounterfactualWorkflowTests(TestCase):
         )
         batch = SimpleNamespace(
             trials=(
-                SimpleNamespace(label=SimpleNamespace(decision=RepairDecision.REUSE)),
-                SimpleNamespace(label=None),
+                SimpleNamespace(
+                    label=SimpleNamespace(decision=RepairDecision.REUSE),
+                    label_result=SimpleNamespace(
+                        valid_reference=True,
+                        valid_execution=True,
+                        decision=RepairDecision.REUSE,
+                    ),
+                ),
+                SimpleNamespace(
+                    label=None,
+                    label_result=SimpleNamespace(
+                        valid_reference=True,
+                        valid_execution=True,
+                        decision=None,
+                    ),
+                ),
             )
         )
         recorder = SimpleNamespace(path=Path("requests.jsonl"))
@@ -75,12 +89,64 @@ class CounterfactualWorkflowTests(TestCase):
             )
 
         self.assertEqual(result["testable_blocks"], 2)
+        self.assertEqual(result["planned_blocks"], 2)
         self.assertEqual(result["valid_training_rows"], 1)
-        self.assertEqual(result["invalid_trials"], 1)
+        self.assertEqual(result["invalid_trials"], 0)
+        self.assertEqual(result["abstained_trials"], 1)
         self.assertEqual(result["reuse_labels"], 1)
         self.assertEqual(
             run_discovery.call_args.kwargs["source_request"].request_id,
             transition.previous_request_id,
         )
         self.assertIs(run_trials.call_args.kwargs["recorder"], recorder)
+        self.assertEqual(
+            run_trials.call_args.kwargs["selected_block_indices"],
+            (1, 2),
+        )
         self.assertEqual(save_dataset.call_args.kwargs["split"], DatasetSplit.TRAIN)
+
+    # Stop before causal trials when live discovery drifts from the frozen pilot.
+    def test_rejects_unexpected_live_candidates(self):
+        trace = build_rag_trace()
+        transition = trace.transitions[0]
+        discovery_run = SimpleNamespace(
+            discovery_id="discovery-id",
+            discovery=CounterfactualCandidateDiscovery(
+                trace.trace_id,
+                transition.transition_id,
+                16,
+                (1, 2),
+                (1, 2),
+                None,
+            ),
+        )
+
+        with (
+            patch(
+                "benchmarks.counterfactual_workflow."
+                "run_counterfactual_candidate_discovery",
+                return_value=discovery_run,
+            ),
+            patch(
+                "benchmarks.counterfactual_workflow."
+                "run_discovered_counterfactual_trials"
+            ) as run_trials,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "frozen pilot"):
+                run_counterfactual_dataset_workflow(
+                    trace=trace,
+                    transition_id=transition.transition_id,
+                    split=DatasetSplit.TRAIN,
+                    output_path=Path("counterfactual-blocks.csv"),
+                    url="http://vllm.test/v1/chat/completions",
+                    model="test-model",
+                    max_completion_tokens=8,
+                    api_key=None,
+                    timeout_seconds=2.0,
+                    recorder=SimpleNamespace(path=Path("requests.jsonl")),
+                    expected_block_size=16,
+                    expected_candidate_block_indices=(1,),
+                    expected_testable_block_indices=(1,),
+                )
+
+        run_trials.assert_not_called()

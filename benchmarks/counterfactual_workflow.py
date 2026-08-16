@@ -53,6 +53,12 @@ def run_counterfactual_dataset_workflow(
     api_key: str | None,
     timeout_seconds: float,
     recorder: RequestRecorder,
+    expected_block_size: int | None = None,
+    expected_candidate_block_indices: tuple[int, ...] | None = None,
+    expected_testable_block_indices: tuple[int, ...] | None = None,
+    selected_block_indices: tuple[int, ...] | None = None,
+    required_reference_output: str | None = None,
+    require_exact_output_match: bool = False,
 ) -> dict[str, Any]:
     transition, source, edited = _resolve_transition(trace, transition_id)
     discovery_run = run_counterfactual_candidate_discovery(
@@ -66,10 +72,34 @@ def run_counterfactual_dataset_workflow(
         api_key=api_key,
         timeout_seconds=timeout_seconds,
         recorder=recorder,
+        required_edited_output=required_reference_output,
     )
     discovery = discovery_run.discovery
+    if expected_block_size is not None and discovery.block_size != expected_block_size:
+        raise RuntimeError("live vLLM block size differs from the frozen pilot")
+    if (
+        expected_candidate_block_indices is not None
+        and discovery.candidate_block_indices != expected_candidate_block_indices
+    ):
+        raise RuntimeError("live vLLM candidates differ from the frozen pilot")
+    if (
+        expected_testable_block_indices is not None
+        and discovery.testable_block_indices != expected_testable_block_indices
+    ):
+        raise RuntimeError("live vLLM candidates differ from the frozen pilot")
     if not discovery.testable_block_indices:
         raise RuntimeError("transition has no full candidate blocks safe to test")
+    selected = (
+        discovery.testable_block_indices
+        if selected_block_indices is None
+        else selected_block_indices
+    )
+    if (
+        not selected
+        or selected != tuple(sorted(set(selected)))
+        or not set(selected).issubset(discovery.testable_block_indices)
+    ):
+        raise RuntimeError("planned blocks are not a valid live candidate subset")
     batch = run_discovered_counterfactual_trials(
         discovery=discovery,
         source_request=source,
@@ -80,6 +110,9 @@ def run_counterfactual_dataset_workflow(
         api_key=api_key,
         timeout_seconds=timeout_seconds,
         recorder=recorder,
+        selected_block_indices=selected,
+        required_reference_output=required_reference_output,
+        require_exact_output_match=require_exact_output_match,
     )
     training_rows = save_counterfactual_training_dataset(
         batch,
@@ -100,10 +133,21 @@ def run_counterfactual_dataset_workflow(
         "discovery_id": discovery_run.discovery_id,
         "candidate_blocks": len(discovery.candidate_block_indices),
         "testable_blocks": len(discovery.testable_block_indices),
+        "planned_blocks": len(selected),
         "excluded_output_block_index": discovery.excluded_output_block_index,
         "trial_count": len(batch.trials),
         "valid_training_rows": training_rows,
-        "invalid_trials": sum(trial.label is None for trial in batch.trials),
+        "invalid_trials": sum(
+            not trial.label_result.valid_reference
+            or not trial.label_result.valid_execution
+            for trial in batch.trials
+        ),
+        "abstained_trials": sum(
+            trial.label_result.valid_reference
+            and trial.label_result.valid_execution
+            and trial.label_result.decision is None
+            for trial in batch.trials
+        ),
         "repair_labels": decisions["repair"],
         "reuse_labels": decisions["reuse"],
         "dataset_path": str(output_path),

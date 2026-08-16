@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import csv
 from collections.abc import Mapping
+from dataclasses import fields
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +23,22 @@ from cacheselect.block_features import (
     extract_candidate_block_features,
 )
 from cacheselect.reuse_opportunity import analyze_reuse_opportunity
+
+
+# Save a schema-correct empty table when every valid trial abstained.
+def _save_empty_counterfactual_csv(path: Path) -> None:
+    fieldnames = [
+        "trace_id",
+        "transition_id",
+        "split",
+        "decision",
+        "label_source",
+        "label_reason",
+        *(field.name for field in fields(CandidateBlockFeatures)),
+    ]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", newline="", encoding="utf-8") as output:
+        csv.DictWriter(output, fieldnames=fieldnames).writeheader()
 
 
 # Read and validate one prompt-token sequence recorded by the standard observer.
@@ -95,8 +113,13 @@ def save_counterfactual_training_dataset(
     selected_blocks = tuple(
         trial.intervention.reused_block_index for trial in batch.trials
     )
-    if selected_blocks != discovery.testable_block_indices:
-        raise ValueError("trial results do not match the discovered block order")
+    if (
+        not selected_blocks
+        or selected_blocks != batch.target_block_indices
+        or selected_blocks != tuple(sorted(set(selected_blocks)))
+        or not set(selected_blocks).issubset(discovery.testable_block_indices)
+    ):
+        raise ValueError("trial results are not a valid discovered block subset")
 
     rows: list[SplitCandidateBlock] = []
     for trial in batch.trials:
@@ -131,5 +154,8 @@ def save_counterfactual_training_dataset(
                 split=split,
             )
         )
-    save_block_dataset_csv(rows, path)
+    if rows:
+        save_block_dataset_csv(rows, path)
+    else:
+        _save_empty_counterfactual_csv(path)
     return len(rows)

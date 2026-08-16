@@ -1,4 +1,5 @@
 import csv
+from dataclasses import replace
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest import TestCase
@@ -78,7 +79,7 @@ def _successful_execution(
 
 
 class CounterfactualLabelTests(TestCase):
-    # Verify discovery sends a fresh source then a conservatively repaired edit.
+    # Verify a bad donor answer does not block safe candidate discovery.
     def test_runs_counterfactual_candidate_discovery(self):
         trace = build_rag_trace()
         source, edited = trace.requests[:2]
@@ -86,12 +87,14 @@ class CounterfactualLabelTests(TestCase):
             "cached_tokens": 0,
             "runtime_policy": {"policy": "FULL_RECOMPUTE"},
             "server_metrics": {},
-            "quality": {"passed": True},
+            "quality": {"passed": False},
         }
         edited_observation = {
+            "output_text": edited.ground_truth.expected_answer,
+            "finish_reason": "stop",
             "prompt_token_ids": list(range(12)),
             "prompt_token_count": 12,
-            "quality": {"passed": True},
+            "quality": {"mode": "requirements", "passed": True},
             "server_metrics": {
                 "cacheselect_partial_reuse_plan": {
                     "transition_id": trace.transitions[0].transition_id,
@@ -127,6 +130,7 @@ class CounterfactualLabelTests(TestCase):
                 api_key=None,
                 timeout_seconds=2.0,
                 recorder=object(),
+                required_edited_output=edited.ground_truth.expected_answer,
             )
 
         self.assertIsInstance(result, CounterfactualDiscoveryRunResult)
@@ -140,7 +144,7 @@ class CounterfactualLabelTests(TestCase):
 
     # Verify a trial reconstructs the tested block's model-ready feature row.
     def test_extracts_counterfactual_trial_feature(self):
-        intervention = SingleBlockIntervention("trace", "transition", (2, 3), 2)
+        intervention = SingleBlockIntervention("trace", "transition", (1, 2, 3), 2)
         score = CounterfactualLabelResult(
             intervention, False, False, None, False, 0.0, "unused"
         )
@@ -173,7 +177,7 @@ class CounterfactualLabelTests(TestCase):
 
     # Verify causal labels are persisted in the shared selector CSV schema.
     def test_saves_counterfactual_training_dataset(self):
-        intervention = SingleBlockIntervention("trace", "transition", (2, 3), 2)
+        intervention = SingleBlockIntervention("trace", "transition", (1, 2, 3), 2)
         label = BlockRepairLabel(
             RepairDecision.REUSE,
             LabelSource.COUNTERFACTUAL_EXECUTION,
@@ -202,8 +206,11 @@ class CounterfactualLabelTests(TestCase):
             label,
         )
         batch = CounterfactualTrialBatchResult(
-            CounterfactualCandidateDiscovery("trace", "transition", 4, (2, 3), (2,), 3),
+            CounterfactualCandidateDiscovery(
+                "trace", "transition", 4, (1, 2, 3), (1, 2), 3
+            ),
             (trial,),
+            (2,),
         )
 
         with TemporaryDirectory() as temporary_directory:
@@ -218,6 +225,20 @@ class CounterfactualLabelTests(TestCase):
         self.assertEqual(rows[0]["candidate_block_index"], "2")
         self.assertEqual(rows[0]["decision"], "reuse")
         self.assertEqual(rows[0]["label_source"], "counterfactual_execution")
+
+        with TemporaryDirectory() as temporary_directory:
+            empty_output = Path(temporary_directory) / "abstained-blocks.csv"
+            empty_batch = replace(batch, trials=(replace(trial, label=None),))
+            empty_count = save_counterfactual_training_dataset(
+                empty_batch,
+                split=DatasetSplit.TRAIN,
+                path=empty_output,
+            )
+            with empty_output.open(newline="") as input_file:
+                empty_rows = list(csv.DictReader(input_file))
+
+        self.assertEqual(empty_count, 0)
+        self.assertEqual(empty_rows, [])
 
     # Verify discovery keeps all candidates but makes the output block untestable.
     def test_extracts_safe_counterfactual_candidates(self):
@@ -307,11 +328,12 @@ class CounterfactualLabelTests(TestCase):
                 api_key=None,
                 timeout_seconds=2.0,
                 recorder=recorder,
+                selected_block_indices=(2,),
             )
 
-        self.assertEqual(result.trials, (1, 2))
+        self.assertEqual(result.trials, (2,))
         self.assertEqual(
-            [call.kwargs["block_size"] for call in run_trial.call_args_list], [4, 4]
+            [call.kwargs["block_size"] for call in run_trial.call_args_list], [4]
         )
         self.assertTrue(
             all(
@@ -362,6 +384,27 @@ class CounterfactualLabelTests(TestCase):
             intervention_quality_passed=True,
         )
         self.assertEqual(reuse_result.decision, RepairDecision.REUSE)
+
+    # Defer every non-exact natural answer to blinded semantic review.
+    def test_abstains_from_non_exact_automatic_reuse_label(self):
+        intervention = build_single_block_interventions(
+            trace_id="trace",
+            transition_id="transition",
+            candidate_block_indices=[4],
+        )[0]
+
+        result = score_single_block_intervention(
+            intervention,
+            execution_evidence=_successful_execution(intervention),
+            reference_output="The limit is 31 days.",
+            intervention_output="The limit is not 31 days.",
+            reference_quality_passed=True,
+            intervention_quality_passed=True,
+            require_exact_output_match=True,
+        )
+
+        self.assertIsNone(result.decision)
+        self.assertIn("manual review", result.reason)
 
     # Verify a bad full-compute answer cannot establish block ground truth.
     def test_rejects_invalid_reference(self):
@@ -416,7 +459,8 @@ class CounterfactualLabelTests(TestCase):
         )
         fresh = {
             "output_text": edited.ground_truth.expected_answer,
-            "quality": {"passed": True},
+            "finish_reason": "stop",
+            "quality": {"mode": "requirements", "passed": True},
             "cached_tokens": 0,
             "runtime_policy": {"policy": "FULL_RECOMPUTE"},
             "server_metrics": {},
@@ -444,6 +488,7 @@ class CounterfactualLabelTests(TestCase):
                 api_key=None,
                 timeout_seconds=2.0,
                 recorder=object(),
+                required_reference_output=edited.ground_truth.expected_answer,
             )
 
         calls = observe.call_args_list
@@ -461,3 +506,40 @@ class CounterfactualLabelTests(TestCase):
             active_xargs["cacheselect_source_request_id"], calls[1].args[0].request_id
         )
         self.assertEqual(result.label.decision, RepairDecision.REUSE)
+        self.assertTrue(result.quality_comparison["passed"])
+
+    # Stop after the reference when it differs from the manually audited text.
+    def test_rejects_changed_approved_reference(self):
+        trace = build_rag_trace()
+        source, edited = trace.requests[:2]
+        intervention = SingleBlockIntervention(
+            trace.trace_id, trace.transitions[0].transition_id, (4,), 4
+        )
+        observation = {
+            "output_text": "changed answer",
+            "quality": {"passed": True},
+            "cached_tokens": 0,
+            "runtime_policy": {"policy": "FULL_RECOMPUTE"},
+            "server_metrics": {},
+        }
+
+        with patch(
+            "benchmarks.counterfactual_trial._observe_request",
+            return_value=observation,
+        ) as observe:
+            with self.assertRaisesRegex(RuntimeError, "approved reference"):
+                run_single_block_counterfactual_trial(
+                    source_request=source,
+                    edited_request=edited,
+                    intervention=intervention,
+                    block_size=4,
+                    url="http://vllm.test/v1/chat/completions",
+                    model="test-model",
+                    max_completion_tokens=8,
+                    api_key=None,
+                    timeout_seconds=2.0,
+                    recorder=object(),
+                    required_reference_output="audited answer",
+                )
+
+        self.assertEqual(observe.call_count, 1)

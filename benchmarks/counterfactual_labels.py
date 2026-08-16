@@ -196,6 +196,7 @@ def score_single_block_intervention(
     intervention_output: str | None,
     reference_quality_passed: bool,
     intervention_quality_passed: bool,
+    require_exact_output_match: bool = False,
 ) -> CounterfactualLabelResult:
     reference = reference_output or ""
     candidate = intervention_output or ""
@@ -221,6 +222,16 @@ def score_single_block_intervention(
             exact_match,
             similarity,
             execution_evidence.reason,
+        )
+    if require_exact_output_match and not exact_match:
+        return CounterfactualLabelResult(
+            intervention,
+            True,
+            True,
+            None,
+            False,
+            similarity,
+            "Non-exact output requires blinded manual review.",
         )
     decision = RepairDecision.REUSE
     reason = "Reusing this block preserved the configured output-quality gate."

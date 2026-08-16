@@ -16,6 +16,7 @@ from benchmarks.counterfactual_labels import (
     score_single_block_intervention,
     validate_counterfactual_execution,
 )
+from benchmarks.evaluation import compare_response_quality
 from benchmarks.run_vllm_baseline import _observe_request
 from benchmarks.schema import RequestSpec, RequestTransition
 from observability.request_recorder import RequestRecorder
@@ -33,6 +34,7 @@ class CounterfactualTrialResult:
     execution_evidence: CounterfactualExecutionEvidence
     label_result: CounterfactualLabelResult
     label: BlockRepairLabel | None
+    quality_comparison: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -63,11 +65,14 @@ class CounterfactualTrialBatchResult:
 
     discovery: CounterfactualCandidateDiscovery
     trials: tuple[CounterfactualTrialResult, ...]
+    target_block_indices: tuple[int, ...]
 
 
 # Create one isolated trial instruction for each safe discovered target block.
 def build_discovered_counterfactual_interventions(
     discovery: CounterfactualCandidateDiscovery,
+    *,
+    selected_block_indices: tuple[int, ...] | None = None,
 ) -> tuple[SingleBlockIntervention, ...]:
     candidates = discovery.candidate_block_indices
     testable = discovery.testable_block_indices
@@ -94,6 +99,16 @@ def build_discovered_counterfactual_interventions(
     expected_testable = tuple(index for index in candidates if index != excluded)
     if testable != expected_testable:
         raise ValueError("testable blocks do not match the discovery candidates")
+    selected = testable if selected_block_indices is None else selected_block_indices
+    if (
+        any(
+            not isinstance(index, int) or isinstance(index, bool) or index < 0
+            for index in selected
+        )
+        or selected != tuple(sorted(set(selected)))
+        or not set(selected).issubset(testable)
+    ):
+        raise ValueError("selected blocks must be a sorted subset of testable blocks")
 
     # Every instruction retains all peers so vLLM repairs every non-selected block.
     return tuple(
@@ -103,7 +118,7 @@ def build_discovered_counterfactual_interventions(
             candidate_block_indices=candidates,
             reused_block_index=reused_block_index,
         )
-        for reused_block_index in testable
+        for reused_block_index in selected
     )
 
 
@@ -222,6 +237,7 @@ def run_counterfactual_candidate_discovery(
     api_key: str | None,
     timeout_seconds: float,
     recorder: RequestRecorder,
+    required_edited_output: str | None = None,
 ) -> CounterfactualDiscoveryRunResult:
     if (
         transition.previous_request_id != source_request.request_id
@@ -271,6 +287,14 @@ def run_counterfactual_candidate_discovery(
             "cacheselect_transition_id": transition.transition_id,
         },
     )
+    if (
+        required_edited_output is not None
+        and (
+            edited_observation.get("output_text") != required_edited_output
+            or edited_observation.get("finish_reason") != "stop"
+        )
+    ):
+        raise RuntimeError("discovery edit differs from its approved reference")
     discovery = extract_counterfactual_candidate_discovery(
         trace_id=trace_id,
         transition_id=transition.transition_id,
@@ -287,11 +311,9 @@ def run_counterfactual_candidate_discovery(
         or metrics.get("cacheselect_compacted_batch_executed") is True
     ):
         raise RuntimeError("discovery did not conservatively repair every candidate")
-    if not all(
-        bool((observation.get("quality") or {}).get("passed"))
-        for observation in (source_observation, edited_observation)
-    ):
-        raise RuntimeError("counterfactual discovery failed its quality gate")
+    # The source only donates KV; only the edited answer is experiment ground truth.
+    if not bool((edited_observation.get("quality") or {}).get("passed")):
+        raise RuntimeError("counterfactual discovery edit failed its quality gate")
     return CounterfactualDiscoveryRunResult(
         discovery_id,
         source_observation,
@@ -313,6 +335,8 @@ def run_single_block_counterfactual_trial(
     api_key: str | None,
     timeout_seconds: float,
     recorder: RequestRecorder,
+    required_reference_output: str | None = None,
+    require_exact_output_match: bool = False,
 ) -> CounterfactualTrialResult:
     if source_request.request_id == edited_request.request_id:
         raise ValueError("source and edited requests must be different")
@@ -360,6 +384,14 @@ def run_single_block_counterfactual_trial(
         {"cacheselect_request_id": reference_request.request_id},
     )
     _require_fresh_full_recompute(reference, "reference")
+    if (
+        required_reference_output is not None
+        and (
+            reference.get("output_text") != required_reference_output
+            or reference.get("finish_reason") != "stop"
+        )
+    ):
+        raise RuntimeError("full-compute output differs from its approved reference")
     donor = observe(
         donor_request,
         "donor",
@@ -374,22 +406,41 @@ def run_single_block_counterfactual_trial(
         **intervention.to_vllm_xargs(),
     }
     active = observe(active_request, "intervention", trial_salt, active_xargs)
+    if (
+        required_reference_output is not None
+        and active.get("finish_reason") != "stop"
+    ):
+        raise RuntimeError("counterfactual intervention output was truncated")
     evidence = validate_counterfactual_execution(
         intervention,
         block_size=block_size,
         server_metrics=active.get("server_metrics"),
+    )
+    quality_comparison = compare_response_quality(
+        reference.get("quality") or {},
+        active.get("quality") or {},
+        edited_request.ground_truth,
     )
     result = score_single_block_intervention(
         intervention,
         execution_evidence=evidence,
         reference_output=reference.get("output_text"),
         intervention_output=active.get("output_text"),
-        reference_quality_passed=bool((reference.get("quality") or {}).get("passed")),
-        intervention_quality_passed=bool((active.get("quality") or {}).get("passed")),
+        reference_quality_passed=quality_comparison["valid_reference"],
+        intervention_quality_passed=quality_comparison["passed"],
+        require_exact_output_match=require_exact_output_match,
     )
     label = counterfactual_block_label(result) if result.decision is not None else None
     return CounterfactualTrialResult(
-        trial_id, intervention, reference, donor, active, evidence, result, label
+        trial_id,
+        intervention,
+        reference,
+        donor,
+        active,
+        evidence,
+        result,
+        label,
+        quality_comparison,
     )
 
 
@@ -405,8 +456,14 @@ def run_discovered_counterfactual_trials(
     api_key: str | None,
     timeout_seconds: float,
     recorder: RequestRecorder,
+    selected_block_indices: tuple[int, ...] | None = None,
+    required_reference_output: str | None = None,
+    require_exact_output_match: bool = False,
 ) -> CounterfactualTrialBatchResult:
-    interventions = build_discovered_counterfactual_interventions(discovery)
+    interventions = build_discovered_counterfactual_interventions(
+        discovery,
+        selected_block_indices=selected_block_indices,
+    )
     trials: list[CounterfactualTrialResult] = []
     for intervention in interventions:
         # Each call creates a new salt namespace and donor for this block only.
@@ -422,6 +479,11 @@ def run_discovered_counterfactual_trials(
                 api_key=api_key,
                 timeout_seconds=timeout_seconds,
                 recorder=recorder,
+                required_reference_output=required_reference_output,
+                require_exact_output_match=require_exact_output_match,
             )
         )
-    return CounterfactualTrialBatchResult(discovery, tuple(trials))
+    targets = tuple(
+        intervention.reused_block_index for intervention in interventions
+    )
+    return CounterfactualTrialBatchResult(discovery, tuple(trials), targets)
