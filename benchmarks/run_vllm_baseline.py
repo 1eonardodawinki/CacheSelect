@@ -142,6 +142,7 @@ def _observe_request(
             },
             sampling={
                 "temperature": payload.get("temperature"),
+                "seed": payload.get("seed"),
                 "max_completion_tokens": payload.get("max_completion_tokens"),
                 "stream": payload.get("stream"),
             },
@@ -192,6 +193,8 @@ def _observe_request(
         raise
 
     output_text = _output_text(response)
+    choices = response.get("choices") or []
+    finish_reason = choices[0].get("finish_reason") if choices else None
     quality = score_response(output_text, request.ground_truth)
     server_metrics = response.get("metrics") or {}
     runtime_policy: dict[str, Any] | None = None
@@ -220,6 +223,7 @@ def _observe_request(
         "server_metrics": response.get("metrics"),
         "usage": response.get("usage"),
         "output_text": output_text,
+        "finish_reason": finish_reason,
         "quality": quality,
         "policy_metadata": policy_metadata or {},
         "runtime_policy": runtime_policy,

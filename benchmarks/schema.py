@@ -28,12 +28,40 @@ class AnswerRequirement:
 
 
 @dataclass(frozen=True)
+class ReferenceSimilarityGate:
+    """Calibrated quality limits for one natural-language reference answer."""
+
+    minimum_token_recall: float
+    minimum_rouge_l_f1: float
+    maximum_metric_drop: float
+    calibration_id: str
+
+    # Reject uncalibrated or out-of-range gates before a request can run.
+    def __post_init__(self) -> None:
+        values = (
+            self.minimum_token_recall,
+            self.minimum_rouge_l_f1,
+            self.maximum_metric_drop,
+        )
+        if any(
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or not 0.0 <= value <= 1.0
+            for value in values
+        ):
+            raise ValueError("reference quality limits must be between zero and one")
+        if not isinstance(self.calibration_id, str) or not self.calibration_id:
+            raise ValueError("reference quality gate requires a calibration ID")
+
+
+@dataclass(frozen=True)
 class RequestGroundTruth:
     """Evaluation-only answer key that is never added to the API payload."""
 
     expected_answer: str
     requirements: list[AnswerRequirement]
     notes: str = ""
+    reference_similarity_gate: ReferenceSimilarityGate | None = None
 
 
 @dataclass(frozen=True)
@@ -59,6 +87,7 @@ class RequestSpec:
             "messages": self.messages,
             "request_id": self.request_id,
             "temperature": 0.0,
+            "seed": 0,
             "max_completion_tokens": max_completion_tokens,
             "stream": False,
             "return_token_ids": True,
@@ -114,9 +143,7 @@ def load_trace(path: Path) -> WorkloadTrace:
             workload=request["workload"],
             sequence_index=request["sequence_index"],
             messages=request["messages"],
-            segments=[
-                PromptSegment(**segment) for segment in request["segments"]
-            ],
+            segments=[PromptSegment(**segment) for segment in request["segments"]],
             ground_truth=RequestGroundTruth(
                 expected_answer=request["ground_truth"]["expected_answer"],
                 requirements=[
@@ -124,6 +151,14 @@ def load_trace(path: Path) -> WorkloadTrace:
                     for requirement in request["ground_truth"]["requirements"]
                 ],
                 notes=request["ground_truth"].get("notes", ""),
+                reference_similarity_gate=(
+                    ReferenceSimilarityGate(
+                        **request["ground_truth"]["reference_similarity_gate"]
+                    )
+                    if request["ground_truth"].get("reference_similarity_gate")
+                    is not None
+                    else None
+                ),
             ),
             extra_body=request.get("extra_body", {}),
         )
