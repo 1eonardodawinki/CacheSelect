@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "experiment": "counterfactual-block-dataset",
+  "run_id": "counterfactual-274777-1-rag-01-to-02",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "endpoint": "http://127.0.0.1:29771/v1/chat/completions",
+  "trace_path": "benchmarks/traces/rag.json",
+  "trace_id": "rag-controlled-v2",
+  "transition_id": "rag-01-to-02",
+  "split": "train",
+  "discovery_id": "9e502fd4a66241d1b53d324438fa4e90",
+  "candidate_blocks": 5,
+  "testable_blocks": 4,
+  "excluded_output_block_index": 10,
+  "trial_count": 4,
+  "valid_training_rows": 4,
+  "invalid_trials": 0,
+  "repair_labels": 1,
+  "reuse_labels": 3,
+  "dataset_path": "/vol/bitbucket/lmw25/cacheselect-results/counterfactual-274777/rag-01-to-02/counterfactual-blocks.csv",
+  "request_ledger": "/vol/bitbucket/lmw25/cacheselect-request-logs/counterfactual-274777/rag-01-to-02/counterfactual-274777-1-rag-01-to-02.jsonl",
+  "recorded_requests": 14
+}
