@@ -56,7 +56,7 @@ def _successful_execution(
             "cacheselect_partial_reuse_plan": {
                 "transition_id": intervention.transition_id,
                 "block_size": block_size,
-                "cacheselect_counterfactual_reuse_block_index": selected_target,
+                "counterfactual_reuse_block_index": selected_target,
                 "candidates": [
                     {"target_block_index": index, "source_resident": True}
                     for index in intervention.candidate_block_indices

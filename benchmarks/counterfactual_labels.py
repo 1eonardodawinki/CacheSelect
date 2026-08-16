@@ -10,6 +10,8 @@ from typing import Any
 from benchmarks.block_dataset import BlockRepairLabel, LabelSource, RepairDecision
 
 COUNTERFACTUAL_BLOCK_KEY = "cacheselect_counterfactual_reuse_block_index"
+# vLLM strips the xargs namespace when it serializes the internal plan.
+COUNTERFACTUAL_PLAN_BLOCK_KEY = "counterfactual_reuse_block_index"
 COUNTERFACTUAL_SELECTOR = "counterfactual_single_block"
 
 
@@ -106,7 +108,8 @@ def validate_counterfactual_execution(
             "server transition did not match the intervention",
         ),
         (
-            plan.get(COUNTERFACTUAL_BLOCK_KEY) == intervention.reused_block_index,
+            plan.get(COUNTERFACTUAL_PLAN_BLOCK_KEY)
+            == intervention.reused_block_index,
             "server selected a different counterfactual block",
         ),
         (
