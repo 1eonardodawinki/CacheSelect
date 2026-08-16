@@ -16,6 +16,9 @@ a fixed conversation replay rather than a live conversation so every cache
 policy receives exactly the same prompts. Its append transitions are positive
 controls for native vLLM prefix caching.
 
+See `benchmarks/DATASETS.md` for the real-workload dataset strategy, split
+rules, and the MTRAG coverage gate that precedes further GPU experiments.
+
 Each request records the original structured API payload, a text-free structural
 summary, vLLM's rendered prompt, its prompt token IDs, cached-token counts,
 per-request timing, usage, deterministic answer score and the raw response. The
