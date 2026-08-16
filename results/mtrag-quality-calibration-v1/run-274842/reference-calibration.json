@@ -1,0 +1,535 @@
+{
+  "schema_version": 1,
+  "analysis": "mtrag-reference-quality-calibration",
+  "gate_status": "unfrozen",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "max_completion_tokens": 384,
+  "request_count": 20,
+  "rows": [
+    {
+      "task_id": "79f0d0539d9ec0acbf90cb3388b30c17<::>7",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "prompt_token_count": 1719,
+      "output_text": "A secondary source is a type of source that provides commentary, analysis, interpretation, or summary of an event, work, or person. It typically does not provide firsthand information or direct observation. Secondary sources can include textbooks, reviews, biographies, and encyclopedias.\n\nExamples of secondary sources include:\n\n1. Biographies\n2. Reviews\n3. Summaries\n4. Commentaries\n5. Abstracts\n6. Indexes\n\nSecondary sources are useful for providing background information, contextualizing primary sources, and offering critical perspectives on topics. They help readers understand complex issues and debates surrounding a particular subject.",
+      "expected_answer": "It is important to note the primary sources are distinguished from secondary sources , which cite , comment on , or build upon primary sources .Normally, accounts written after the fact with the benefit ( and possible distortions ) of hindsight are secondary . A secondary source  interprets or analyzes primary sources. Also be a primary source depending on how it is used . For example , a memoir would be considered a primary source in research concerning its author or about his or her friends characterized within it , but the same memoir would be a secondary source if it were used to examine the culture in which its author lived. Both sources should b e be understood as relative terms , with sources categorized according to specific historical contexts and what is being studied . For instance, Documentary films can be considered a secondary source or primary source , depending on how much the filmmaker modifies the original sources depending upon the present state of knowledge within the field . ",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.11504424778761062,
+        "metrics": {
+          "token_recall": 0.16666666666666666,
+          "rouge_l_f1": 0.11504424778761062
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "1534a095279f2cb888fb0bea17bd70da<::>4",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "prompt_token_count": 928,
+      "output_text": "Yes, according to the passage, air-to-air photography involves photographing aircraft in the air while using another aircraft as a photo platform. This may require careful consideration of factors like lighting and background, which could make it more challenging compared to ground-to-air photography where the photographer is closer to the target aircraft.",
+      "expected_answer": "Air-to-air military aviation photography,  requires additional skills , as the photo and target aircraft often fly at velocities of over Mach 1, while under moderate to high G . On the other hand, in ground-to-air settings a long focus photographic lens is necessary due to the greater distance between the photographer and the target aircraft. Thus is it hard to say if one is more difficult than other conclusively.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.205607476635514,
+        "metrics": {
+          "token_recall": 0.3114754098360656,
+          "rouge_l_f1": 0.205607476635514
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "aea2634b0e5f1c2444550d31c41adc94<::>3",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "prompt_token_count": 1297,
+      "output_text": "It's important to note that the Defense of Marriage Act (DOMA), which was passed in 1996, does not define how weddings should be celebrated. Instead, it focuses on defining marriage within the context of federal law. The act specifies that marriage is considered to be between one man and one woman, and it allows states to choose whether they will recognize same-sex marriages conducted elsewhere.\n\nHowever, many countries around the world have their own traditions and ceremonies for weddings, reflecting cultural and religious beliefs. These can vary widely depending on the country and its specific customs. Some common elements include exchanging vows, exchanging rings, having a ceremony at a church or civil wedding venue, and sometimes involving family members or close friends. The celebration of weddings often involves personal significance and reflects the individuals' values and beliefs about love, commitment, and partnership.",
+      "expected_answer": "The typical wedding involves a couple proclaiming their commitment to one another in front of their close relatives and friends , often presided over by a religious figure such as a minister , priest , or rabbi , depending upon the faith of the couple . In traditional Christian ceremonies , the bride 's father will `` give away '' ( hand off ) the bride to the groom . Secular weddings are also common , often presided over by a judge , Justice of the Peace , or other municipal official . At a wedding reception , the father of the bride , in his role as host , regularly offers the first toast , thanking the guests for attending , offering tasteful remembrances of the bride 's childhood , and wishing the newlyweds a happy life together . The best man usually proposes a toast in the form of best wishes and congratulations to the newlyweds . A best man 's toast takes the form of a short speech ( 3 -- 5 minutes ) that combines a mixture of humor and sincerity . The actual `` toast '' is then delivered at the end of the speech and is a short phrase wishing the newlyweds a happy , healthy , loving life together . The maid of honor may follow suit , appropriately tailoring her comments to the bride . The groom may offer the final toast , thanking the bride 's parents for hosting the wedding , the wedding party for their participation , and finally dedicating the toast to the bridesmaids .",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.09375000000000001,
+        "metrics": {
+          "token_recall": 0.18181818181818182,
+          "rouge_l_f1": 0.09375000000000001
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "79f0d0539d9ec0acbf90cb3388b30c17<::>5",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "prompt_token_count": 1870,
+      "output_text": "The Celts played a significant role in shaping the course of history across Europe and beyond. Their influence extended from the Atlantic coast of modern-day Spain and Portugal in the west to the Black Sea region in the east, and from the North Sea in the north to the Mediterranean in the south.\n\nArchaeological discoveries have shed light on the complex social structures, political organization, and military capabilities of these ancient tribes. The discovery of burial sites like those found at Hallstatt and La T\u00e8ne provided valuable insights into the material culture and beliefs of the Celts. These findings often included elaborate tombs adorned with intricate carvings and decorated pottery, suggesting a high level of craftsmanship and artistic expression among the Celts.\n\nThe Celts were instrumental in establishing trade networks that connected distant regions. Their ability to produce goods such as bronze tools, weapons, jewelry, and pottery facilitated extensive exchanges of goods and ideas. This interconnectedness contributed to the development of a shared cultural identity and influenced the broader landscape of European history.\n\nMoreover, the Celts left behind numerous written records, including inscriptions and literary works, which offer glimpses into their daily lives, customs, and beliefs. These sources help historians understand aspects of Celtic society, such as their legal systems, religious practices, and social hierarchies.\n\nThe impact of the Celts on subsequent generations cannot be overstated. Their legacy continues to shape our understanding of European history, literature, art, and even contemporary debates about ethnicity and national identity. The concept of \"Celtic\" itself has evolved over centuries, becoming a symbol of cultural heritage and pride for many nations and communities today.\n\nIn conclusion, the Celts' contributions to European history are profound and multifaceted, influencing everything from economic and technological advancements to cultural expressions and national identities. Their enduring presence in the collective memory of Europe underscores the lasting impact of these ancient tribes on the continent's development.",
+      "expected_answer": "Besides those areas of trade  that was mentioned before, the Celts were were considered a Central European Iron Age phenomenon , through the cultures of Hallstatt and La T\u00e8ne . The Celtic languages were also important to form  a branch of the larger Indo - European family . By the time speakers of Celtic languages entered history around 400 BC , they were already split into several language groups , and spread over much of Western continental Europe , the Iberian Peninsula , Ireland and Britain . They depict a pre-Christian Iron Age Celtic social structure based formally on class and kingship , although this may only have been a particular late phase of organization in Celtic societies . It is also important to note that the Celts depict a pre-Christian Iron Age Celtic social structure based formally on class and kingship , although this may only have been a particular late phase of organization in Celtic societies . ",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.1097852028639618,
+        "metrics": {
+          "token_recall": 0.3007518796992481,
+          "rouge_l_f1": 0.1097852028639618
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "6528deeee4180c1b2b770a2929482e82<::>3",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "prompt_token_count": 2183,
+      "output_text": "Indian agriculture produces a variety of goods, including:\n\n1. Rice\n2. Wheat\n3. Sugarcane\n4. Cotton\n5. Groundnuts\n6. Jute\n7. Silk\n\nAdditionally, India is the second-largest producer of milk and pulses globally, contributing significantly to its economy and providing livelihoods for millions of people.",
+      "expected_answer": "Wheat, barley, and jujube were domesticated in the Indian subcontinent by 9,000 BC, soon followed by sheep and goats. Agriculture includes crops, horticulture, milk and animal husbandry, aquaculture, fishing, sericulture, aviculture, forestry and related activities. India is the second - largest producer of rice, wheat, sugarcane, cotton and groundnuts, as well as the second - largest fruit and vegetable producer, and it is also the second - largest producer and the largest consumer of silk; and it is the largest exporter of cashew kernels and cashew nut shell liquid.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.21138211382113822,
+        "metrics": {
+          "token_recall": 0.2125,
+          "rouge_l_f1": 0.21138211382113822
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "dc1aaac0b33553d8c897d4150955d803<::>5",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "prompt_token_count": 1874,
+      "output_text": "It seems like you're asking for advice on starting day trading in an IRA account. Let me summarize some key points:\n\n1. **IRA Contribution Limits**: You can contribute up to $5,500 per year ($6,500 if you're over 50) to an IRA.\n   \n2. **Day Trading Risks**: Day trading involves significant risks, including volatility, lack of liquidity, and difficulty in managing losses.\n\n3. **Roth IRA Considerations**: While Roth IRAs offer tax-free withdrawals after retirement, they require contributions to be made before age 59\u00bd and under specific conditions.\n\n4. **Index Funds**: Investing in index funds like the S&P 500 can provide steady returns and align with long-term goals.\n\n5. **Tax Implications**: Contributions to an IRA are generally tax-deductible, while withdrawals are taxed as ordinary income.\n\nGiven these points, it seems like opening an IRA and investing in index funds might be a safer approach compared to day trading. However, always consult with a financial advisor to tailor a strategy that fits your individual circumstances.",
+      "expected_answer": "I am sorry if that was not what you were looking for.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.02424242424242424,
+        "metrics": {
+          "token_recall": 0.3333333333333333,
+          "rouge_l_f1": 0.02424242424242424
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "6af5334fbd010b919d7fa174823abd12<::>2",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "prompt_token_count": 1637,
+      "output_text": "No, refinancing is not the same as getting a mortgage. Refinancing involves taking out a new loan to pay off an existing one, typically to get better terms or lower rates. A mortgage is a specific type of loan used primarily for purchasing real estate.",
+      "expected_answer": "No, they are not the same. A mortgage is a secured debt consisting of a promissory note and a security interest that provides the mortgage holder with a secured interest in the property. A mortgage is a loan backed by a property, as specific laws cover it due to its wide usage. Therefore, the bank is not an \"investor\" in your house; it is simply lending you money with the property as collateral. Thus, it does not receive any share of the profit. On the other hand, refinancing, or re-fi, occurs when a debtor takes out a new loan, usually with new bank, to pay off an old one. This can be done for various reasons, primarily because the new loan terms will result in a lower monthly payment.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.19047619047619047,
+        "metrics": {
+          "token_recall": 0.23148148148148148,
+          "rouge_l_f1": 0.19047619047619047
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "258193fc88e0e73322e288aa03719260<::>3",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "prompt_token_count": 1896,
+      "output_text": "To pay less taxes, you can donate money to various organizations that qualify as charitable entities under U.S. tax laws. These include:\n\n1. **Registered Non-Profit Organizations**: Such as the American Society for the Prevention of Cruelty to Animals (ASPCA) or similar animal welfare groups.\n   \n2. **Religious Organizations**: Donating to churches, mosques, synagogues, or temples can also be considered charitable contributions.\n\n3. **Charity Funds**: Directly donating to funds set up for specific causes, such as disaster relief efforts (e.g., the Red Cross).\n\n4. **Educational Institutions**: Donating to schools or educational institutions can be beneficial.\n\nIt's important to note that while you can deduct the monetary value of your donations, you cannot deduct the value of your time or services provided to these organizations. Additionally, the type of organization must meet specific criteria to qualify for tax-deductible status. For example, the ASPCA must be recognized as a 501(c)(3) organization by the IRS to receive tax-deductible donations.\n\nThe process typically involves registering with the IRS and filing annual reports detailing your financial transactions. If you're unsure about whether a particular organization qualifies, consulting with a tax professional or checking the official IRS website can provide guidance.",
+      "expected_answer": "To lower your taxable income through charitable donations, you should consider donating to organizations that are qualified for tax-deductible contributions, making sure the giving money  will be used for the specific goal the charity declared, and that's the way for you to funnel money to the goals of your preference/choice.  For example, you can donate money to your temple, to a church for the building fund, to a hospital to buy a new x-ray machine, orphanage ,a gay rights organization , to  Red Cross for a specific disaster or even donate money to to the scouts for a new dining hall, etc.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.14981273408239698,
+        "metrics": {
+          "token_recall": 0.4772727272727273,
+          "rouge_l_f1": 0.14981273408239698
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "258193fc88e0e73322e288aa03719260<::>9",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "prompt_token_count": 2949,
+      "output_text": "To get a good lawyer to do your estate plan and will, you should interview two or more attorneys, accountants, trust officers, financial advisors, and so on. The average initial cost for the legal drafting of a will, living will, and durable power of attorney documentation is between $500 and $1,200, depending on the family size and location. It is also important to keep tabs on your insurance policies and investments, as they all tie into the estate plan and can fluctuate based on the economic environment. If you have to make revisions, it will cost as much as it did to create the documents in the first place.",
+      "expected_answer": "To find a good lawyer for creating your estate plan and will, you  should interview two or more attorney,  accountants, trust officers, financial advisors and pick the one that you can trust more and sit down  and explain what you want. You  should ask about the attorney's fee the legal services . The average initial cost for the legal drafting of a will, living will and durable power of attorney documentation is between $500 and $1,200, depending on the family size and location. ",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.5402298850574712,
+        "metrics": {
+          "token_recall": 0.7027027027027027,
+          "rouge_l_f1": 0.5402298850574712
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "4fb9958d3e2694c9076e696f5ac9628e<::>2",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "prompt_token_count": 1927,
+      "output_text": "For a small business owner who wishes to attend an annual seminar to improve their business, if they have enough credit card reward points to cover the airfare, hotel, and rental car, the expenses will not be fully deductible due to the cancellation effect of the points. However, if the points were earned on a personal credit card and used for business-related expenses, the employer can reimburse the employee for those expenses, and the IRS follows an unofficial \"don't ask, don't tell\" rule regarding any rewards or cashback earned on the employee's personal card. It's important to note that credit card fees for personal expenses are not tax-deductible, while fees for business credit cards are deductible on Schedule C or the appropriate form for reporting business income and expenses. Having separate cards for business and personal use is recommended to avoid confusion and ensure proper accounting.",
+      "expected_answer": "If you are asking about a small business owner use credit card points and pay for expenses and deduct them , you can. Also if your are a Sole Proprietorship ,you can file form Schedule C and deduct all eligible business expenses, regardless of how you pay for them (credit/debit/check/cash). As long as you are paying for business expenses and have all the necessary receipts to show, you can deduct them.  If you receive cashback on the side there seems to be a \"\"don't ask, don't tell\"\" rule that the IRS is OK with. I suggest that you have at least a personal card that you only use for business expenses, if you don't opt for a business card. It makes it easier to defend if you are ever audited, and if you use an accountant or tax preparer, it makes it very clear that expenses on that card are business expenses, and it is also just more professional.  I would highly recommend having a professional handle your taxes. It is worth the money to have it done correctly rather than doing something wrong and getting audited  or having penalties assessed and owing more money than you expected.  You can also write it off as a business expense.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.20795107033639143,
+        "metrics": {
+          "token_recall": 0.3076923076923077,
+          "rouge_l_f1": 0.20795107033639143
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "fc3e765d7ffc28ffc7ee7ea38fd3c73a<::>3",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "prompt_token_count": 2832,
+      "output_text": "In recent years, California housing costs have risen rapidly, particularly in terms of home purchase prices. The monthly fees for a newly purchased home are now about $2,500 higher than they were just a few years ago. The annual income required to qualify for a typical home is around $235,000\u2014more than twice the median household income of about $85,000. To qualify for a more affordable \"bottom-tier\" home, the annual income needed is over 50% higher than the median income.",
+      "expected_answer": "Rental housing in California is more expensive compared to other states, with renters typically paying 50 percent more for housing. In some parts of the state, rent costs are more than double the national average. The high rent in California is due to the housing shortage, which results in fierce competition for housing, driving up rent prices. As per the rent control law, the value of rental housing would decrease because potential landlords would only be willing to pay as much for these properties. Consequently, some renters would pay less, while landlords would receive less rental income. Additionally, fewer renters would move as frequently due to rent increases. The impact of these effects would vary depending on the number of communities passing new rent control laws and the specific type and scope of rent control being adopted.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.13131313131313133,
+        "metrics": {
+          "token_recall": 0.15625,
+          "rouge_l_f1": 0.13131313131313133
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "5f9ccf0a4ff691fc482432af64cc3c9d<::>5",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "prompt_token_count": 3327,
+      "output_text": "Based on the provided passages, the most commonly targeted groups include:\n\n1. Seniors - Many scams specifically target seniors due to their tendency to rely on technology and less awareness of online threats.\n2. People with low income - Those who don't have much money are often easier targets because they're more likely to believe quick fixes or promises of getting rich.\n3. Younger individuals - While not explicitly mentioned, younger people are sometimes targeted through social media scams where they're asked to click on suspicious links or download apps.\n4. College students - Similar to younger individuals, college students are sometimes targeted by scams related to job opportunities or scholarships.\n5. Victims of domestic violence - In some cases, victims of domestic violence may become targets of scams aimed at exploiting their vulnerability.\n6. People with disabilities - Individuals with physical or cognitive disabilities may be particularly vulnerable to scams targeting their needs or interests.\n7. People with limited English proficiency - Non-native speakers may struggle to understand scams in language they don't speak fluently, leading to easy manipulation.\n8. People with poor credit scores - Those with lower credit ratings may be more susceptible to loan scams promising easy loans with minimal requirements.\n9. People with medical conditions - Scammers may exploit the fear of illness or disability to create urgency and pressure for quick decisions.\n10. People with children - Parents may be targeted by scams offering rewards or gifts for keeping children safe, potentially leading to misinformed decisions.\n\nThese categories represent various demographics that scammers frequently target based on factors like age, economic status, education level, and perceived vulnerabilities.",
+      "expected_answer": " Indeed scammer target everyone but some vulnerable ones like older adults and senior citizens are often more their victims . The imposter scammers try to convince those people to send money by pretending to be someone they know or trust like a sheriff, local, state, or federal government employee, or charity organization. Residence is targeted by Contractors. The contractors may offer to perform a free inspection, then claim that a serious problem such as faulty wiring, bad plumbing, or a leaky roof, will put you in danger.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.1,
+        "metrics": {
+          "token_recall": 0.375,
+          "rouge_l_f1": 0.1
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "62a5aee8a497bee6fc467df13bf23cfc<::>7",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "prompt_token_count": 3284,
+      "output_text": "To solve the problem of water pollution, several strategies can be implemented. First, reducing the amount of gasoline, natural gas, and electricity used can decrease emissions and pollutants. Second, minimizing the use of products containing volatile organic compounds (VOCs) and particulate matter (PM) can help protect indoor air quality. Third, maintaining vehicles and keeping them well-insulated can reduce the release of toxins into the atmosphere. Fourth, recycling and composting can help reduce the need for new resources and decrease pollution. Fifth, using renewable energy sources like solar or wind power can eliminate reliance on fossil fuels. Sixth, installing low-flow fixtures and using water-saving devices can conserve water and reduce pollution. Seventh, using eco-friendly cleaning products and avoiding the use of toxic chemicals can improve overall environmental health. Eighth, planting trees can absorb pollutants and provide shade. Ninth, educating oneself and others about the importance of protecting water resources can lead to collective efforts towards solving the issue. Lastly, supporting policies and initiatives aimed at reducing pollution and promoting sustainability can create a positive change.",
+      "expected_answer": "To reduce air pollution, here are some suggestions:\n\n1. Turn off the lights when you leave a room.\n2. Replace energy-hungry incandescent lights with compact fluorescent light bulbs.\n3. Ask your energy supplier for a home audit and inquire about alternative energy solutions like solar or wind.\n4. Opt for a fan instead of air conditioning.\n5. Use a programmable thermostat and set it to 78\u00b0F in the summer and 68\u00b0F in the winter.\n6. Install low-flow shower heads.\n7. Recycle paper, plastic, metals, and organic materials.\n8. Use an EPA-approved wood-burning stove or replace insert.\n9. Don\u2019t use your wood stove or replace on days with unhealthy air.\n10. Don\u2019t heat your home with a gas stove.\n11. Use a surge protector for multiple appliances and turn it off when products are not in use.\n12. Add insulation to your home.\n13. Wash laundry in cold water and line dry.\nTo reduce water pollution, you can:\n1. Pick up after your pet. Pet waste can contain harmful bacteria and should be disposed of properly.\n2. Save water by sweeping your driveway instead of using the hose, and consider washing your car at a facility with advanced filtration systems to recycle water.\n3. Consider going organic.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.1229050279329609,
+        "metrics": {
+          "token_recall": 0.20618556701030927,
+          "rouge_l_f1": 0.1229050279329609
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "5503c6e98c54d4901332d0f1c6030bd9<::>4",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "prompt_token_count": 3092,
+      "output_text": "Yes, MOXIE is named after the soft drink Moxie, which is known for its fizziness due to the presence of carbon dioxide. This connection likely stems from the fact that both Moxie and MOXIE involve the conversion of carbon dioxide into oxygen, albeit in different contexts.",
+      "expected_answer": "Yes, you're correct. The word \"moxie,\" used to describe someone with spunk and audacity, came from the soft drink of the same name. The soft drink, Moxie, was invented in the late 1800s in Lowell, Massachusetts, not far from the M.I.T. Haystack Observatory where the MOXIE principal investigator works.  You can still buy Moxie in New England, and it's considered the official drink of the state of Maine. The connection with soft drinks doesn't end there. According to some accounts, the Moxie company was the first in the U.S. to use carbon dioxide (CO2) to make a beverage fizzy.  MOXIE is the first to use carbon dioxide on Mars.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.17647058823529413,
+        "metrics": {
+          "token_recall": 0.2127659574468085,
+          "rouge_l_f1": 0.17647058823529413
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "ccdfb6b6f98c55047ae81b705104dbd6<::>2",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "prompt_token_count": 2399,
+      "output_text": "The Deep Impact mission aimed to rendezvous with comet 9P/Tempel 1 and launch a projectile into the comet nucleus. It collected observations of the ejecta, including the pristine material from the interior of the comet, the crater formation process, the resulting crater, and outgassing from the nucleus. The scientific objectives of the mission included improving the knowledge of the physical characteristics of cometary nuclei and assessing the interior of cometary nuclei, determining properties of the surface layers like density, strength, porosity, and composition from the crater and its formation, studying the relationship between the surface layers of a cometary nucleus and the possibly pristine materials of the interior by comparison of the interior of the crater with the surface before impact, and improving our understanding of the evolution of cometary nuclei, particularly their approach to dormancy, by comparing the interior and the surface.",
+      "expected_answer": "The goal of the Deep Impact mission was to rendezvous with comet 9P/Tempel 1 and launch a projectile into the comet nucleus. Observations were then made of the ejecta, crater formation process, the resulting crater, and outgassing from the nucleus, particularly the newly exposed surface. The mission aimed to improve the knowledge of the physical characteristics of cometary nuclei and directly assess the interior of cometary nucleus, determine properties of the surface layers, study the relationship between the surface layers of a cometary nucleus and the possibly pristine materials of the interior, and improve our understanding of the evolution of cometary nuclei, particularly their approach to dormancy.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.6798029556650246,
+        "metrics": {
+          "token_recall": 0.8181818181818182,
+          "rouge_l_f1": 0.6798029556650246
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "be461bfeda2d4826cdb663dcaa7d1ced<::>3",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "prompt_token_count": 2699,
+      "output_text": "A major.minor update moves up the Kubernetes version of the worker node to the same version as the master. This type of update often includes changes to the Kubernetes API or other behaviors that you must prepare your cluster for. Remember that your worker nodes can only be one version behind the master version (n-1). You can update the classic worker node to the same patch by using the ibmcloud ks worker update command.",
+      "expected_answer": " To determine the type of update that is available, compare your current worker node versions to the latest worker node fix pack version in the Red Hat OpenShift version change log. Major updates are indicated by the first digit in the version label (4.x.x), minor updates are indicated by the second digit (x.7.x).  A major.minor update moves up the Kubernetes version of the worker node to the same version as the master. This type of update often includes changes to the Kubernetes API or other behaviors that you must prepare your cluster for. Remember that your worker nodes can only be one version behind the master version (n-1). You can update the classic worker node to the same patch by using the ibmcloud oc worker update command.             ",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.5675675675675675,
+        "metrics": {
+          "token_recall": 0.5675675675675675,
+          "rouge_l_f1": 0.7200000000000001
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "b4614daadceeecb400f7baf0aa48dcb8<::>3",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "prompt_token_count": 2079,
+      "output_text": "To use the WebSocket API, you first need to establish a connection with the service by calling the `/v1/recognize` method. This involves specifying parameters like the language model and any custom models needed for requests sent over the connection. After establishing the connection, you can register event listeners to handle responses from the service. To actually make a request, you send a JSON text message containing the audio format and any additional parameters. The audio is passed as a binary message (blob), and you send a text message to indicate the end of the audio.",
+      "expected_answer": "To use the WebSocket interface, you first use the /v1/recognize method to establish a connection with the service. You specify parameters such as the language model and any custom models that are to be used for requests that are sent over the connection. You then register event listeners to handle responses from the service. For the WebSocket interface, you first specify the customization ID with the language_customization_id parameter of the /v1/recognize method. You use this method to establish a WebSocket connection with the service. To use the WebSocket API for speech recognition, you first establish a persistent connection with the service using the /v1/recognize method. Then, you send text and binary messages over the connection to initiate and manage recognition requests. To synthesize text to speech with the WebSocket interface of the IBM Watson\u00ae Text to Speech service, you first establish a connection with the service by calling its /v1/synthesize method. You then send the text to be synthesized to the service as a JSON text message over the connection.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.3680555555555556,
+        "metrics": {
+          "token_recall": 0.3680555555555556,
+          "rouge_l_f1": 0.37668161434977576
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "20c2cbd18c16c12c9c2bbead6aef1a21<::>7",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "prompt_token_count": 2681,
+      "output_text": "A secret is defined as a piece of information that is kept safe and protected, often due to security concerns. In the context of cloud services like IBM Cloud, a secret refers to sensitive data such as passwords, API keys, or other authentication tokens that need to be securely managed and stored. These secrets are typically created and managed using tools provided by the cloud provider, ensuring compliance with various regulations and best practices for handling sensitive information.",
+      "expected_answer": "A secret is any piece of data that is sensitive within the context of an application or service.\n\nSecrets include all of the following but are not limited to:\n- Passwords of any type (database logins, OS accounts, functional IDs, and so on)\n- API keys\n- Long-lived authentication tokens (OAuth2, GitHub, IAM, and so on)\n- SSH keys\n- Encryption keys\n- Other private keys (PKI/TLS certificates, HMAC keys, signing keys, and so on)\n- Any type of credential used to access a confidential system\n\n  It is critical that secrets are securely protected through their entire lifecycle.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.21383647798742136,
+        "metrics": {
+          "token_recall": 0.313953488372093,
+          "rouge_l_f1": 0.21383647798742136
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "1c041ce47a81941c26899fdf08bde961<::>2",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "prompt_token_count": 2384,
+      "output_text": "The passage discusses several aspects of running a query in IBM Watson Data Engine, including specifying the FROM clause with unique resource identifiers (URIs), handling different input object formats like CSV, JSON, ORC, Parquet, or AVRO, and managing query states and histories. The key points are:\n\n1. **Query Syntax**: Queries are essentially SELECT statements within the SQL editor.\n2. **Resource Identifiers**: These URIs represent tables or partitions of input objects.\n3. **Input Object Formats**:\n   - CSV without special options requires no `STORED AS` clause.\n   - Other formats (`JSON`, `ORC`, `Parquet`, `AVRO`) require specifying `STORED AS`.\n4. **Compression Handling**: Compressed files (.gz, .bz) are automatically recognized but may impact performance.\n5. **Header Line**: Default assumption is a header line indicating column names unless specified otherwise.\n6. **Delimiters**: Use `FIELDS TERMINATED BY` for non-default delimiters in CSV inputs.\n\nThese elements collectively form the structure and requirements for executing a valid query in IBM Watson Data Engine.",
+      "expected_answer": "The Query is a standard JavaScript object, which is passed to the db.find function which it POSTs to the _find endpoint on your behalf. To retrieve data from Discovery after it is ingested, indexed, and enriched, submit a query.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.06741573033707865,
+        "metrics": {
+          "token_recall": 0.20588235294117646,
+          "rouge_l_f1": 0.06741573033707865
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "4c86c8740c3d49e06b7aca9d308119fa<::>4",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "prompt_token_count": 2613,
+      "output_text": "Some best practices for IBM Cloud Kubernetes Service include:\n\n1. **Use Virtual Machines (VMs)**: Provisioning worker nodes as virtual machines allows for better resource allocation and flexibility. Shared resources can be used efficiently, reducing costs and improving performance.\n\n2. **Define Access Groups**: To ensure that access to the VPC network is restricted to necessary users, define access groups. This helps maintain security by limiting who can interact with the cluster and its resources.\n\n3. **Choose a VPC Networking Setup**: Selecting a VPC networking setup ensures that all cluster components can communicate within the private network and with external networks or services. This enhances scalability and reliability.\n\n4. **Worker Node Communication**: Ensure that all worker nodes can communicate with each other and with the private network via VPC subnets. This facilitates seamless integration and efficient resource utilization.\n\n5. **Monitor and Manage Cluster Resources**: Utilize the built-in monitoring and management features of IBM Cloud Kubernetes Service to keep track of cluster health, resource usage, and application performance. This proactive approach helps in identifying and addressing potential issues early.\n\n6. **Secure Configuration Management**: Implement strict security measures when configuring the cluster, including enabling encryption, setting appropriate permissions, and regularly auditing access controls.\n\n7. **Automate Rollouts and Rollbacks**: Leverage automation tools to streamline the process of deploying and rolling back applications. This reduces human error and speeds up the deployment cycle.\n\n8. **Regularly Update Kubernetes Version**: Keep your Kubernetes version updated to take advantage of the latest improvements and bug fixes. However, ensure compatibility with your existing workload and any third-party integrations.\n\n9. **Integrate with Other IBM Services**: Consider integrating IBM Cloud Kubernetes Service with other IBM services like IBM Cloud Object Storage, IBM Cloud Functions, and IBM Cloud Private, depending on your requirements.\n\nBy adhering to these practices, you can enhance the security, efficiency, and reliability of your",
+      "expected_answer": "Here are some best practices for using IBM Cloud Kubernetes Service: 1. Keep your cluster up-to-date: Regularly update your cluster to avoid getting into an unsupported state and experiencing operational impact. 2. Ensure compatibility between master and worker nodes: Your worker nodes can't run a later major.minor Kubernetes version than the master. They can be up to two versions behind the master version (n-2). 3. Update worker nodes for each patch version: Unlike the master, you must update your workers for each patch version. 4. Review the version archive instructions: If your cluster runs an unsupported Kubernetes version, follow the version archive instructions.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.12371134020618556,
+        "metrics": {
+          "token_recall": 0.45263157894736844,
+          "rouge_l_f1": 0.12371134020618556
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    }
+  ],
+  "run_id": "mtrag-calibration-274842",
+  "manifest": "results/mtrag-quality-calibration-v1/manifest.json",
+  "source_sha256": "5d5201da9fabd072fd8f6b8d051bfaafa7ef031e76722a4920c66e94cede1873",
+  "endpoint": "http://127.0.0.1:28842/v1/chat/completions",
+  "request_ledger": "/vol/bitbucket/lmw25/cacheselect-request-logs/mtrag-calibration-274842/mtrag-calibration-274842.jsonl"
+}

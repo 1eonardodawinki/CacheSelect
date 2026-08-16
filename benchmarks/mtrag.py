@@ -9,8 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from benchmarks.block_dataset import DatasetSplit
+
 
 MTRAG_PROMPT_TEMPLATE_VERSION = 1
+MTRAG_SPLIT_SEED = "cacheselect-mtrag-v1"
 MTRAG_SYSTEM_PROMPT = (
     "Answer the current question using the retrieved passages and conversation "
     "history. If the passages do not contain enough information, say so."
@@ -24,6 +27,23 @@ def mtrag_source_sha256(path: Path) -> str:
         for chunk in iter(lambda: source.read(1024 * 1024), b""):
             digest.update(chunk)
     return digest.hexdigest()
+
+
+# Assign complete conversations to a stable split before inspecting examples.
+def mtrag_conversation_split(
+    conversation_id: str,
+    *,
+    seed: str = MTRAG_SPLIT_SEED,
+) -> DatasetSplit:
+    if not conversation_id or not seed:
+        raise ValueError("conversation ID and split seed must not be empty")
+    digest = hashlib.sha256(f"{seed}:{conversation_id}".encode()).hexdigest()
+    bucket = int(digest[:8], 16) % 100
+    if bucket < 70:
+        return DatasetSplit.TRAIN
+    if bucket < 85:
+        return DatasetSplit.VALIDATION
+    return DatasetSplit.TEST
 
 
 @dataclass(frozen=True)

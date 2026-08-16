@@ -1,0 +1,128 @@
+{
+  "schema_version": 1,
+  "audit": "mtrag-reference-quality-manual-audit",
+  "calibration_id": "mtrag-qwen2.5-1.5b-manual-reference-v1",
+  "source_run_id": "mtrag-calibration-274842",
+  "source_artifact_sha256": "5b0ec9e2cbcce52a51bf38d48913b00fd4ca69db9045418c4164f76fc7a2fdc0",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "prompt_template_version": 1,
+  "max_completion_tokens": 384,
+  "source_dataset_revision": "cc5b1d481b391181b89f7ced860308482e785463",
+  "source_dataset_sha256": "5d5201da9fabd072fd8f6b8d051bfaafa7ef031e76722a4920c66e94cede1873",
+  "split": "train",
+  "review_policy": "Compare the full-compute answer with the public MTRAG target for correctness, relevance, and unsupported claims before observing any partial-reuse output.",
+  "gate": {
+    "minimum_token_recall": 0.15,
+    "minimum_rouge_l_f1": 0.10,
+    "maximum_metric_drop": 0.02,
+    "absolute_threshold_role": "drift_check_after_manual_reference_approval"
+  },
+  "summary": {
+    "reviewed": 20,
+    "pass": 8,
+    "concern": 8,
+    "fail": 4
+  },
+  "rows": [
+    {
+      "task_id": "79f0d0539d9ec0acbf90cb3388b30c17<::>7",
+      "verdict": "pass",
+      "reason": "Accurately defines secondary sources and gives relevant examples."
+    },
+    {
+      "task_id": "1534a095279f2cb888fb0bea17bd70da<::>4",
+      "verdict": "fail",
+      "reason": "Claims air-to-air photography is harder although the target is inconclusive."
+    },
+    {
+      "task_id": "aea2634b0e5f1c2444550d31c41adc94<::>3",
+      "verdict": "concern",
+      "reason": "Includes irrelevant DOMA discussion and misses grounded wedding details."
+    },
+    {
+      "task_id": "79f0d0539d9ec0acbf90cb3388b30c17<::>5",
+      "verdict": "concern",
+      "reason": "Broadly relevant but adds unsupported claims and omits key target points."
+    },
+    {
+      "task_id": "6528deeee4180c1b2b770a2929482e82<::>3",
+      "verdict": "pass",
+      "reason": "Correctly lists major products of Indian agriculture."
+    },
+    {
+      "task_id": "dc1aaac0b33553d8c897d4150955d803<::>5",
+      "verdict": "fail",
+      "reason": "Ignores the current message and continues the preceding IRA topic."
+    },
+    {
+      "task_id": "6af5334fbd010b919d7fa174823abd12<::>2",
+      "verdict": "pass",
+      "reason": "Correctly explains the mortgage and refinancing distinction."
+    },
+    {
+      "task_id": "258193fc88e0e73322e288aa03719260<::>3",
+      "verdict": "pass",
+      "reason": "Correctly identifies qualified charities and suitable examples."
+    },
+    {
+      "task_id": "258193fc88e0e73322e288aa03719260<::>9",
+      "verdict": "pass",
+      "reason": "Faithfully gives lawyer-selection advice and the expected cost range."
+    },
+    {
+      "task_id": "4fb9958d3e2694c9076e696f5ac9628e<::>2",
+      "verdict": "concern",
+      "reason": "Mixes owner and employee cases and gives an ambiguous deduction claim."
+    },
+    {
+      "task_id": "fc3e765d7ffc28ffc7ee7ea38fd3c73a<::>3",
+      "verdict": "fail",
+      "reason": "Answers about home purchase prices rather than rent and rent control."
+    },
+    {
+      "task_id": "5f9ccf0a4ff691fc482432af64cc3c9d<::>5",
+      "verdict": "concern",
+      "reason": "Identifies seniors but invents unsupported groups and omits scam mechanisms."
+    },
+    {
+      "task_id": "62a5aee8a497bee6fc467df13bf23cfc<::>7",
+      "verdict": "concern",
+      "reason": "Conflates water and air pollution and omits direct grounded actions."
+    },
+    {
+      "task_id": "5503c6e98c54d4901332d0f1c6030bd9<::>4",
+      "verdict": "concern",
+      "reason": "Gets the beverage connection but adds a false carbon-dioxide claim."
+    },
+    {
+      "task_id": "ccdfb6b6f98c55047ae81b705104dbd6<::>2",
+      "verdict": "pass",
+      "reason": "Provides a faithful and comprehensive Deep Impact mission summary."
+    },
+    {
+      "task_id": "be461bfeda2d4826cdb663dcaa7d1ced<::>3",
+      "verdict": "concern",
+      "reason": "Mostly faithful but gives the wrong actionable IBM Cloud command."
+    },
+    {
+      "task_id": "b4614daadceeecb400f7baf0aa48dcb8<::>3",
+      "verdict": "pass",
+      "reason": "Correctly describes the WebSocket recognition request flow."
+    },
+    {
+      "task_id": "20c2cbd18c16c12c9c2bbead6aef1a21<::>7",
+      "verdict": "pass",
+      "reason": "Correctly defines secrets and gives representative examples."
+    },
+    {
+      "task_id": "1c041ce47a81941c26899fdf08bde961<::>2",
+      "verdict": "fail",
+      "reason": "Answers about Data Engine SQL rather than the Discovery query object."
+    },
+    {
+      "task_id": "4c86c8740c3d49e06b7aca9d308119fa<::>4",
+      "verdict": "concern",
+      "reason": "Gives generic Kubernetes advice, misses precise guidance, and is truncated."
+    }
+  ]
+}
