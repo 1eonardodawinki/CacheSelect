@@ -89,6 +89,9 @@ def run_counterfactual_dataset_workflow(
         raise RuntimeError("live vLLM candidates differ from the frozen pilot")
     if not discovery.testable_block_indices:
         raise RuntimeError("transition has no full candidate blocks safe to test")
+    fresh_reference_output = discovery_run.edited_observation.get("output_text")
+    if not isinstance(fresh_reference_output, str) or not fresh_reference_output:
+        raise RuntimeError("discovery produced no full-compute reference output")
     selected = (
         discovery.testable_block_indices
         if selected_block_indices is None
@@ -111,7 +114,8 @@ def run_counterfactual_dataset_workflow(
         timeout_seconds=timeout_seconds,
         recorder=recorder,
         selected_block_indices=selected,
-        required_reference_output=required_reference_output,
+        # Bind every trial to the full-compute answer produced by this server run.
+        required_reference_output=fresh_reference_output,
         require_exact_output_match=require_exact_output_match,
     )
     training_rows = save_counterfactual_training_dataset(
@@ -131,6 +135,9 @@ def run_counterfactual_dataset_workflow(
         "transition_id": transition.transition_id,
         "split": split.value,
         "discovery_id": discovery_run.discovery_id,
+        "approved_reference_exact_match": (
+            discovery_run.approved_output_exact_match
+        ),
         "candidate_blocks": len(discovery.candidate_block_indices),
         "testable_blocks": len(discovery.testable_block_indices),
         "planned_blocks": len(selected),

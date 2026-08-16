@@ -25,6 +25,8 @@ class CounterfactualWorkflowTests(TestCase):
         discovery_run = SimpleNamespace(
             discovery_id="discovery-id",
             discovery=discovery,
+            edited_observation={"output_text": "fresh full-compute answer"},
+            approved_output_exact_match=False,
         )
         batch = SimpleNamespace(
             trials=(
@@ -94,6 +96,7 @@ class CounterfactualWorkflowTests(TestCase):
         self.assertEqual(result["invalid_trials"], 0)
         self.assertEqual(result["abstained_trials"], 1)
         self.assertEqual(result["reuse_labels"], 1)
+        self.assertFalse(result["approved_reference_exact_match"])
         self.assertEqual(
             run_discovery.call_args.kwargs["source_request"].request_id,
             transition.previous_request_id,
@@ -102,6 +105,10 @@ class CounterfactualWorkflowTests(TestCase):
         self.assertEqual(
             run_trials.call_args.kwargs["selected_block_indices"],
             (1, 2),
+        )
+        self.assertEqual(
+            run_trials.call_args.kwargs["required_reference_output"],
+            "fresh full-compute answer",
         )
         self.assertEqual(save_dataset.call_args.kwargs["split"], DatasetSplit.TRAIN)
 
@@ -119,6 +126,8 @@ class CounterfactualWorkflowTests(TestCase):
                 (1, 2),
                 None,
             ),
+            edited_observation={"output_text": "fresh full-compute answer"},
+            approved_output_exact_match=True,
         )
 
         with (

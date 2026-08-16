@@ -130,11 +130,12 @@ class CounterfactualLabelTests(TestCase):
                 api_key=None,
                 timeout_seconds=2.0,
                 recorder=object(),
-                required_edited_output=edited.ground_truth.expected_answer,
+                required_edited_output="previously approved wording",
             )
 
         self.assertIsInstance(result, CounterfactualDiscoveryRunResult)
         self.assertEqual(result.discovery.testable_block_indices, (1,))
+        self.assertFalse(result.approved_output_exact_match)
         calls = observe.call_args_list
         self.assertEqual(calls[0].kwargs["cache_salt"], calls[1].kwargs["cache_salt"])
         self.assertEqual(

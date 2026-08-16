@@ -57,6 +57,7 @@ class CounterfactualDiscoveryRunResult:
     source_observation: dict[str, Any]
     edited_observation: dict[str, Any]
     discovery: CounterfactualCandidateDiscovery
+    approved_output_exact_match: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -289,12 +290,14 @@ def run_counterfactual_candidate_discovery(
     )
     if (
         required_edited_output is not None
-        and (
-            edited_observation.get("output_text") != required_edited_output
-            or edited_observation.get("finish_reason") != "stop"
-        )
+        and edited_observation.get("finish_reason") != "stop"
     ):
-        raise RuntimeError("discovery edit differs from its approved reference")
+        raise RuntimeError("discovery edit was truncated")
+    approved_output_exact_match = (
+        None
+        if required_edited_output is None
+        else edited_observation.get("output_text") == required_edited_output
+    )
     discovery = extract_counterfactual_candidate_discovery(
         trace_id=trace_id,
         transition_id=transition.transition_id,
@@ -319,6 +322,7 @@ def run_counterfactual_candidate_discovery(
         source_observation,
         edited_observation,
         discovery,
+        approved_output_exact_match,
     )
 
 
