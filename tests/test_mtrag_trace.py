@@ -7,7 +7,12 @@ from benchmarks.mtrag import (
     MtragTask,
     render_mtrag_messages,
 )
-from benchmarks.mtrag_trace import build_mtrag_request_spec, build_mtrag_transition_trace
+from benchmarks.mtrag import mtrag_conversation_split
+from benchmarks.mtrag_trace import (
+    build_mtrag_counterfactual_cases,
+    build_mtrag_request_spec,
+    build_mtrag_transition_trace,
+)
 from benchmarks.schema import ReferenceSimilarityGate
 
 
@@ -44,6 +49,38 @@ def _previous_task() -> MtragTask:
 # Build the explicitly versioned gate used by the request answer key.
 def _gate() -> ReferenceSimilarityGate:
     return ReferenceSimilarityGate(0.5, 0.4, 0.05, "mtrag-qwen-v1")
+
+
+# Build one audited manifest that exactly describes the two fixture tasks.
+def _manifest() -> dict:
+    current = _task()
+    return {
+        "schema_version": 1,
+        "selection": "mtrag-audited-counterfactual-pilot",
+        "quality_calibration_id": _gate().calibration_id,
+        "source_prompt_template_version": 1,
+        "source_model": "test-model",
+        "split_seed": "cacheselect-mtrag-v1",
+        "block_size": 16,
+        "max_target_blocks": 1,
+        "transition_count": 1,
+        "total_testable_blocks": 1,
+        "total_target_blocks": 1,
+        "transitions": [
+            {
+                "split": mtrag_conversation_split(current.conversation_id).value,
+                "conversation_id": current.conversation_id,
+                "collection": current.collection,
+                "previous_task_id": _previous_task().task_id,
+                "current_task_id": current.task_id,
+                "shared_document_ids": ["doc-1"],
+                "aligned_candidate_block_indices": [2, 3],
+                "testable_block_indices": [2],
+                "target_block_indices": [2],
+                "excluded_output_block_index": 3,
+            }
+        ],
+    }
 
 
 class MtragTraceTests(TestCase):
@@ -116,4 +153,30 @@ class MtragTraceTests(TestCase):
                 _previous_task(),
                 skipped,
                 quality_gate=_gate(),
+            )
+
+    # Resolve a frozen plan independently of raw JSONL row ordering.
+    def test_builds_manifest_validated_case(self):
+        cases = build_mtrag_counterfactual_cases(
+            [_task(), _previous_task()],
+            _manifest(),
+            quality_gate=_gate(),
+            approved_task_ids=frozenset({_task().task_id}),
+            expected_model="test-model",
+        )
+
+        self.assertEqual(len(cases), 1)
+        self.assertEqual(cases[0].expected_candidate_block_indices, (2, 3))
+        self.assertEqual(cases[0].expected_testable_block_indices, (2,))
+        self.assertEqual(cases[0].target_block_indices, (2,))
+
+    # Reject a frozen case whose current answer was not manually approved.
+    def test_rejects_unapproved_reference_task(self):
+        with self.assertRaisesRegex(ValueError, "approval"):
+            build_mtrag_counterfactual_cases(
+                [_previous_task(), _task()],
+                _manifest(),
+                quality_gate=_gate(),
+                approved_task_ids=frozenset({"different-task"}),
+                expected_model="test-model",
             )
