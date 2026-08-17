@@ -1,0 +1,149 @@
+{
+  "schema_version": 1,
+  "review": "mtrag-reference-correctness-verdicts-blinded",
+  "source_review": "manual-review-blinded.json",
+  "review_policy": "Pass requires a relevant, materially correct answer without a consequential contradiction or unsupported claim. Concern marks partially useful but unreliable answers. Fail marks a wrong conclusion, wrong topic, or material factual error.",
+  "summary": {
+    "reviewed": 27,
+    "pass": 6,
+    "concern": 7,
+    "fail": 14
+  },
+  "rows": [
+    {
+      "review_id": "reference-196b11837119",
+      "verdict": "fail",
+      "reason": "Incorrectly discourages Carthage and misses that it is a supported alternative requiring manual framework addition."
+    },
+    {
+      "review_id": "reference-1af090f4a102",
+      "verdict": "fail",
+      "reason": "Claims foreign bonds may be safer while the expected answer emphasizes controversial, additional country and currency risks."
+    },
+    {
+      "review_id": "reference-335c48217405",
+      "verdict": "concern",
+      "reason": "Correctly says Hebrew lacks dedicated support but misses the universal language model and substitutes unsupported guidance."
+    },
+    {
+      "review_id": "reference-38f15c550e01",
+      "verdict": "concern",
+      "reason": "Offers broadly plausible troubleshooting but does not first request the specific error and adds substantial irrelevant guidance."
+    },
+    {
+      "review_id": "reference-49a4dd13b940",
+      "verdict": "fail",
+      "reason": "Does not provide the requested NASA Space Place games and instead lists unrelated missions or unsupported game names."
+    },
+    {
+      "review_id": "reference-5899f3889756",
+      "verdict": "pass",
+      "reason": "Correctly identifies the HIV/AIDS death toll and its status as a highly destructive global epidemic."
+    },
+    {
+      "review_id": "reference-61730d62e193",
+      "verdict": "concern",
+      "reason": "Names plausible halftime performers but does not faithfully reproduce the requested passage-supported set."
+    },
+    {
+      "review_id": "reference-64f9b51a1f00",
+      "verdict": "fail",
+      "reason": "Reverses cash and debt in the enterprise-value formula and then incorrectly turns the answer into an EV/EBIT calculation."
+    },
+    {
+      "review_id": "reference-681e1e799fed",
+      "verdict": "fail",
+      "reason": "Answers about guinea pigs generally although the requested Cavia tschudii diet is not supported by the documents."
+    },
+    {
+      "review_id": "reference-6bc8f10e8be8",
+      "verdict": "fail",
+      "reason": "Invents a 1,000-year retention limit where the expected response states that the document provides no answer."
+    },
+    {
+      "review_id": "reference-744d0eff239f",
+      "verdict": "pass",
+      "reason": "Correctly explains reduced blood-cell production, representative symptoms, aplastic anemia, and possible transplantation."
+    },
+    {
+      "review_id": "reference-9352b991a6f3",
+      "verdict": "concern",
+      "reason": "Lists plausible benefits but misses that additional compensation is not required and why benefits matter for recruitment."
+    },
+    {
+      "review_id": "reference-943224308a42",
+      "verdict": "fail",
+      "reason": "Says garbage service is optional although property owners are required to arrange it and then suggests the wrong savings mechanism."
+    },
+    {
+      "review_id": "reference-9c7601a37cdc",
+      "verdict": "concern",
+      "reason": "Correctly mentions defensive construction and suicide but omits major requested actions such as the expedition and settlement program."
+    },
+    {
+      "review_id": "reference-9e33d2323efc",
+      "verdict": "pass",
+      "reason": "Correctly states vaccine safety and gives representative mild, temporary side effects."
+    },
+    {
+      "review_id": "reference-be2b78ce94ac",
+      "verdict": "fail",
+      "reason": "Presents a definite political conclusion and rationale where the grounded answer says there is insufficient information."
+    },
+    {
+      "review_id": "reference-c1aa63f5b94c",
+      "verdict": "fail",
+      "reason": "Gives an unjustified count of four and omits additional appearances explicitly included in the expected answer."
+    },
+    {
+      "review_id": "reference-c73d8f0f06b1",
+      "verdict": "concern",
+      "reason": "Provides relevant generic customization advice but misses the supported configuration controls and suggests potentially unnecessary code changes."
+    },
+    {
+      "review_id": "reference-cbe18ce284b8",
+      "verdict": "fail",
+      "reason": "Incorrectly selects Form 13F as the primary filing and misses Forms 10-K, 10-Q, 3, and 4."
+    },
+    {
+      "review_id": "reference-d60a90d157ca",
+      "verdict": "pass",
+      "reason": "Accurately describes debt consolidation and the lower-rate versus longer-term interest tradeoff."
+    },
+    {
+      "review_id": "reference-dc5f233d7566",
+      "verdict": "fail",
+      "reason": "Says a dialog skill is unnecessary although it is the required container for the assistant's conversation flow."
+    },
+    {
+      "review_id": "reference-e0229fcbb71b",
+      "verdict": "fail",
+      "reason": "Answers about cosigning rather than explaining credit scores and credit ratings."
+    },
+    {
+      "review_id": "reference-e17c8a3c4db8",
+      "verdict": "concern",
+      "reason": "Lists several correct poems but omits much of the requested contents."
+    },
+    {
+      "review_id": "reference-e30393c74c97",
+      "verdict": "pass",
+      "reason": "Accurately lists the major restraining-order categories, with only harmless additional specificity."
+    },
+    {
+      "review_id": "reference-eb3a864157ee",
+      "verdict": "fail",
+      "reason": "Confuses the plaintiff age requirement with whether a 17-year-old can be a defendant and gives an unsupported definite answer."
+    },
+    {
+      "review_id": "reference-ecd518a782e6",
+      "verdict": "pass",
+      "reason": "Correctly describes domestic guinea-pig housing and their scattered activity and rest pattern."
+    },
+    {
+      "review_id": "reference-f143b7418770",
+      "verdict": "fail",
+      "reason": "Recommends a pinhole projector for a lunar eclipse although direct viewing is safe and no projector is needed."
+    }
+  ]
+}

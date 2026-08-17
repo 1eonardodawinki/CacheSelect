@@ -1,0 +1,256 @@
+{
+  "schema_version": 1,
+  "review": "mtrag-reference-correctness-blinded",
+  "review_policy": "Compare the model answer with the expected answer for factual correctness, relevance, omissions, and unsupported claims.",
+  "allowed_verdicts": [
+    "pass",
+    "concern",
+    "fail"
+  ],
+  "row_count": 27,
+  "rows": [
+    {
+      "review_id": "reference-196b11837119",
+      "model_answer": "No specific limitations were mentioned regarding Carthage for installing the mobile SDK. Therefore, there isn't a need to switch to a different method based on this information alone.",
+      "expected_answer": "Yes, you can also use Carthage as an alternative to CocoaPods for installing the IBM Cloud Functions SDK for mobile.  Note that this method requires manual addition of the framework to the Xcode project, unlike CocoaPods which automatically generates a workspace file for you to open the project in Xcode.",
+      "token_recall": 0.20454545454545456,
+      "rouge_l_f1": 0.17391304347826086,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-1af090f4a102",
+      "model_answer": "There isn't a direct answer provided in the passages regarding investing specifically in foreign bonds. However, we can infer from the context that foreign bonds might offer lower risk compared to domestic bonds due to factors like country-specific risk, currency risk, and diversification benefits. The passage suggests that international bonds can be a safer option than domestic ones, although the cost of international bonds can be higher. Therefore, if someone is looking to invest in foreign bonds, they might want to consider the overall risk profile of their portfolio and weigh the potential rewards against the increased costs associated with international bonds.",
+      "expected_answer": "Adding international bonds to an individual investor's portfolio is a controversial subject. On top of the standard risks of bonds, you are adding country specific risk, currency risk and diversifying your individual company risk. In theory many of these risks should be rewarded but the data are noisy at best and adding risk like developed currency risk may not be rewarded at all.  However, if your home currency (or currency union) does not have a deep bond market and/or bonds make up most of your portfolio, it is probably worth diversifying a chunk of your bond exposure internationally.  ",
+      "token_recall": 0.2391304347826087,
+      "rouge_l_f1": 0.14054054054054055,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-335c48217405",
+      "model_answer": "Hebrew is not listed among the supported languages for creating skills. However, if you already have a skill in Hebrew, you can continue to use it within your Watson Assistant service.",
+      "expected_answer": "Hebrew is not included in the supported languages for developing dialog skills in Watson Assistant. However, you can utilize the universal language model to create a conversation in a language for which no dedicated language model is available.",
+      "token_recall": 0.4117647058823529,
+      "rouge_l_f1": 0.3492063492063492,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-38f15c550e01",
+      "model_answer": "It seems like you've encountered issues while trying to update your credit card through the IBM Cloud console. Based on the information provided, here are some potential reasons and solutions:\n\n1. **Incorrect Information**: Ensure that the name and address on your IBM Cloud account match the ones on file with your credit card issuer. Also, check if the country associated with your VAT or tax identification number matches the country in your IBM Cloud account.\n\n2. **Verification Issues**: Verify that you are creating a business account and not a personal account if you are specifying a VAT ID or tax identification number.\n\n3. **Error Messages**: Check the error message displayed. If your transaction was rejected and an email address was not provided, contact your credit card issuer.\n\n4. **Manual Review**: Sometimes, updates to credit cards require a manual review that might take a few days to process. You can track your open change request cases by visiting the IBM Cloud Support portal.\n\n5. **Access Policies**: Make sure you have the correct access policies in place. For viewing usage data, you need the Administrator role on the Billing account management service. For viewing usage for specific IAM resources, you need the Viewer role or higher on the resource group. For viewing usage for specific Cloud Foundry services, the Billing manager role must be applied at the org level.\n\n6. **Billing Platform**: If you manage your payment method on a separate billing platform, you can easily register, update, or delete a payment method by logging into ibm.com and navigating to Billing.\n\nIf these suggestions do not resolve the issue, consider reaching out to IBM Cloud Support for further assistance. They can provide personalized guidance based on your specific situation.",
+      "expected_answer": "I'm sorry to hear that you're having trouble updating your credit card. Can you please let me know the error you are seeing? It can be like \"Could not place order. Problem authorizing the credit card. We are unable to process your request: Transaction Rejected; Could not place order. Problem authorizing the credit card. We're afraid this transaction has been rejected; or Failed to complete the Change Request process due to the following error: We are unable to process your request: Transaction Rejected.\" ",
+      "token_recall": 0.46153846153846156,
+      "rouge_l_f1": 0.12316715542521993,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-49a4dd13b940",
+      "model_answer": "The passage mentions several games related to space exploration, including \"Mars Sample Collection Video Game\" which is the focus of the student project described here. It also references another Mars rover game from NASA. Other games mentioned include \"Perseverance,\" \"Curiosity,\" and \"Juno.\" Additionally, the text suggests looking at infographics and photos from NASA for more inspiration.",
+      "expected_answer": "There are several other games available on the NASA Space Place website that you might find interesting. Here are some of them: 1. Snap it! An Eclipse Photo Adventure - Help the Traveler snap photos of an eclipse!  2. Play Helios: A Game About How the Sun Makes Energy! - Where does the Sun's energy come from?  3. Space Volcanoes! - Explore the many volcanoes in our solar system using the Space Volcano Explorer. 4. Go With the Flow: An Ocean Currents Game - In this ocean currents game, use heat and salt to float your sub to the treasure! 5. Write your own zany adventure story!  6. Play Solar System Switch-a-Roo! - Put clues together to find the planets and moons. 7. DSN Uplink-Downlink: A DSN Game - Help the big antennas gather data from the spacecraft. 8. Roman Space Observer - Catch as many astrophysical objects and phenomena as possible in this game! 9. CubeSat Builder: Build a NASA Spacecraft!  10. Scope It Out! - Scope It Out! includes an introduction to telescopes and two matching games. You can access these games through the NASA Space Place website.",
+      "token_recall": 0.11042944785276074,
+      "rouge_l_f1": 0.10232558139534884,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-5899f3889756",
+      "model_answer": "The passage states that \"HIV/AIDS\" has killed more than 25 million people since it was first recognized on 5 June 1981. This makes it one of the most destructive epidemics in recorded history.",
+      "expected_answer": "Yes, the HIV pandemic has also had a significant global impact. Approximately 38.6 million people are living with HIV worldwide, and there have been around 25 million deaths caused by AIDS since it was first recognized on 5 June 1981 , making it one of the most destructive epidemics in recorded history . It is estimated that in  the Democratic Republic of the Congo  about 1.1 % of adults aged 15 -- 49 were living with HIV / AIDS .   According to the 2015 UNAIDS Report , South Africa has an estimated 7 million people living with HIV -- more than any other country in the world . A 2008 study revealed that HIV / AIDS infection in South Africa is distinctly divided along racial lines : 13.6 % of blacks are HIV - positive , whereas only 0.3 % of whites have the disease . Most deaths are experienced by economically active individuals , resulting in many AIDS orphans who in many cases depend on the state for care and financial support                                     ",
+      "token_recall": 0.1724137931034483,
+      "rouge_l_f1": 0.23863636363636367,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-61730d62e193",
+      "model_answer": "In the last few years, some of the singers who have performed at the Super Bowl halftime show include Bruno Mars, Katy Perry, Lenny Kravitz, Missy Elliott, and Justin Timberlake.",
+      "expected_answer": "The last couple of Super Bowl halftime shows featured Bruno Mars ,  Phil Collins , Christina Aguilera , Enrique Iglesias,Queen Latifah. In the past,  , popular singers and musicians including Mariah Carey , Michael Jackson , Madonna , Prince , Beyonc\u00e9 , Paul McCartney , The Rolling Stones , The Who , Whitney Houston , and Lady Gaga have performed during the event 's pre-game and halftime ceremonies .",
+      "token_recall": 0.26,
+      "rouge_l_f1": 0.20779220779220778,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-64f9b51a1f00",
+      "model_answer": "To calculate Enterprise Value (EV), you start with the Market Capitalization (market cap) of the company, which is the total value of all outstanding shares. You then add back any cash and cash equivalents held by the company. Next, you subtract the total debt from these figures. Finally, divide the result by Earnings Before Interest and Taxes (EBIT) to arrive at the EV/EBIT ratio. This gives you a measure of the company's value based on its ability to generate earnings before considering the costs associated with borrowing money.",
+      "expected_answer": "Calculating a company's enterprise value requires considering several factors. The equation for enterprise value is as follows: EV = Market Cap + Minority Interest + Preferred Stock + Debt\u2014Cash. Enterprise value represents the total value of a company to all its shareholders, including creditors, preferred stockholders, and common stockholders. It's important to note that taking on debt can either increase or decrease the enterprise value, depending on the company's cash balance.",
+      "token_recall": 0.36065573770491804,
+      "rouge_l_f1": 0.18705035971223022,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-681e1e799fed",
+      "model_answer": "Based on the passage, guinea pigs in the wild are found on grassy plains and occupy an ecological niche similar to that of cattle. They are social animals, living in small groups consisting of several females (sows), a male (boar), and the young (which are called \"pups\" rather than \"piglets\"). They move together in groups (herds) eating grass or other vegetation and do not store food. They tend to be most active during dawn and dusk (crepuscular).",
+      "expected_answer": "Sorry, but I do not have any information about the Cavia tschudii diet. ",
+      "token_recall": 0.16666666666666666,
+      "rouge_l_f1": 0.04761904761904762,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-6bc8f10e8be8",
+      "model_answer": "Yes, the maximum supported retention period for Immutable Object Storage is 1000 years, which is equivalent to 365243 days. This long retention period is intended for scenarios such as financial record retention, media archiving, and healthcare data preservation, where maintaining historical records over a very long period is necessary. However, for most businesses, shorter retention periods would typically suffice.",
+      "expected_answer": "Sorry, I cannot find a response to that question in the document.",
+      "token_recall": 0.1,
+      "rouge_l_f1": 0.029850746268656716,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-744d0eff239f",
+      "model_answer": "If the bone marrow does not work well, it can lead to conditions like aplastic anemia, where there's a decreased production of blood cells and blood platelets. This can cause symptoms such as fatigue, bleeding, and infection. In more serious cases, it might require treatments like bone marrow transplants to restore proper functioning.",
+      "expected_answer": "If bone marrow does not function properly, it can lead to a decrease in the production of blood cells and blood platelets. This can be caused by various factors such as aplastic anemia, malignancies like multiple myeloma, congenital defects , autoimmune diseases, infections like tuberculosis, leukemia, or exposure to radiation or chemotherapy. Symptoms of a malfunctioning bone marrow can include fatigue, increased risk of infection, and easy bruising or bleeding. In the case of sickle cell disease, the bone marrow's attempt to compensate for the destruction of red cells is not sufficient, leading to anemia.",
+      "token_recall": 0.375,
+      "rouge_l_f1": 0.3597122302158274,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-9352b991a6f3",
+      "model_answer": "Some of the basic benefits that a company typically provides to its employees include:\n\n1. Health Insurance: This covers medical expenses, dental care, and vision care.\n2. Retirement Plans: These can include 401(k)s, pensions, or other savings programs.\n3. Paid Time Off: This includes vacation time, personal leave, and sick days.\n4. Employee Discounts: Some companies offer discounts on products or services related to their business.\n5. Cafeteria Plans: These allow employees to set aside a portion of their paycheck for specific purposes.\n6. Stock Options: Some companies grant employees the ability to buy shares of the company's stock at a later date.\n7. Flexible Spending Accounts (FSAs): These allow employees to set aside pre-tax dollars for certain expenses.\n8. Life Insurance: Provides coverage in case of death or disability.\n9. Disability Insurance: Covers lost wages due to illness or injury.\n10. Employee Assistance Programs (EAPs): Offer counseling and support services for personal and professional issues.\n\nThese benefits aim to improve employee satisfaction, reduce turnover rates, and enhance overall productivity within the organization.",
+      "expected_answer": "Actually  companies are not required to offer their employees any compensation above paying your salary. However, benefits attract higher quality employees.  Employees want certain jobs because of the tax benefits. Employees expect  the benefits because almost all reputable companies of any significant size offer it. You could run a great company, but if you don't offer a 401k plan, you can scare away good potential employees. It would give a bad impression the same way that not offering health insurance would. Some companies offer better benefits than others. For instance,  Apple offers 15% discount on stock, 25% 401K matching and plus excellent health/vision/dental/etc. benefit. Additionally personnel training  is a great benefit also to the employees.    ",
+      "token_recall": 0.24299065420560748,
+      "rouge_l_f1": 0.09523809523809525,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-943224308a42",
+      "model_answer": "No, you do not need to pay for garbage/recycling/organics service unless you opt into on-premises (backyard) collection which comes with higher fees. If you do not have enough money, you can request a pre-payment discount for one year of service with the twelfth month provided at no charge.",
+      "expected_answer": "Yes, service rates are based upon the size of your garbage cart. According to the Piedmont Municipal Code, every owner of any premises is required to ensure that arrangements are made to properly dispose of solid waste, recyclable material, and organic waste created, produced, or accumulated on the premises. There are ways to reduce the cost of garbage collection service. For example, you may be able to switch to a smaller garbage cart to save money; or you can switch to curbside service.",
+      "token_recall": 0.1282051282051282,
+      "rouge_l_f1": 0.11290322580645161,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-9c7601a37cdc",
+      "model_answer": "According to the passage, Meng Tian's actions included:\n\n1. Building walls and digging moats during the Qin dynasty.\n2. Constructing these walls and moats \"for more than ten thousand li\" across the northern regions.\n3. Expressing remorse for this endeavor before committing suicide.\n\nThese actions suggest that Meng Tian undertook significant construction projects aimed at stabilizing the newly unified China through fortified defenses.",
+      "expected_answer": "Meng Tian was a Chinese general and politician who served under Emperor Qin Shi Huang during the Qin Dynasty. He is best known for leading the northern expedition against the Xiongnu people. Meng Tian was responsible for building and extending the Great Wall of China along the empire's northern border. Meng Tian introduced 30,000 settler families to colonize the newly conquered territories. When Meng Tian's settlements in the north were abandoned, the Xiongnu nomads moved back into the Ordos Loop as the Qin empire became consumed by widespread rebellion. Upon Qin Shi Huang's death in 210 BC, Meng Tian was ordered to commit suicide in a succession conspiracy.",
+      "token_recall": 0.17708333333333334,
+      "rouge_l_f1": 0.14193548387096774,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-9e33d2323efc",
+      "model_answer": "Yes, the COVID-19 vaccine is considered safe. Common side effects include pain at the injection site, fatigue, muscle pain, headache, and fever. These side effects are usually temporary and resolve within a few days. However, it's important to note that the vaccine does not guarantee complete immunity and that individuals with certain underlying health conditions may be at increased risk of severe illness from COVID-19.",
+      "expected_answer": "Yes,\u00a0COVID-19 vaccines\u00a0have been thoroughly tested for safety and efficacy. They have undergone at least three phases of clinical trials. The vaccines have been proven to help protect against\u00a0COVID-19 and\u00a0reduce the risk of severe illness and death. Like any vaccine or medication,\u00a0the COVID-19 vaccines\u00a0can cause side effects, although most are mild and short-lived. Common side effects include\u00a0a sore arm where\u00a0the shot was given, headache, chills, fever, and Tiredness. These side effects usually go away on their own within a few days. Also,\u00a0people can have allergic reactions to any medication or biological product, such as a vaccine.",
+      "token_recall": 0.28865979381443296,
+      "rouge_l_f1": 0.22784810126582278,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-be2b78ce94ac",
+      "model_answer": "Yes, according to the passage, Germany is involved in bailing out other countries such as Ireland, Portugal, Italy, Greece, and Spain. The author suggests that Germany's involvement in these bailouts is necessary to prevent the collapse of the European economy. However, the author argues that Germany should not be responsible for taking on additional debt to fund these bailouts, as it would put pressure on the German people to approve further participation.",
+      "expected_answer": "I do not have enough information to form an opinion about that. ",
+      "token_recall": 0.2727272727272727,
+      "rouge_l_f1": 0.05194805194805195,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-c1aa63f5b94c",
+      "model_answer": "Based on the provided passages, Doctor Strange has appeared in four films within the Marvel Cinematic Universe:\n\n1. Doctor Strange (2016)\n2. Thor: Ragnarok (2017)\n3. Avengers: Infinity War (2018)\n4. Untitled sequel to Avengers: Infinity War (to be released in 2019)\n\nThese are all listed under \"List of Marvel Cinematic Universe films\" in different documents.",
+      "expected_answer": "I do not have an exact count of films in which\u00a0Doctor Strange appears, but here are some: Doctor Strange,\u00a0Thor: Ragnarok, Avengers: Infinity War, and The Amazing Spider-Man. Doctor Strange, voiced by Liam O'Brien, appears in\u00a0the 2016 animated film Hulk: Where Monsters Dwell and will appear again in the untitled sequel to Avengers: Infinity War, which will return in the fourth Avengers film in 2019.\u00a0 ",
+      "token_recall": 0.3709677419354839,
+      "rouge_l_f1": 0.29310344827586204,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-c73d8f0f06b1",
+      "model_answer": "It seems like you may be referring to the opening and closing behavior of the web chat widget on your website. If you're looking to change the appearance or functionality of the web chat widget, you'll need to modify the HTML code within the script tag that loads the web chat integration. This typically involves editing the CSS styles applied to the chat box and potentially adjusting its layout properties. If you're unsure about modifying the code yourself, consider reaching out to a web developer or designer who can assist you with customizing the web chat widget according to your preferences.",
+      "expected_answer": "You can customize the look and behavior of your web chat. From the Style tab of the web chat configuration page, you can change the color of the launcher icon and the text font. You can choose to use a different base Carbon Design theme as well. If you want to make more advanced customizations, you can change the launcher icon used to open the web chat widget and how it opens and closes. For example, you can launch the web chat from a different button or process on your website, open it in a different location or size, hide the launcher icon entirely, or hide the close button. ",
+      "token_recall": 0.30526315789473685,
+      "rouge_l_f1": 0.18478260869565216,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-cbe18ce284b8",
+      "model_answer": "Based on the provided passages, the 13F (Form 13F) is the most relevant filing for tracking the investment portfolio of a company. The passage states: \"The official source is the most recent Form 13F that Berkshire Hathaway, which is filed with the Securities & Exchange Commission on a quarterly basis.\" This suggests that the 13F is the primary document used to track the investments held by large companies like Berkshire Hathaway.",
+      "expected_answer": "No. The most important filings are Form 10-K, the annual report, and Form 10-Q for the interim quarters. Ownership is reported on Form 3/4 and in 10-Q/Ks. Non-individual legal entities such as companies (for example, a hedge fund) must disclose any ownership exceeding 10% by filing Form 13-F.",
+      "token_recall": 0.22727272727272727,
+      "rouge_l_f1": 0.099009900990099,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-d60a90d157ca",
+      "model_answer": "Debt consolidation involves combining multiple debts into a single loan with a lower interest rate. While it can simplify managing multiple debts, it has potential downsides. For instance, it might delay the actual reduction of debt since the new loan typically takes longer to pay off compared to the original debts. Additionally, consolidating high-interest debts can lead to higher overall interest costs over time. It's important to carefully evaluate whether the benefits outweigh the risks, particularly given the potential impact on your ability to manage finances effectively.",
+      "expected_answer": "Debt consolidation involves combining multiple debts into a single loan, ideally with a lower interest rate. This can simplify your payments and potentially save you money on interest. Another good reasons for a consolidation loan is psychological. However, there are some potential pitfalls to consider. For example, if you take out a loan with a lower interest rate but a longer term, you may end up paying more in interest over the life of the loan. It's important to carefully evaluate your financial situation and consider all your options before deciding whether debt consolidation is right for you. If the interest rate is higher it is not a good idea. If you do decide to pursue debt consolidation, it's important to shop around for the best interest rates and terms. Local credit unions may be a good place to start, as they may be more willing to work with you than larger banks. Additionally, be sure to read the fine print and understand all the terms and conditions of any loan you are considering. ",
+      "token_recall": 0.2375,
+      "rouge_l_f1": 0.23430962343096237,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-dc5f233d7566",
+      "model_answer": "Dialogue skills are not strictly necessary for building a conversational AI solution. While having dialogue skills can enhance the naturalness and efficiency of interactions, many applications can still function effectively without them. However, dialogue skills provide several advantages, including improved understanding of user inputs, better handling of complex conversations, and enhanced personalization through context-aware responses. Therefore, depending on the specific requirements and complexity of the application, dialogue skills may be beneficial.",
+      "expected_answer": "Yes. Dialog Skill contains the training data and dialog that your assistant uses to chat with customers. It is a container for all the artifacts that define a conversation flow. Customize your assistant by adding the necessary skills to satisfy your customers' goals.",
+      "token_recall": 0.10526315789473684,
+      "rouge_l_f1": 0.03809523809523809,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-e0229fcbb71b",
+      "model_answer": "The passage discusses the potential benefits and drawbacks of being a cosigner on a loan, including how it affects credit scores and the responsibility involved. It emphasizes that being a cosigner can lead to negative consequences if the loan is not repaid, especially if the cosigner cannot afford to cover the payments. The text suggests that avoiding being a cosigner altogether is preferable, as it avoids these risks and complications.",
+      "expected_answer": " Your credit score is a number on a scale of 300 to 900 that can affect all of your financial decisions, from shopping for groceries to applying for a mortgage.  A credit score is your history of accruing debt and paying it back. It is supplemented by your age, time at current residence, time at previous residences, time at your job.  Additionally, your crediting rating is also way creditors let each other know whether you are in a good position and have a strong tendency to repay your debts. They are  : AAA, AA, A, BBB, BBB-, BB+, BB, B, CCC, CC, C, D.",
+      "token_recall": 0.13541666666666666,
+      "rouge_l_f1": 0.09032258064516129,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-e17c8a3c4db8",
+      "model_answer": "A Child's Garden of Verses is a collection of poetry for children written by the Scottish author Robert Louis Stevenson. The collection contains about 65 poems, including classic works like \"Foreign Children,\" \"The Lamplighter,\" \"The Land of Counterpane,\" \"Bed in Summer,\" \"My Shadow,\" and \"The Swing.\"",
+      "expected_answer": "Here are the contents of the a child's garden of verses: * Foreign Children * The Lamplighter * The Land of Counterpane * Bed in Summer * My Shadow * The Swing * The Land of Nod * My Bed is a Boat * The Moon * Time to Rise * Looking-glass River * Winter-time * The Hayloft * Farewell to the Farm * Northwest Passage: Good Night, Shadow March, In Port.",
+      "token_recall": 0.391304347826087,
+      "rouge_l_f1": 0.3764705882352941,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-e30393c74c97",
+      "model_answer": "Based on the retrieved passages, there are several types of restraining orders including Emergency Protective Order, Domestic Violence Restraining Order, Elder or Dependent Adult Abuse Restraining Order, Civil Harassment Restraining Order, Workplace Violence Restraining Order, Private Postsecondary School Violence Restraining Order, and Gun Violence Restraining Order.",
+      "expected_answer": "There are several types of restraining orders in Sacramento Superior Court, including Emergency Protective Order, Domestic Violence Restraining Order, Elder or Dependent Adult Abuse Restraining Order, Civil Harassment Restraining Order, Firearms Restraining Order, and Workplace Violence Restraining Order. Each has its own eligibility requirements and procedures.",
+      "token_recall": 0.717391304347826,
+      "rouge_l_f1": 0.7032967032967032,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-eb3a864157ee",
+      "model_answer": "No, a 17-year-old cannot be the defendant in a small claims case. According to the passage, only those who are at least 18 years old can file a claim.",
+      "expected_answer": "It is unclear, however the plaintiff must be at least 18 years of age to file a claim. If the plaintiff is not yet 18, they need to fill out guardian ad litem form.",
+      "token_recall": 0.25806451612903225,
+      "rouge_l_f1": 0.2545454545454545,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-ecd518a782e6",
+      "model_answer": "Domestic guinea pigs live in cages, either in standard cages with solid or wire mesh floors or in larger \"cube\" or \"Coroplast\" cages. Their activity pattern is characterized by random movement throughout the day, with periods of high energy interspersed with brief periods of rest.",
+      "expected_answer": "Domestic guinea pigs thrive in groups of two or more and can learn to recognize and bond with other individual pigs. They have developed a different biological rhythm from their wild counterparts, with longer periods of activity followed by short periods of sleep throughout the day. Activity is scattered randomly throughout the day, with no regular circadian patterns, aside from an avoidance of intense light. Domestic guinea pigs generally live in cages, although some owners of large numbers of guinea pigs dedicate entire rooms to their pets.",
+      "token_recall": 0.25301204819277107,
+      "rouge_l_f1": 0.20472440944881892,
+      "verdict": "",
+      "reason": ""
+    },
+    {
+      "review_id": "reference-f143b7418770",
+      "model_answer": "To make a pinhole projector for viewing a lunar eclipse, follow these steps:\n\n1. Find a large sheet of white card stock.\n2. Use aluminum foil to cover the center of the card stock.\n3. Create a small hole in the aluminum foil using a pin, paper clip, or pencil.\n4. Hold the card stock over a flat surface outside, with the aluminum foil facing upwards.\n5. View the projected image of the Moon on the ground below.\n\nThis setup allows you to see the projected image of the Moon during a lunar eclipse, providing a unique way to observe celestial phenomena.",
+      "expected_answer": "You don't need to make a pinhole projector for a lunar eclipse. Unlike a solar eclipse, it is safe to look at the Moon with unprotected eyes or through a telescope during all types and during all stages of a lunar eclipse.",
+      "token_recall": 0.4444444444444444,
+      "rouge_l_f1": 0.2,
+      "verdict": "",
+      "reason": ""
+    }
+  ]
+}

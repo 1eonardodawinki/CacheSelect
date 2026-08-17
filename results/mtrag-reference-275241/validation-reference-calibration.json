@@ -1,0 +1,171 @@
+{
+  "schema_version": 1,
+  "analysis": "mtrag-reference-quality-calibration",
+  "gate_status": "unfrozen",
+  "model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "max_completion_tokens": 384,
+  "request_count": 6,
+  "rows": [
+    {
+      "task_id": "cfbcfa3e382f12aed450b10f87a72aeb<::>2",
+      "split": "validation",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "prompt_token_count": 1379,
+      "output_text": "Domestic guinea pigs live in cages, either in standard cages with solid or wire mesh floors or in larger \"cube\" or \"Coroplast\" cages. Their activity pattern is characterized by random movement throughout the day, with periods of high energy interspersed with brief periods of rest.",
+      "expected_answer": "Domestic guinea pigs thrive in groups of two or more and can learn to recognize and bond with other individual pigs. They have developed a different biological rhythm from their wild counterparts, with longer periods of activity followed by short periods of sleep throughout the day. Activity is scattered randomly throughout the day, with no regular circadian patterns, aside from an avoidance of intense light. Domestic guinea pigs generally live in cages, although some owners of large numbers of guinea pigs dedicate entire rooms to their pets.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.20472440944881892,
+        "metrics": {
+          "token_recall": 0.25301204819277107,
+          "rouge_l_f1": 0.20472440944881892
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "d4d8edb3e0c456d11033b14b28e99470<::>3",
+      "split": "validation",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "prompt_token_count": 1842,
+      "output_text": "Debt consolidation involves combining multiple debts into a single loan with a lower interest rate. While it can simplify managing multiple debts, it has potential downsides. For instance, it might delay the actual reduction of debt since the new loan typically takes longer to pay off compared to the original debts. Additionally, consolidating high-interest debts can lead to higher overall interest costs over time. It's important to carefully evaluate whether the benefits outweigh the risks, particularly given the potential impact on your ability to manage finances effectively.",
+      "expected_answer": "Debt consolidation involves combining multiple debts into a single loan, ideally with a lower interest rate. This can simplify your payments and potentially save you money on interest. Another good reasons for a consolidation loan is psychological. However, there are some potential pitfalls to consider. For example, if you take out a loan with a lower interest rate but a longer term, you may end up paying more in interest over the life of the loan. It's important to carefully evaluate your financial situation and consider all your options before deciding whether debt consolidation is right for you. If the interest rate is higher it is not a good idea. If you do decide to pursue debt consolidation, it's important to shop around for the best interest rates and terms. Local credit unions may be a good place to start, as they may be more willing to work with you than larger banks. Additionally, be sure to read the fine print and understand all the terms and conditions of any loan you are considering. ",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.23430962343096237,
+        "metrics": {
+          "token_recall": 0.2375,
+          "rouge_l_f1": 0.23430962343096237
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "251e29286cef45d899d7889e94ae25d5<::>7",
+      "split": "validation",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "prompt_token_count": 3069,
+      "output_text": "Yes, the COVID-19 vaccine is considered safe. Common side effects include pain at the injection site, fatigue, muscle pain, headache, and fever. These side effects are usually temporary and resolve within a few days. However, it's important to note that the vaccine does not guarantee complete immunity and that individuals with certain underlying health conditions may be at increased risk of severe illness from COVID-19.",
+      "expected_answer": "Yes,\u00a0COVID-19 vaccines\u00a0have been thoroughly tested for safety and efficacy. They have undergone at least three phases of clinical trials. The vaccines have been proven to help protect against\u00a0COVID-19 and\u00a0reduce the risk of severe illness and death. Like any vaccine or medication,\u00a0the COVID-19 vaccines\u00a0can cause side effects, although most are mild and short-lived. Common side effects include\u00a0a sore arm where\u00a0the shot was given, headache, chills, fever, and Tiredness. These side effects usually go away on their own within a few days. Also,\u00a0people can have allergic reactions to any medication or biological product, such as a vaccine.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.22784810126582278,
+        "metrics": {
+          "token_recall": 0.28865979381443296,
+          "rouge_l_f1": 0.22784810126582278
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "f5a8ca2f2bc12180940167fb920bb018<::>5",
+      "split": "validation",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "prompt_token_count": 2717,
+      "output_text": "Dialogue skills are not strictly necessary for building a conversational AI solution. While having dialogue skills can enhance the naturalness and efficiency of interactions, many applications can still function effectively without them. However, dialogue skills provide several advantages, including improved understanding of user inputs, better handling of complex conversations, and enhanced personalization through context-aware responses. Therefore, depending on the specific requirements and complexity of the application, dialogue skills may be beneficial.",
+      "expected_answer": "Yes. Dialog Skill contains the training data and dialog that your assistant uses to chat with customers. It is a container for all the artifacts that define a conversation flow. Customize your assistant by adding the necessary skills to satisfy your customers' goals.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.03809523809523809,
+        "metrics": {
+          "token_recall": 0.10526315789473684,
+          "rouge_l_f1": 0.03809523809523809
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "0208bf26ec357a803445290fa88a2e9e<::>3",
+      "split": "validation",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "prompt_token_count": 1448,
+      "output_text": "Based on the passage, guinea pigs in the wild are found on grassy plains and occupy an ecological niche similar to that of cattle. They are social animals, living in small groups consisting of several females (sows), a male (boar), and the young (which are called \"pups\" rather than \"piglets\"). They move together in groups (herds) eating grass or other vegetation and do not store food. They tend to be most active during dawn and dusk (crepuscular).",
+      "expected_answer": "Sorry, but I do not have any information about the Cavia tschudii diet. ",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.04761904761904762,
+        "metrics": {
+          "token_recall": 0.16666666666666666,
+          "rouge_l_f1": 0.04761904761904762
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    },
+    {
+      "task_id": "e9dd465e8dd63a80dda8f3ce9cba6848<::>4",
+      "split": "validation",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "prompt_token_count": 1242,
+      "output_text": "To calculate Enterprise Value (EV), you start with the Market Capitalization (market cap) of the company, which is the total value of all outstanding shares. You then add back any cash and cash equivalents held by the company. Next, you subtract the total debt from these figures. Finally, divide the result by Earnings Before Interest and Taxes (EBIT) to arrive at the EV/EBIT ratio. This gives you a measure of the company's value based on its ability to generate earnings before considering the costs associated with borrowing money.",
+      "expected_answer": "Calculating a company's enterprise value requires considering several factors. The equation for enterprise value is as follows: EV = Market Cap + Minority Interest + Preferred Stock + Debt\u2014Cash. Enterprise value represents the total value of a company to all its shareholders, including creditors, preferred stockholders, and common stockholders. It's important to note that taking on debt can either increase or decrease the enterprise value, depending on the company's cash balance.",
+      "quality": {
+        "mode": "reference_similarity",
+        "passed": true,
+        "score": 0.18705035971223022,
+        "metrics": {
+          "token_recall": 0.36065573770491804,
+          "rouge_l_f1": 0.18705035971223022
+        },
+        "thresholds": {
+          "minimum_token_recall": 0.0,
+          "minimum_rouge_l_f1": 0.0,
+          "maximum_metric_drop": 1.0
+        },
+        "calibration_id": "mtrag-reference-calibration-unfrozen",
+        "requirements_passed": 0,
+        "requirements_total": 0,
+        "requirements": []
+      }
+    }
+  ],
+  "run_id": "mtrag-reference-275241-validation",
+  "manifest": "results/mtrag-natural-splits-v1/validation-manifest.json",
+  "source_sha256": "5d5201da9fabd072fd8f6b8d051bfaafa7ef031e76722a4920c66e94cede1873",
+  "endpoint": "http://127.0.0.1:30241/v1/chat/completions",
+  "request_ledger": "/vol/bitbucket/lmw25/cacheselect-request-logs/mtrag-reference-275241/mtrag-reference-275241-validation.jsonl"
+}

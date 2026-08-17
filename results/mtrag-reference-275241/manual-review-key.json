@@ -1,0 +1,202 @@
+{
+  "schema_version": 1,
+  "key": "mtrag-reference-correctness-identity-key",
+  "seed": "cacheselect-mtrag-reference-review-v1",
+  "source_artifact_sha256": {
+    "results/mtrag-reference-275241/train-reference-calibration.json": "d2988bfad3ea00b8e44c221011b3eaefd3a2c6f68e240fee9047c54d825f60b9",
+    "results/mtrag-reference-275241/validation-reference-calibration.json": "c275a4f002c63250e6a86633c85d85ac098ab7a682f8cc1e2d21500d255c6f86"
+  },
+  "row_count": 27,
+  "rows": [
+    {
+      "review_id": "reference-196b11837119",
+      "task_id": "1065ea5ad1ae2b90e6fce67d851a7a66<::>2",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-1af090f4a102",
+      "task_id": "dcc0215a118ac833dfe054350df2afaa<::>3",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-335c48217405",
+      "task_id": "e1b602e47ded79a35d8df4eefe194e39<::>4",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-38f15c550e01",
+      "task_id": "adf9b1f61c73d715809bc7b37ac02724<::>11",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-49a4dd13b940",
+      "task_id": "72ba19c38518da1fc894fc638a2802f7<::>6",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-5899f3889756",
+      "task_id": "3a07680acfb0f951fc3210a8c1a282c9<::>3",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-61730d62e193",
+      "task_id": "a3f07e9ed5f257db6aecd30511f03af1<::>6",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-64f9b51a1f00",
+      "task_id": "e9dd465e8dd63a80dda8f3ce9cba6848<::>4",
+      "split": "validation",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "source_artifact": "results/mtrag-reference-275241/validation-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-681e1e799fed",
+      "task_id": "0208bf26ec357a803445290fa88a2e9e<::>3",
+      "split": "validation",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "source_artifact": "results/mtrag-reference-275241/validation-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-6bc8f10e8be8",
+      "task_id": "2f013337236ea4635ad106813275dab7<::>4",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-744d0eff239f",
+      "task_id": "5c13daa9432149f6243aa1115629cd1a<::>2",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-9352b991a6f3",
+      "task_id": "f1121a39d8a9e36eaef4c2367bd43532<::>6",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-943224308a42",
+      "task_id": "2cc753bcef23767c18aedad06c4405c4<::>2",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-9c7601a37cdc",
+      "task_id": "95a0893567c7519c090ecbcdd14daccd<::>5",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-9e33d2323efc",
+      "task_id": "251e29286cef45d899d7889e94ae25d5<::>7",
+      "split": "validation",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "source_artifact": "results/mtrag-reference-275241/validation-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-be2b78ce94ac",
+      "task_id": "2b34f5e7861ca9b1b3eab65ad6d6b4b0<::>6",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-c1aa63f5b94c",
+      "task_id": "91204c45fc829e328f9a3643d9dd4c2b<::>3",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-c73d8f0f06b1",
+      "task_id": "fdee20f7fd677e420742b09989623d68<::>5",
+      "split": "train",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-cbe18ce284b8",
+      "task_id": "af5e45e59e1254e0b7869cb477674d02<::>6",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-d60a90d157ca",
+      "task_id": "d4d8edb3e0c456d11033b14b28e99470<::>3",
+      "split": "validation",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "source_artifact": "results/mtrag-reference-275241/validation-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-dc5f233d7566",
+      "task_id": "f5a8ca2f2bc12180940167fb920bb018<::>5",
+      "split": "validation",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "source_artifact": "results/mtrag-reference-275241/validation-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-e0229fcbb71b",
+      "task_id": "7cb06b3f8068674fce61a11e9777f708<::>4",
+      "split": "train",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-e17c8a3c4db8",
+      "task_id": "c1e53df98a28f19448f4af244304b89a<::>3",
+      "split": "train",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-e30393c74c97",
+      "task_id": "35e6be0f2049527ae17cf77169cc4f70<::>4",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-eb3a864157ee",
+      "task_id": "941445ba11ba7ba2c92c5184c9d798d6<::>8",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-ecd518a782e6",
+      "task_id": "cfbcfa3e382f12aed450b10f87a72aeb<::>2",
+      "split": "validation",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "source_artifact": "results/mtrag-reference-275241/validation-reference-calibration.json"
+    },
+    {
+      "review_id": "reference-f143b7418770",
+      "task_id": "5600fe1c05a1fc415416d9dee6347000<::>7",
+      "split": "train",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "source_artifact": "results/mtrag-reference-275241/train-reference-calibration.json"
+    }
+  ],
+  "warning": "Do not inspect until every blinded verdict is frozen."
+}
