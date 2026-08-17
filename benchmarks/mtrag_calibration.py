@@ -41,12 +41,13 @@ def _calibration_rank(seed: str, task_id: str) -> str:
     return hashlib.sha256(f"{seed}:{task_id}".encode()).hexdigest()
 
 
-# Select diverse unseen training conversations for the next reference audit.
-def select_mtrag_training_calibration(
+# Select diverse unseen conversations from exactly one frozen dataset split.
+def select_mtrag_reference_calibration(
     coverage: Mapping[str, Any],
     *,
+    split: DatasetSplit = DatasetSplit.TRAIN,
     excluded_conversation_ids: frozenset[str] = frozenset(),
-    per_collection: int = 15,
+    task_count: int = 28,
     max_prompt_tokens: int = 4096,
     max_testable_blocks: int = 64,
     split_seed: str = MTRAG_SPLIT_SEED,
@@ -56,7 +57,7 @@ def select_mtrag_training_calibration(
         or coverage.get("analysis") != "mtrag-natural-block-coverage"
     ):
         raise ValueError("input is not an MTRAG coverage artifact")
-    bounds = (per_collection, max_prompt_tokens, max_testable_blocks)
+    bounds = (task_count, max_prompt_tokens, max_testable_blocks)
     if any(
         isinstance(value, bool) or not isinstance(value, int) or value < 1
         for value in bounds
@@ -97,7 +98,7 @@ def select_mtrag_training_calibration(
         if (
             conversation_id in excluded_conversation_ids
             or mtrag_conversation_split(conversation_id, seed=split_seed)
-            is not DatasetSplit.TRAIN
+            is not split
             or not testable
             or len(testable) > max_testable_blocks
             or not isinstance(prompt_tokens, int)
@@ -108,7 +109,7 @@ def select_mtrag_training_calibration(
             "task_id": current_task_id,
             "conversation_id": conversation_id,
             "collection": collection,
-            "split": DatasetSplit.TRAIN.value,
+            "split": split.value,
         }
         previous = eligible[collection].get(conversation_id)
         if previous is None or _calibration_rank(
@@ -116,15 +117,26 @@ def select_mtrag_training_calibration(
         ) < _calibration_rank(split_seed, previous["task_id"]):
             eligible[collection][conversation_id] = candidate
 
-    selected = []
+    ranked_by_collection = {}
     for collection in sorted(collections):
-        ranked = sorted(
+        ranked_by_collection[collection] = sorted(
             eligible[collection].values(),
             key=lambda row: _calibration_rank(split_seed, row["task_id"]),
         )
-        if len(ranked) < per_collection:
-            raise ValueError(f"collection {collection!r} has too few eligible tasks")
-        selected.extend(ranked[:per_collection])
+    if sum(map(len, ranked_by_collection.values())) < task_count:
+        raise ValueError("coverage has too few eligible tasks for the requested split")
+
+    # Draw one task per collection per round so smaller domains stay represented.
+    selected = []
+    round_index = 0
+    while len(selected) < task_count:
+        for collection in sorted(ranked_by_collection):
+            ranked = ranked_by_collection[collection]
+            if round_index < len(ranked):
+                selected.append(ranked[round_index])
+                if len(selected) == task_count:
+                    break
+        round_index += 1
     return {
         "schema_version": 1,
         "selection": "mtrag-reference-quality-calibration",
@@ -132,11 +144,16 @@ def select_mtrag_training_calibration(
         "source_model": coverage.get("model"),
         "source_tokenizer_class": coverage.get("tokenizer_class"),
         "split_seed": split_seed,
-        "per_collection": per_collection,
+        "split": split.value,
+        "requested_task_count": task_count,
         "max_prompt_tokens": max_prompt_tokens,
         "max_testable_blocks": max_testable_blocks,
         "task_count": len(selected),
         "collection_count": len(collections),
+        "collection_task_counts": {
+            collection: sum(row["collection"] == collection for row in selected)
+            for collection in sorted(collections)
+        },
         "tasks": selected,
     }
 

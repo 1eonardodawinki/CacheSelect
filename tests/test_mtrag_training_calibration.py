@@ -2,7 +2,7 @@ from unittest import TestCase
 
 from benchmarks.block_dataset import DatasetSplit
 from benchmarks.mtrag import mtrag_conversation_split
-from benchmarks.mtrag_calibration import select_mtrag_training_calibration
+from benchmarks.mtrag_calibration import select_mtrag_reference_calibration
 
 
 # Find a stable conversation identity assigned to the requested split.
@@ -59,10 +59,10 @@ class MtragTrainingCalibrationTests(TestCase):
             "transitions": rows,
         }
 
-        result = select_mtrag_training_calibration(
+        result = select_mtrag_reference_calibration(
             coverage,
             excluded_conversation_ids=frozenset({excluded}),
-            per_collection=1,
+            task_count=2,
         )
 
         self.assertEqual(result["task_count"], 2)
@@ -74,3 +74,27 @@ class MtragTrainingCalibrationTests(TestCase):
         self.assertEqual(len({row["conversation_id"] for row in result["tasks"]}), 2)
         self.assertTrue(all(row["split"] == "train" for row in result["tasks"]))
         self.assertNotIn(excluded, {row["conversation_id"] for row in result["tasks"]})
+
+    # Select validation conversations without admitting training conversations.
+    def test_selects_requested_validation_split(self):
+        validation = _conversation("validation", DatasetSplit.VALIDATION)
+        training = _conversation("training", DatasetSplit.TRAIN)
+        coverage = {
+            "schema_version": 1,
+            "analysis": "mtrag-natural-block-coverage",
+            "block_size": 16,
+            "transitions": [
+                _coverage_row("Cloud", validation, 2),
+                _coverage_row("Cloud", training, 2),
+            ],
+        }
+
+        result = select_mtrag_reference_calibration(
+            coverage,
+            split=DatasetSplit.VALIDATION,
+            task_count=1,
+        )
+
+        self.assertEqual(result["split"], "validation")
+        self.assertEqual(result["tasks"][0]["conversation_id"], validation)
+        self.assertEqual(result["tasks"][0]["split"], "validation")
