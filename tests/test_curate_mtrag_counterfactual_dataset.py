@@ -126,3 +126,25 @@ class CurateMtragCounterfactualDatasetTests(TestCase):
         self.assertEqual(rows[0]["adjudication"], "exact_output_match")
         self.assertEqual(rows[1]["adjudication"], "blinded_semantic_review")
         self.assertEqual(rows[1]["trial_id"], "review-trial")
+
+    # Preserve an unclear review in the audit without creating a training label.
+    def test_excludes_abstained_review(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            _write_result_fixture(root)
+            audit_path = root / "manual-review-unblinded.json"
+            audit = json.loads(audit_path.read_text(encoding="utf-8"))
+            audit["abstentions"] = 1
+            audit["rows"][0]["decision"] = "abstain"
+            audit_path.write_text(json.dumps(audit), encoding="utf-8")
+
+            report = curate_mtrag_counterfactual_dataset(root)
+            with (root / "mtrag-curated-blocks.csv").open(
+                newline="", encoding="utf-8"
+            ) as source:
+                rows = list(csv.DictReader(source))
+
+        self.assertEqual(report["source_trial_count"], 2)
+        self.assertEqual(report["row_count"], 1)
+        self.assertEqual(report["abstained_trials"], 1)
+        self.assertEqual(rows[0]["trial_id"], "exact-trial")

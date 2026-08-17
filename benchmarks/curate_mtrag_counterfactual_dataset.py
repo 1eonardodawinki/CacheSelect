@@ -116,8 +116,13 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
     audit_path = result_dir / "manual-review-unblinded.json"
     audit = json.loads(audit_path.read_text(encoding="utf-8"))
     ledger_paths = tuple((result_dir / "request-logs").glob("*.jsonl"))
-    if len(ledger_paths) != 1 or audit.get("abstentions") != 0:
-        raise ValueError("curation requires one ledger and no unresolved reviews")
+    abstention_count = audit.get("abstentions")
+    if (
+        len(ledger_paths) != 1
+        or not isinstance(abstention_count, int)
+        or abstention_count < 0
+    ):
+        raise ValueError("curation requires one ledger and valid review counts")
     ledger_path = ledger_paths[0]
     for name, path in (
         ("source_ledger_sha256", ledger_path),
@@ -139,6 +144,7 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         if tuple(reader.fieldnames or ()) != (*TRAINING_COLUMNS, *AUDIT_COLUMNS):
             raise ValueError("automatic MTRAG dataset has an unexpected schema")
         rows = [dict(row) for row in reader]
+    exact_match_count = len(rows)
     for row in rows:
         row.update(
             trial_id=trial_ids[(row["transition_id"], row["candidate_block_index"])],
@@ -149,6 +155,11 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         )
 
     for reviewed in audit["rows"]:
+        # Keep unresolved trials in the audit but never turn them into labels.
+        if reviewed.get("decision") == "abstain":
+            continue
+        if reviewed.get("decision") not in {"repair", "reuse"}:
+            raise ValueError("review contains an invalid training decision")
         features, transition_id = _reviewed_feature(reviewed, started, completed)
         case_index, case = cases[transition_id]
         rows.append(
@@ -173,8 +184,9 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         )
 
     keys = [(row["transition_id"], str(row["candidate_block_index"])) for row in rows]
-    if len(keys) != len(set(keys)) or len(rows) != summary.get("trial_count"):
-        raise ValueError("curated rows do not cover every unique pilot trial")
+    expected_rows = summary.get("trial_count") - abstention_count
+    if len(keys) != len(set(keys)) or len(rows) != expected_rows:
+        raise ValueError("curated rows do not cover every resolved pilot trial")
     rows.sort(
         key=lambda row: (
             int(row["mtrag_case_index"]),
@@ -196,9 +208,11 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         "manual_review_audit_sha256": hashlib.sha256(
             audit_path.read_bytes()
         ).hexdigest(),
+        "source_trial_count": summary["trial_count"],
         "row_count": len(rows),
-        "exact_match_rows": len(rows) - audit["reviewed_trials"],
-        "semantic_review_rows": audit["reviewed_trials"],
+        "exact_match_rows": exact_match_count,
+        "semantic_review_rows": audit["reviewed_trials"] - abstention_count,
+        "abstained_trials": abstention_count,
         "reuse_labels": counts["reuse"],
         "repair_labels": counts["repair"],
         "output_dataset": str(output_path),
