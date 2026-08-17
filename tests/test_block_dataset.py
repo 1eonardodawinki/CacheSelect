@@ -8,6 +8,7 @@ from benchmarks.block_dataset import (
     DatasetSplit,
     LabelSource,
     RepairDecision,
+    SplitCandidateBlock,
     assign_trace_splits,
     build_trace_dependency_examples,
     build_synthetic_dependency_examples,
@@ -23,6 +24,7 @@ from benchmarks.schema import (
     WorkloadTrace,
 )
 from cacheselect.block_features import CandidateBlockFeatures
+from cacheselect.context_features import CandidateContextFeatures
 
 
 BASE_FEATURES = CandidateBlockFeatures(
@@ -255,7 +257,11 @@ class BlockDatasetTests(TestCase):
                 messages=[{"role": "user", "content": text}],
                 segments=[
                     PromptSegment(
-                        "pointer", "user", "pointer", sequence_index + 1, text.split()[1]
+                        "pointer",
+                        "user",
+                        "pointer",
+                        sequence_index + 1,
+                        text.split()[1],
                     ),
                     PromptSegment(
                         "version_a_fact",
@@ -354,3 +360,27 @@ class BlockDatasetTests(TestCase):
         )
         self.assertIn("nearest_changed_block_distance", records[0])
         self.assertEqual(records[0]["decision"], "reuse")
+
+    # Reject accidental mixtures of v1 and v2 feature rows in one CSV.
+    def test_rejects_mixed_feature_schemas(self):
+        context = CandidateContextFeatures(*([0] * 10))
+        baseline = label_candidate_block(
+            trace_id="baseline",
+            transition_id="baseline-transition",
+            features=BASE_FEATURES,
+            decision=RepairDecision.REUSE,
+            source=LabelSource.SYNTHETIC_DEPENDENCY,
+            reason="Baseline row.",
+        )
+        expanded = replace(baseline, context_features=context)
+        rows = (
+            SplitCandidateBlock(baseline, DatasetSplit.TRAIN),
+            SplitCandidateBlock(expanded, DatasetSplit.TRAIN),
+        )
+
+        with TemporaryDirectory() as temporary_directory:
+            with self.assertRaisesRegex(ValueError, "mix feature schemas"):
+                save_block_dataset_csv(
+                    rows,
+                    Path(temporary_directory) / "mixed.csv",
+                )

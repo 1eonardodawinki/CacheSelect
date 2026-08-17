@@ -24,6 +24,11 @@ from benchmarks.schema import (
     TransitionGroundTruth,
     WorkloadTrace,
 )
+from cacheselect.selector_features import (
+    BASELINE_FEATURE_SCHEMA,
+    CONTEXT_FEATURE_SCHEMA,
+    FEATURE_SCHEMAS,
+)
 
 EDIT_POSITIONS = ("early", "middle", "late")
 DEPENDENCY_LAYOUTS = (
@@ -253,7 +258,9 @@ def build_pointer_dependency_trace(
             segments=[
                 PromptSegment("system", "system", "instruction", 1, system),
                 PromptSegment("before_filler", "user", "document", 1, before_filler),
-                PromptSegment("pointer", "user", "pointer", 2 if edited else 1, pointer),
+                PromptSegment(
+                    "pointer", "user", "pointer", 2 if edited else 1, pointer
+                ),
                 *[
                     PromptSegment(segment_id, "user", "document", 1, content)
                     if segment_id.startswith("after_filler")
@@ -270,7 +277,9 @@ def build_pointer_dependency_trace(
             ],
             ground_truth=RequestGroundTruth(
                 expected_answer=expected,
-                requirements=[AnswerRequirement("selected_code", [expected.casefold()])],
+                requirements=[
+                    AnswerRequirement("selected_code", [expected.casefold()])
+                ],
                 notes="The changed selector chooses one of two unchanged mappings.",
             ),
         )
@@ -311,6 +320,7 @@ def generate_pointer_block_dataset(
     edit_positions: Sequence[str] = EDIT_POSITIONS,
     dependency_layouts: Sequence[str] = DEPENDENCY_LAYOUTS,
     block_size: int = 16,
+    include_context_features: bool = False,
 ) -> tuple[SplitCandidateBlock, ...]:
     examples = []
     validation_trace_ids = set()
@@ -329,6 +339,7 @@ def generate_pointer_block_dataset(
                         trace=trace,
                         tokenizer=tokenizer,
                         block_size=block_size,
+                        include_context_features=include_context_features,
                     )
                     if not trace_examples:
                         continue
@@ -350,6 +361,11 @@ def main() -> None:
     parser.add_argument("--model", required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--block-size", type=int, default=16)
+    parser.add_argument(
+        "--feature-schema",
+        choices=sorted(FEATURE_SCHEMAS),
+        default=BASELINE_FEATURE_SCHEMA.name,
+    )
     parser.add_argument(
         "--filler-words",
         type=int,
@@ -379,9 +395,12 @@ def main() -> None:
         edit_positions=args.edit_positions or EDIT_POSITIONS,
         dependency_layouts=args.dependency_layouts or DEPENDENCY_LAYOUTS,
         block_size=args.block_size,
+        include_context_features=args.feature_schema == CONTEXT_FEATURE_SCHEMA.name,
     )
     save_block_dataset_csv(rows, args.output)
-    counts = Counter((row.split.value, row.example.label.decision.value) for row in rows)
+    counts = Counter(
+        (row.split.value, row.example.label.decision.value) for row in rows
+    )
     print(f"Saved {len(rows)} candidate blocks to {args.output}")
     for (split, decision), count in sorted(counts.items()):
         print(f"{split} {decision}: {count}")

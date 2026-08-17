@@ -87,6 +87,7 @@ class BlockDatasetGenerationTests(TestCase):
             edit_positions=["middle"],
             dependency_layouts=["facts_middle"],
             block_size=4,
+            include_context_features=True,
         )
 
         self.assertEqual(
@@ -97,6 +98,7 @@ class BlockDatasetGenerationTests(TestCase):
             {row.example.label.decision for row in rows},
             {RepairDecision.REPAIR, RepairDecision.REUSE},
         )
+        self.assertTrue(all(row.example.context_features is not None for row in rows))
         split_by_variant = {
             row.example.trace_id.split("-")[1]: row.split for row in rows
         }

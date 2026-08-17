@@ -14,6 +14,10 @@ from cacheselect.block_features import (
     extract_candidate_block_features,
     locate_changed_token_region,
 )
+from cacheselect.context_features import (
+    CandidateContextFeatures,
+    extract_candidate_context_features,
+)
 from cacheselect.reuse_opportunity import analyze_reuse_opportunity
 from cacheselect.tokenization import rendered_chat_tokenization
 
@@ -57,6 +61,7 @@ class LabeledCandidateBlock:
     transition_id: str
     features: CandidateBlockFeatures
     label: BlockRepairLabel
+    context_features: CandidateContextFeatures | None = None
 
 
 @dataclass(frozen=True)
@@ -85,6 +90,7 @@ def label_candidate_block(
     decision: RepairDecision,
     source: LabelSource,
     reason: str,
+    context_features: CandidateContextFeatures | None = None,
 ) -> LabeledCandidateBlock:
     if not trace_id:
         raise ValueError("trace_id must not be empty")
@@ -101,6 +107,7 @@ def label_candidate_block(
             source=source,
             reason=reason,
         ),
+        context_features=context_features,
     )
 
 
@@ -204,6 +211,7 @@ def build_synthetic_dependency_examples(
     rendered_prompt: str,
     token_offsets: Sequence[tuple[int, int]],
     features: Sequence[CandidateBlockFeatures],
+    context_features: Sequence[CandidateContextFeatures] | None = None,
 ) -> tuple[LabeledCandidateBlock, ...]:
     if transition.current_request_id != current_request.request_id:
         raise ValueError("transition does not target the supplied current request")
@@ -214,15 +222,16 @@ def build_synthetic_dependency_examples(
         token_offsets=token_offsets,
     )
 
+    if context_features is not None and len(context_features) != len(features):
+        raise ValueError("context and baseline feature counts differ")
     examples = []
-    for feature_row in features:
+    for index, feature_row in enumerate(features):
         if feature_row.current_token_count != len(token_offsets):
             raise ValueError("token offsets do not match feature token count")
         dependencies = _overlapping_dependencies(feature_row, dependent_spans)
         decision = RepairDecision.REPAIR if dependencies else RepairDecision.REUSE
         reason = (
-            "Block overlaps annotated dependent segments: "
-            + ", ".join(dependencies)
+            "Block overlaps annotated dependent segments: " + ", ".join(dependencies)
             if dependencies
             else "Block does not overlap an annotated dependent segment."
         )
@@ -234,6 +243,9 @@ def build_synthetic_dependency_examples(
                 decision=decision,
                 source=LabelSource.SYNTHETIC_DEPENDENCY,
                 reason=reason,
+                context_features=(
+                    context_features[index] if context_features is not None else None
+                ),
             )
         )
     return tuple(examples)
@@ -245,6 +257,7 @@ def build_trace_dependency_examples(
     trace: WorkloadTrace,
     tokenizer: object,
     block_size: int = 16,
+    include_context_features: bool = False,
 ) -> tuple[LabeledCandidateBlock, ...]:
     requests_by_id = {request.request_id: request for request in trace.requests}
     examples = []
@@ -273,6 +286,15 @@ def build_trace_dependency_examples(
             current.token_ids,
             opportunity,
         )
+        context_features = (
+            extract_candidate_context_features(
+                previous.token_ids,
+                current.token_ids,
+                opportunity,
+            )
+            if include_context_features
+            else None
+        )
         examples.extend(
             build_synthetic_dependency_examples(
                 trace_id=trace.trace_id,
@@ -281,6 +303,7 @@ def build_trace_dependency_examples(
                 rendered_prompt=current.text,
                 token_offsets=current.token_offsets,
                 features=features,
+                context_features=context_features,
             )
         )
     return tuple(examples)
@@ -324,6 +347,8 @@ def flatten_dataset_row(row: SplitCandidateBlock) -> dict[str, object]:
         "label_reason": example.label.reason,
     }
     flattened.update(asdict(example.features))
+    if example.context_features is not None:
+        flattened.update(asdict(example.context_features))
     return flattened
 
 
@@ -334,6 +359,9 @@ def save_block_dataset_csv(
 ) -> None:
     if not rows:
         raise ValueError("cannot save an empty block dataset")
+    context_presence = {row.example.context_features is not None for row in rows}
+    if len(context_presence) != 1:
+        raise ValueError("cannot mix feature schemas in one block dataset")
     flattened = [flatten_dataset_row(row) for row in rows]
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="") as output:
