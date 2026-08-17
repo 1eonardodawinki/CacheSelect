@@ -12,6 +12,7 @@ from benchmarks.curate_mtrag_counterfactual_dataset import (
     curate_mtrag_counterfactual_dataset,
 )
 from cacheselect.block_features import CandidateBlockFeatures
+from cacheselect.context_features import CandidateContextFeatures
 
 
 # Write the compact result artifacts needed to merge one automatic and one review row.
@@ -107,12 +108,19 @@ class CurateMtragCounterfactualDatasetTests(TestCase):
     def test_curates_all_pilot_trials(self):
         feature = {field.name: 0 for field in fields(CandidateBlockFeatures)}
         feature["candidate_block_index"] = 8
+        context = {field.name: 1 for field in fields(CandidateContextFeatures)}
         with TemporaryDirectory() as directory:
             root = Path(directory)
             _write_result_fixture(root)
-            with patch(
-                "benchmarks.curate_mtrag_counterfactual_dataset._reviewed_feature",
-                return_value=(feature, "transition-1"),
+            with (
+                patch(
+                    "benchmarks.curate_mtrag_counterfactual_dataset._reviewed_feature",
+                    return_value=(feature, "transition-1"),
+                ),
+                patch(
+                    "benchmarks.curate_mtrag_counterfactual_dataset._context_feature",
+                    return_value=(context, "transition-1"),
+                ),
             ):
                 report = curate_mtrag_counterfactual_dataset(root)
             with (root / "mtrag-curated-blocks.csv").open(
@@ -123,7 +131,9 @@ class CurateMtragCounterfactualDatasetTests(TestCase):
         self.assertEqual(report["row_count"], 2)
         self.assertEqual(report["reuse_labels"], 1)
         self.assertEqual(report["repair_labels"], 1)
+        self.assertEqual(report["feature_schema"], "block-context-v2")
         self.assertEqual(rows[0]["adjudication"], "exact_output_match")
+        self.assertEqual(rows[0]["matching_run_length_blocks"], "1")
         self.assertEqual(rows[1]["adjudication"], "blinded_semantic_review")
         self.assertEqual(rows[1]["trial_id"], "review-trial")
 
@@ -138,7 +148,12 @@ class CurateMtragCounterfactualDatasetTests(TestCase):
             audit["rows"][0]["decision"] = "abstain"
             audit_path.write_text(json.dumps(audit), encoding="utf-8")
 
-            report = curate_mtrag_counterfactual_dataset(root)
+            context = {field.name: 1 for field in fields(CandidateContextFeatures)}
+            with patch(
+                "benchmarks.curate_mtrag_counterfactual_dataset._context_feature",
+                return_value=(context, "transition-1"),
+            ):
+                report = curate_mtrag_counterfactual_dataset(root)
             with (root / "mtrag-curated-blocks.csv").open(
                 newline="", encoding="utf-8"
             ) as source:

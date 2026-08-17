@@ -14,7 +14,12 @@ from typing import Any
 from benchmarks.consolidate_mtrag_counterfactual import AUDIT_COLUMNS, TRAINING_COLUMNS
 from benchmarks.prepare_mtrag_counterfactual_review import _load_ledger
 from cacheselect.block_features import extract_candidate_block_features
+from cacheselect.context_features import extract_candidate_context_features
 from cacheselect.reuse_opportunity import analyze_reuse_opportunity
+from cacheselect.selector_features import (
+    CONTEXT_FEATURE_SCHEMA,
+    CONTEXT_NUMERIC_FEATURES,
+)
 
 
 REVIEW_COLUMNS = (
@@ -82,6 +87,60 @@ def _reviewed_feature(
     ]
     if len(matches) != 1 or not isinstance(transition_id, str):
         raise ValueError(f"trial {trial_id!r} has no unique aligned feature row")
+    return asdict(matches[0]), transition_id
+
+
+# Reconstruct the ten prompt-context signals for one executed block trial.
+def _context_feature(
+    trial_id: str,
+    block_index: int,
+    started: dict[str, dict],
+    completed: dict[str, dict],
+) -> tuple[dict[str, Any], str]:
+    roles = {
+        event.get("metadata", {}).get("counterfactual_role"): event
+        for event in started.values()
+        if event.get("metadata", {}).get("counterfactual_trial_id") == trial_id
+    }
+    if "donor" not in roles or "intervention" not in roles:
+        raise ValueError(f"trial {trial_id!r} lacks context-feature evidence")
+    donor = completed[roles["donor"]["request_id"]]
+    intervention = completed[roles["intervention"]["request_id"]]
+    plan = (
+        intervention.get("metrics", {})
+        .get("server_metrics", {})
+        .get("cacheselect_partial_reuse_plan")
+    )
+    if not isinstance(plan, dict):
+        raise ValueError(f"trial {trial_id!r} has no partial-reuse plan")
+    block_size = plan.get("block_size")
+    native_tokens = plan.get("native_cached_tokens")
+    transition_id = plan.get("transition_id")
+    if not all(isinstance(value, int) for value in (block_size, native_tokens)):
+        raise ValueError(f"trial {trial_id!r} has invalid cache geometry")
+    previous = _prompt_tokens(donor, "donor")
+    current = _prompt_tokens(intervention, "intervention")
+    opportunity = analyze_reuse_opportunity(
+        previous,
+        current,
+        native_cached_tokens=native_tokens,
+        block_size=block_size,
+    )
+    context_rows = extract_candidate_context_features(
+        previous,
+        current,
+        opportunity,
+    )
+    matches = [
+        context
+        for candidate, context in zip(
+            opportunity.candidate_blocks, context_rows, strict=True
+        )
+        if candidate.current_block_index == block_index
+        and not candidate.requires_repacking
+    ]
+    if len(matches) != 1 or not isinstance(transition_id, str):
+        raise ValueError(f"trial {trial_id!r} has no unique context feature row")
     return asdict(matches[0]), transition_id
 
 
@@ -183,6 +242,17 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
             }
         )
 
+    for row in rows:
+        context, transition_id = _context_feature(
+            row["trial_id"],
+            int(row["candidate_block_index"]),
+            started,
+            completed,
+        )
+        if transition_id != row["transition_id"]:
+            raise ValueError("context features belong to a different transition")
+        row.update(context)
+
     keys = [(row["transition_id"], str(row["candidate_block_index"])) for row in rows]
     expected_rows = summary.get("trial_count") - abstention_count
     if len(keys) != len(set(keys)) or len(rows) != expected_rows:
@@ -194,7 +264,12 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         )
     )
     output_path = result_dir / "mtrag-curated-blocks.csv"
-    columns = (*TRAINING_COLUMNS, *AUDIT_COLUMNS, *REVIEW_COLUMNS)
+    columns = (
+        *TRAINING_COLUMNS,
+        *CONTEXT_NUMERIC_FEATURES,
+        *AUDIT_COLUMNS,
+        *REVIEW_COLUMNS,
+    )
     with output_path.open("w", newline="", encoding="utf-8") as output:
         writer = csv.DictWriter(output, fieldnames=columns)
         writer.writeheader()
@@ -204,6 +279,8 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
     report = {
         "schema_version": 1,
         "dataset": "mtrag-curated-counterfactual-blocks",
+        "feature_schema": CONTEXT_FEATURE_SCHEMA.name,
+        "feature_names": list(CONTEXT_FEATURE_SCHEMA.feature_names),
         "source_ledger_sha256": audit["source_ledger_sha256"],
         "manual_review_audit_sha256": hashlib.sha256(
             audit_path.read_bytes()
