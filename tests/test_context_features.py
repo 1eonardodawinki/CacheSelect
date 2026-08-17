@@ -34,7 +34,13 @@ class ContextFeatureTests(TestCase):
         self.assertEqual(rows[0].previous_changed_tokens_before_candidate, 2)
         self.assertEqual(rows[0].current_changed_tokens_before_candidate, 2)
         self.assertEqual(rows[0].preceding_context_match_tokens, 0)
+        self.assertEqual(rows[0].preceding_matching_run_blocks, 0)
+        self.assertEqual(rows[0].following_matching_run_blocks, 1)
+        self.assertEqual(rows[0].matching_run_length_blocks, 2)
         self.assertEqual(rows[1].preceding_context_match_tokens, 2)
+        self.assertEqual(rows[1].preceding_matching_run_blocks, 1)
+        self.assertEqual(rows[1].following_matching_run_blocks, 0)
+        self.assertEqual(rows[1].matching_run_length_blocks, 2)
 
     # Report repeated source content so the selector can detect ambiguous matches.
     def test_counts_aligned_source_occurrences(self):
@@ -56,6 +62,8 @@ class ContextFeatureTests(TestCase):
         repeated = feature_by_block[1]
         self.assertEqual(repeated.source_occurrence_count, 2)
         self.assertEqual(repeated.aligned_source_occurrence_count, 2)
+        self.assertEqual(repeated.matching_run_length_blocks, 2)
+        self.assertEqual(repeated.following_matching_run_blocks, 1)
 
     # Count a deletion immediately before a candidate as changed prior context.
     def test_counts_boundary_deletion_before_candidate(self):

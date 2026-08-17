@@ -28,6 +28,9 @@ class CandidateContextFeatures:
     previous_changed_tokens_before_candidate: int
     current_changed_tokens_before_candidate: int
     preceding_context_match_tokens: int
+    preceding_matching_run_blocks: int
+    following_matching_run_blocks: int
+    matching_run_length_blocks: int
     source_occurrence_count: int
     aligned_source_occurrence_count: int
 
@@ -75,6 +78,48 @@ def _edit_precedes_candidate(edit: TokenEditSpan, candidate_start: int) -> bool:
     )
 
 
+# Count full matching blocks around one candidate/source occurrence pair.
+def _matching_block_run(
+    previous_tokens: Sequence[int],
+    current_tokens: Sequence[int],
+    *,
+    previous_start: int,
+    current_start: int,
+    block_size: int,
+) -> tuple[int, int]:
+    preceding = 0
+    while (
+        previous_start - (preceding + 1) * block_size >= 0
+        and current_start - (preceding + 1) * block_size >= 0
+    ):
+        step = preceding + 1
+        previous_block_start = previous_start - step * block_size
+        current_block_start = current_start - step * block_size
+        if tuple(
+            previous_tokens[previous_block_start : previous_block_start + block_size]
+        ) != tuple(
+            current_tokens[current_block_start : current_block_start + block_size]
+        ):
+            break
+        preceding += 1
+
+    following = 0
+    while previous_start + (following + 2) * block_size <= len(
+        previous_tokens
+    ) and current_start + (following + 2) * block_size <= len(current_tokens):
+        step = following + 1
+        previous_block_start = previous_start + step * block_size
+        current_block_start = current_start + step * block_size
+        if tuple(
+            previous_tokens[previous_block_start : previous_block_start + block_size]
+        ) != tuple(
+            current_tokens[current_block_start : current_block_start + block_size]
+        ):
+            break
+        following += 1
+    return preceding, following
+
+
 # Measure separate edits and source-context agreement for every candidate block.
 def extract_candidate_context_features(
     previous_tokens: Sequence[int],
@@ -101,6 +146,21 @@ def extract_candidate_context_features(
             )
             for previous_start in candidate.previous_starts
         )
+        # Prefer executable aligned occurrences when measuring stable block runs.
+        source_starts = candidate.aligned_previous_starts or candidate.previous_starts
+        preceding_run, following_run = max(
+            (
+                _matching_block_run(
+                    previous_tokens,
+                    current_tokens,
+                    previous_start=previous_start,
+                    current_start=current_start,
+                    block_size=opportunity.block_size,
+                )
+                for previous_start in source_starts
+            ),
+            key=lambda run: (sum(run), run[0]),
+        )
         rows.append(
             CandidateContextFeatures(
                 edit_span_count=len(edits),
@@ -113,6 +173,9 @@ def extract_candidate_context_features(
                     for edit in edits_before
                 ),
                 preceding_context_match_tokens=max(preceding_matches, default=0),
+                preceding_matching_run_blocks=preceding_run,
+                following_matching_run_blocks=following_run,
+                matching_run_length_blocks=preceding_run + 1 + following_run,
                 source_occurrence_count=len(candidate.previous_starts),
                 aligned_source_occurrence_count=len(candidate.aligned_previous_starts),
             )
