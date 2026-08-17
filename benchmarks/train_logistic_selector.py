@@ -13,25 +13,12 @@ from sklearn.metrics import average_precision_score, roc_auc_score
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-NUMERIC_FEATURES = (
-    "previous_token_count",
-    "current_token_count",
-    "previous_changed_token_count",
-    "current_changed_token_count",
-    "block_size",
-    "candidate_block_index",
-    "candidate_position_ratio",
-    "relative_block_offset",
-    "nearest_changed_block_distance",
-    "source_displacement_blocks",
-    "candidate_share_of_native_recompute",
-    "changed_candidate_token_overlap_ratio",
-    "introduced_candidate_token_overlap_ratio",
-    "removed_candidate_token_overlap_ratio",
-    "changed_candidate_token_jaccard",
+from cacheselect.selector_features import (
+    BOOLEAN_FEATURES,
+    FEATURE_NAMES,
+    NUMERIC_FEATURES,
 )
-BOOLEAN_FEATURES = ("same_position_match", "requires_repacking")
-FEATURE_NAMES = NUMERIC_FEATURES + BOOLEAN_FEATURES
+
 SPLITS = ("train", "validation", "test")
 SAFETY_RECALL_TARGETS = (0.90, 0.95, 0.99, 1.0)
 
@@ -49,9 +36,7 @@ def _parse_boolean(value: str, *, field_name: str) -> float:
 def load_selector_dataset(
     path: Path,
 ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
-    grouped: dict[str, list[tuple[list[float], int]]] = {
-        split: [] for split in SPLITS
-    }
+    grouped: dict[str, list[tuple[list[float], int]]] = {split: [] for split in SPLITS}
     with path.open(newline="") as input_file:
         for line_number, row in enumerate(csv.DictReader(input_file), start=2):
             split = row.get("split")
@@ -109,7 +94,9 @@ def evaluate_selector(
         "repair_precision": repair_precision,
         "repair_recall": repair_recall,
         "repair_f1": (
-            2 * repair_precision * repair_recall
+            2
+            * repair_precision
+            * repair_recall
             / max(repair_precision + repair_recall, np.finfo(float).eps)
         ),
         "selected_reuse_rate": (safe_reuse + missed_repair) / len(labels),

@@ -6,8 +6,8 @@ from pathlib import Path
 
 from sklearn.ensemble import HistGradientBoostingClassifier
 
+from cacheselect.selector_features import FEATURE_NAMES
 from benchmarks.train_logistic_selector import (
-    FEATURE_NAMES,
     evaluate_selector,
     load_selector_dataset,
     operating_points,

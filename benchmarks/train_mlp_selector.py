@@ -9,8 +9,8 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from cacheselect.selector_features import FEATURE_NAMES
 from benchmarks.train_logistic_selector import (
-    FEATURE_NAMES,
     evaluate_selector,
     load_selector_dataset,
     operating_points,
@@ -30,9 +30,7 @@ def balanced_binary_training_rows(
     if set(np.unique(labels)) != {0, 1}:
         raise ValueError("balanced training requires both binary classes")
     random = np.random.default_rng(random_state)
-    class_indices = {
-        value: np.flatnonzero(labels == value) for value in (0, 1)
-    }
+    class_indices = {value: np.flatnonzero(labels == value) for value in (0, 1)}
     minority_value = min(class_indices, key=lambda value: len(class_indices[value]))
     minority_indices = class_indices[minority_value]
     majority_count = max(len(indices) for indices in class_indices.values())
