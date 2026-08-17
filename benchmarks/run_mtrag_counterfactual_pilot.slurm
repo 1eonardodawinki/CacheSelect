@@ -18,6 +18,12 @@ MANIFEST="${CACHESELECT_MTRAG_PILOT_MANIFEST:-results/mtrag-pilot-v2/manifest.js
 AUDIT="${CACHESELECT_MTRAG_AUDIT:-results/mtrag-quality-calibration-v1/manual-audit-v1.json}"
 REFERENCE_ARTIFACT="${CACHESELECT_MTRAG_REFERENCE_ARTIFACT:-results/mtrag-quality-calibration-v1/run-274842/reference-calibration.json}"
 HF_OFFLINE="${CACHESELECT_HF_OFFLINE:-1}"
+SERVER_START_TIMEOUT_SECONDS="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
+
+if ! [[ "$SERVER_START_TIMEOUT_SECONDS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "CACHESELECT_SERVER_START_TIMEOUT_SECONDS must be a positive integer" >&2
+  exit 1
+fi
 
 EXPERIMENT_ID="${SLURM_JOB_ID:?Run this file with sbatch}"
 PORT=$((29000 + (EXPERIMENT_ID % 1000)))
@@ -81,6 +87,7 @@ echo "gpu=$GPU_DESCRIPTION"
   echo "repair_selector=full_block"
   echo "partial_reuse_execution=true"
   echo "max_completion_tokens=384"
+  echo "server_start_timeout_seconds=$SERVER_START_TIMEOUT_SECONDS"
 } >"$RESULT_DIR/metadata.env"
 
 SERVER_PID=""
@@ -114,7 +121,10 @@ trap stop_server EXIT INT TERM
 
 # Wait for the local endpoint or expose its startup log.
 wait_for_server() {
-  for _ in {1..600}; do
+  local start_seconds=$SECONDS
+  local elapsed_seconds=0
+  local next_progress_seconds=60
+  while ((elapsed_seconds < SERVER_START_TIMEOUT_SECONDS)); do
     if ! kill -0 "$SERVER_PID" 2>/dev/null; then
       echo "vLLM exited before becoming healthy" >&2
       tail -n 200 "$SERVER_LOG" >&2 || true
@@ -125,8 +135,14 @@ wait_for_server() {
       return 0
     fi
     sleep 2
+    elapsed_seconds=$((SECONDS - start_seconds))
+    if ((elapsed_seconds >= next_progress_seconds)); then
+      echo "Still waiting for vLLM: ${elapsed_seconds}s elapsed"
+      tail -n 1 "$SERVER_LOG" 2>/dev/null || true
+      next_progress_seconds=$((next_progress_seconds + 60))
+    fi
   done
-  echo "Timed out waiting for vLLM health endpoint" >&2
+  echo "Timed out after ${elapsed_seconds}s waiting for vLLM health" >&2
   tail -n 200 "$SERVER_LOG" >&2 || true
   return 1
 }

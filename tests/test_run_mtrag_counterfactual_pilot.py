@@ -37,6 +37,9 @@ class RunMtragCounterfactualPilotTests(TestCase):
             "--enforce-eager",
             "python -m benchmarks.run_mtrag_counterfactual_pilot",
             "--max-completion-tokens 384",
+            "CACHESELECT_SERVER_START_TIMEOUT_SECONDS",
+            "SERVER_START_TIMEOUT_SECONDS:-3600",
+            "Still waiting for vLLM",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, content)
