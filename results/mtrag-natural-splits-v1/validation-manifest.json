@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "selection": "mtrag-reference-quality-calibration",
+  "source_prompt_template_version": 1,
+  "source_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "source_tokenizer_class": "Qwen2Tokenizer",
+  "split_seed": "cacheselect-mtrag-v1",
+  "split": "validation",
+  "requested_task_count": 6,
+  "max_prompt_tokens": 4096,
+  "max_testable_blocks": 64,
+  "task_count": 6,
+  "collection_count": 4,
+  "collection_task_counts": {
+    "mt-rag-clapnq-elser-512-100-20240503": 2,
+    "mt-rag-fiqa-beir-elser-512-100-20240501": 2,
+    "mt-rag-govt-elser-512-100-20240611": 1,
+    "mt-rag-ibmcloud-elser-512-100-20240502": 1
+  },
+  "tasks": [
+    {
+      "task_id": "cfbcfa3e382f12aed450b10f87a72aeb<::>2",
+      "conversation_id": "cfbcfa3e382f12aed450b10f87a72aeb",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "validation"
+    },
+    {
+      "task_id": "d4d8edb3e0c456d11033b14b28e99470<::>3",
+      "conversation_id": "d4d8edb3e0c456d11033b14b28e99470",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "validation"
+    },
+    {
+      "task_id": "251e29286cef45d899d7889e94ae25d5<::>7",
+      "conversation_id": "251e29286cef45d899d7889e94ae25d5",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "split": "validation"
+    },
+    {
+      "task_id": "f5a8ca2f2bc12180940167fb920bb018<::>5",
+      "conversation_id": "f5a8ca2f2bc12180940167fb920bb018",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "0208bf26ec357a803445290fa88a2e9e<::>3",
+      "conversation_id": "0208bf26ec357a803445290fa88a2e9e",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "validation"
+    },
+    {
+      "task_id": "e9dd465e8dd63a80dda8f3ce9cba6848<::>4",
+      "conversation_id": "e9dd465e8dd63a80dda8f3ce9cba6848",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "validation"
+    }
+  ],
+  "source": "IBM/mt-rag-benchmark/mtrag-human/generation_tasks/RAG.jsonl",
+  "source_revision": "cc5b1d481b391181b89f7ced860308482e785463",
+  "source_sha256": "5d5201da9fabd072fd8f6b8d051bfaafa7ef031e76722a4920c66e94cede1873",
+  "source_coverage_sha256": "e33506e9d76826a29359e9bd28af1d9643a55344b03a623b7c9be99339d4598c",
+  "excluded_manifest_sha256": "5d0d19c3ef1cfe374dbd2d02d2dda1944262cbc795491601e9a080645059bfde",
+  "excluded_conversation_count": 18
+}

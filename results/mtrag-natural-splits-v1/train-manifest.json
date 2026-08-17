@@ -1,0 +1,154 @@
+{
+  "schema_version": 1,
+  "selection": "mtrag-reference-quality-calibration",
+  "source_prompt_template_version": 1,
+  "source_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "source_tokenizer_class": "Qwen2Tokenizer",
+  "split_seed": "cacheselect-mtrag-v1",
+  "split": "train",
+  "requested_task_count": 21,
+  "max_prompt_tokens": 4096,
+  "max_testable_blocks": 64,
+  "task_count": 21,
+  "collection_count": 4,
+  "collection_task_counts": {
+    "mt-rag-clapnq-elser-512-100-20240503": 6,
+    "mt-rag-fiqa-beir-elser-512-100-20240501": 5,
+    "mt-rag-govt-elser-512-100-20240611": 5,
+    "mt-rag-ibmcloud-elser-512-100-20240502": 5
+  },
+  "tasks": [
+    {
+      "task_id": "91204c45fc829e328f9a3643d9dd4c2b<::>3",
+      "conversation_id": "91204c45fc829e328f9a3643d9dd4c2b",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "train"
+    },
+    {
+      "task_id": "f1121a39d8a9e36eaef4c2367bd43532<::>6",
+      "conversation_id": "f1121a39d8a9e36eaef4c2367bd43532",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "train"
+    },
+    {
+      "task_id": "941445ba11ba7ba2c92c5184c9d798d6<::>8",
+      "conversation_id": "941445ba11ba7ba2c92c5184c9d798d6",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "split": "train"
+    },
+    {
+      "task_id": "adf9b1f61c73d715809bc7b37ac02724<::>11",
+      "conversation_id": "adf9b1f61c73d715809bc7b37ac02724",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "train"
+    },
+    {
+      "task_id": "95a0893567c7519c090ecbcdd14daccd<::>5",
+      "conversation_id": "95a0893567c7519c090ecbcdd14daccd",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "train"
+    },
+    {
+      "task_id": "7cb06b3f8068674fce61a11e9777f708<::>4",
+      "conversation_id": "7cb06b3f8068674fce61a11e9777f708",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "train"
+    },
+    {
+      "task_id": "35e6be0f2049527ae17cf77169cc4f70<::>4",
+      "conversation_id": "35e6be0f2049527ae17cf77169cc4f70",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "split": "train"
+    },
+    {
+      "task_id": "2f013337236ea4635ad106813275dab7<::>4",
+      "conversation_id": "2f013337236ea4635ad106813275dab7",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "train"
+    },
+    {
+      "task_id": "c1e53df98a28f19448f4af244304b89a<::>3",
+      "conversation_id": "c1e53df98a28f19448f4af244304b89a",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "train"
+    },
+    {
+      "task_id": "af5e45e59e1254e0b7869cb477674d02<::>6",
+      "conversation_id": "af5e45e59e1254e0b7869cb477674d02",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "train"
+    },
+    {
+      "task_id": "72ba19c38518da1fc894fc638a2802f7<::>6",
+      "conversation_id": "72ba19c38518da1fc894fc638a2802f7",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "split": "train"
+    },
+    {
+      "task_id": "fdee20f7fd677e420742b09989623d68<::>5",
+      "conversation_id": "fdee20f7fd677e420742b09989623d68",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "train"
+    },
+    {
+      "task_id": "a3f07e9ed5f257db6aecd30511f03af1<::>6",
+      "conversation_id": "a3f07e9ed5f257db6aecd30511f03af1",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "train"
+    },
+    {
+      "task_id": "2b34f5e7861ca9b1b3eab65ad6d6b4b0<::>6",
+      "conversation_id": "2b34f5e7861ca9b1b3eab65ad6d6b4b0",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "train"
+    },
+    {
+      "task_id": "5600fe1c05a1fc415416d9dee6347000<::>7",
+      "conversation_id": "5600fe1c05a1fc415416d9dee6347000",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "split": "train"
+    },
+    {
+      "task_id": "1065ea5ad1ae2b90e6fce67d851a7a66<::>2",
+      "conversation_id": "1065ea5ad1ae2b90e6fce67d851a7a66",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "train"
+    },
+    {
+      "task_id": "5c13daa9432149f6243aa1115629cd1a<::>2",
+      "conversation_id": "5c13daa9432149f6243aa1115629cd1a",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "train"
+    },
+    {
+      "task_id": "dcc0215a118ac833dfe054350df2afaa<::>3",
+      "conversation_id": "dcc0215a118ac833dfe054350df2afaa",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "train"
+    },
+    {
+      "task_id": "2cc753bcef23767c18aedad06c4405c4<::>2",
+      "conversation_id": "2cc753bcef23767c18aedad06c4405c4",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "split": "train"
+    },
+    {
+      "task_id": "e1b602e47ded79a35d8df4eefe194e39<::>4",
+      "conversation_id": "e1b602e47ded79a35d8df4eefe194e39",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "train"
+    },
+    {
+      "task_id": "3a07680acfb0f951fc3210a8c1a282c9<::>3",
+      "conversation_id": "3a07680acfb0f951fc3210a8c1a282c9",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "train"
+    }
+  ],
+  "source": "IBM/mt-rag-benchmark/mtrag-human/generation_tasks/RAG.jsonl",
+  "source_revision": "cc5b1d481b391181b89f7ced860308482e785463",
+  "source_sha256": "5d5201da9fabd072fd8f6b8d051bfaafa7ef031e76722a4920c66e94cede1873",
+  "source_coverage_sha256": "e33506e9d76826a29359e9bd28af1d9643a55344b03a623b7c9be99339d4598c",
+  "excluded_manifest_sha256": "5d0d19c3ef1cfe374dbd2d02d2dda1944262cbc795491601e9a080645059bfde",
+  "excluded_conversation_count": 18
+}

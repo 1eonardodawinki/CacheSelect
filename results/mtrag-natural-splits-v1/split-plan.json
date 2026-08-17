@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "analysis": "mtrag-natural-selector-data-splits",
+  "existing_training_transitions": 7,
+  "new_training_transitions": 21,
+  "validation_transitions": 6,
+  "test_transitions": 6,
+  "final_transition_count": 40,
+  "final_split_percentages": {
+    "train": 0.7,
+    "validation": 0.15,
+    "test": 0.15
+  },
+  "test_status": "frozen_unopened",
+  "manifests": {
+    "train": "results/mtrag-natural-splits-v1/train-manifest.json",
+    "validation": "results/mtrag-natural-splits-v1/validation-manifest.json",
+    "test": "results/mtrag-natural-splits-v1/test-manifest.json"
+  }
+}

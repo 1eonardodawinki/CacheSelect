@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "selection": "mtrag-reference-quality-calibration",
+  "source_prompt_template_version": 1,
+  "source_model": "Qwen/Qwen2.5-1.5B-Instruct",
+  "source_tokenizer_class": "Qwen2Tokenizer",
+  "split_seed": "cacheselect-mtrag-v1",
+  "split": "test",
+  "requested_task_count": 6,
+  "max_prompt_tokens": 4096,
+  "max_testable_blocks": 64,
+  "task_count": 6,
+  "collection_count": 4,
+  "collection_task_counts": {
+    "mt-rag-clapnq-elser-512-100-20240503": 1,
+    "mt-rag-fiqa-beir-elser-512-100-20240501": 2,
+    "mt-rag-govt-elser-512-100-20240611": 2,
+    "mt-rag-ibmcloud-elser-512-100-20240502": 1
+  },
+  "tasks": [
+    {
+      "task_id": "717ca9138f07b4621887812f47499d74<::>7",
+      "conversation_id": "717ca9138f07b4621887812f47499d74",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "test"
+    },
+    {
+      "task_id": "1c74814752c3f9d4ed0b99c16e1ed192<::>9",
+      "conversation_id": "1c74814752c3f9d4ed0b99c16e1ed192",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "test"
+    },
+    {
+      "task_id": "124e27c3861eff7dadd17993719a0beb<::>7",
+      "conversation_id": "124e27c3861eff7dadd17993719a0beb",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "split": "test"
+    },
+    {
+      "task_id": "f3a917e029970190be5ee508ba770d7f<::>3",
+      "conversation_id": "f3a917e029970190be5ee508ba770d7f",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "test"
+    },
+    {
+      "task_id": "535ebd306304982e4e49cc989ce5b10b<::>7",
+      "conversation_id": "535ebd306304982e4e49cc989ce5b10b",
+      "collection": "mt-rag-fiqa-beir-elser-512-100-20240501",
+      "split": "test"
+    },
+    {
+      "task_id": "2f484ad8f3baf91136f040855892c82e<::>4",
+      "conversation_id": "2f484ad8f3baf91136f040855892c82e",
+      "collection": "mt-rag-govt-elser-512-100-20240611",
+      "split": "test"
+    }
+  ],
+  "source": "IBM/mt-rag-benchmark/mtrag-human/generation_tasks/RAG.jsonl",
+  "source_revision": "cc5b1d481b391181b89f7ced860308482e785463",
+  "source_sha256": "5d5201da9fabd072fd8f6b8d051bfaafa7ef031e76722a4920c66e94cede1873",
+  "source_coverage_sha256": "e33506e9d76826a29359e9bd28af1d9643a55344b03a623b7c9be99339d4598c",
+  "excluded_manifest_sha256": "5d0d19c3ef1cfe374dbd2d02d2dda1944262cbc795491601e9a080645059bfde",
+  "excluded_conversation_count": 18
+}
