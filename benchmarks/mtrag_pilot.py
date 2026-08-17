@@ -12,7 +12,7 @@ from benchmarks.mtrag import MTRAG_SPLIT_SEED, mtrag_conversation_split
 
 
 # Extract aligned candidates while protecting the final output-producing block.
-def _testable_blocks(
+def mtrag_testable_blocks(
     row: Mapping[str, Any],
     *,
     block_size: int,
@@ -120,7 +120,9 @@ def select_audited_mtrag_counterfactual_pilot(
             opportunity, Mapping
         ):
             raise ValueError("coverage transition has invalid overlap fields")
-        aligned, testable, excluded = _testable_blocks(raw, block_size=block_size)
+        aligned, testable, excluded = mtrag_testable_blocks(
+            raw, block_size=block_size
+        )
         prompt_tokens = opportunity.get("current_token_count")
         if (
             mtrag_conversation_split(conversation_id, seed=split_seed)

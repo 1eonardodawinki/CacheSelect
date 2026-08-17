@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, replace
 from typing import Any
@@ -16,6 +18,7 @@ from benchmarks.mtrag import (
     mtrag_conversation_split,
 )
 from benchmarks.mtrag_trace import build_mtrag_request_spec
+from benchmarks.mtrag_pilot import mtrag_testable_blocks
 from benchmarks.run_vllm_baseline import _observe_request
 from benchmarks.schema import ReferenceSimilarityGate, RequestSpec
 from observability.request_recorder import RequestRecorder
@@ -31,6 +34,111 @@ class MtragReferenceCalibrationCase:
     request: RequestSpec
     split: DatasetSplit
     collection: str
+
+
+# Rank an unseen task deterministically before any model output is observed.
+def _calibration_rank(seed: str, task_id: str) -> str:
+    return hashlib.sha256(f"{seed}:{task_id}".encode()).hexdigest()
+
+
+# Select diverse unseen training conversations for the next reference audit.
+def select_mtrag_training_calibration(
+    coverage: Mapping[str, Any],
+    *,
+    excluded_conversation_ids: frozenset[str] = frozenset(),
+    per_collection: int = 15,
+    max_prompt_tokens: int = 4096,
+    max_testable_blocks: int = 64,
+    split_seed: str = MTRAG_SPLIT_SEED,
+) -> dict[str, Any]:
+    if (
+        coverage.get("schema_version") != 1
+        or coverage.get("analysis") != "mtrag-natural-block-coverage"
+    ):
+        raise ValueError("input is not an MTRAG coverage artifact")
+    bounds = (per_collection, max_prompt_tokens, max_testable_blocks)
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or value < 1
+        for value in bounds
+    ):
+        raise ValueError("calibration selection bounds must be positive integers")
+    if any(not conversation_id for conversation_id in excluded_conversation_ids):
+        raise ValueError("excluded conversation IDs must not be empty")
+    block_size = coverage.get("block_size")
+    rows = coverage.get("transitions")
+    if (
+        isinstance(block_size, bool)
+        or not isinstance(block_size, int)
+        or block_size < 1
+        or not isinstance(rows, list)
+    ):
+        raise ValueError("coverage block metadata is invalid")
+
+    # Keep at most one transition from each conversation to maximize diversity.
+    eligible: dict[str, dict[str, dict[str, str]]] = defaultdict(dict)
+    collections = set()
+    for raw in rows:
+        if not isinstance(raw, Mapping):
+            raise ValueError("coverage transition must be an object")
+        identity = tuple(
+            raw.get(field)
+            for field in ("conversation_id", "collection", "current_task_id")
+        )
+        if any(not isinstance(value, str) or not value for value in identity):
+            raise ValueError("coverage transition has invalid identity fields")
+        conversation_id, collection, current_task_id = identity
+        collections.add(collection)
+        opportunity = raw.get("reuse_opportunity")
+        shared_documents = raw.get("shared_document_ids")
+        if not isinstance(opportunity, Mapping) or not isinstance(shared_documents, list):
+            raise ValueError("coverage transition has invalid reuse metadata")
+        _, testable, _ = mtrag_testable_blocks(raw, block_size=block_size)
+        prompt_tokens = opportunity.get("current_token_count")
+        if (
+            conversation_id in excluded_conversation_ids
+            or mtrag_conversation_split(conversation_id, seed=split_seed)
+            is not DatasetSplit.TRAIN
+            or not testable
+            or len(testable) > max_testable_blocks
+            or not isinstance(prompt_tokens, int)
+            or prompt_tokens > max_prompt_tokens
+        ):
+            continue
+        candidate = {
+            "task_id": current_task_id,
+            "conversation_id": conversation_id,
+            "collection": collection,
+            "split": DatasetSplit.TRAIN.value,
+        }
+        previous = eligible[collection].get(conversation_id)
+        if previous is None or _calibration_rank(
+            split_seed, current_task_id
+        ) < _calibration_rank(split_seed, previous["task_id"]):
+            eligible[collection][conversation_id] = candidate
+
+    selected = []
+    for collection in sorted(collections):
+        ranked = sorted(
+            eligible[collection].values(),
+            key=lambda row: _calibration_rank(split_seed, row["task_id"]),
+        )
+        if len(ranked) < per_collection:
+            raise ValueError(f"collection {collection!r} has too few eligible tasks")
+        selected.extend(ranked[:per_collection])
+    return {
+        "schema_version": 1,
+        "selection": "mtrag-reference-quality-calibration",
+        "source_prompt_template_version": coverage.get("prompt_template_version"),
+        "source_model": coverage.get("model"),
+        "source_tokenizer_class": coverage.get("tokenizer_class"),
+        "split_seed": split_seed,
+        "per_collection": per_collection,
+        "max_prompt_tokens": max_prompt_tokens,
+        "max_testable_blocks": max_testable_blocks,
+        "task_count": len(selected),
+        "collection_count": len(collections),
+        "tasks": selected,
+    }
 
 
 # Resolve a compact task manifest without involving candidate block metadata.
