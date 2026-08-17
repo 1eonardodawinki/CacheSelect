@@ -25,6 +25,7 @@ SHA-256:
 - v2 comparison: `f608b9006a50189a31fa0b1092eafec6bcb82f201394a50681b701bca4c7ac40`
 - MTRAG v1 transfer: `a363063b6cea8a3be632394f157263b442e8469c84103e094eb398dad6affee8`
 - MTRAG v2 transfer: `c8514cfacccd4567539f53d20cb78dc5cad50917de9c995b3731ceac02cf2268`
+- Natural feature analysis: `eafcdad2f0af1458ab36b6221b2118ef24d309347896aeae5fabe9ec40b37efa`
 
 ## Reproduction
 
@@ -46,6 +47,11 @@ python -m benchmarks.evaluate_selector_transfer \
   --feature-schema block-context-v2 \
   --minimum-repair-recall 0.95 \
   --output results/block-dataset-v2/mtrag-transfer-evaluation.json
+
+python -m benchmarks.analyze_natural_selector_failures \
+  --input results/mtrag-counterfactual-275140/mtrag-curated-blocks.csv \
+  --feature-schema block-context-v2 \
+  --output results/block-dataset-v2/mtrag-natural-feature-analysis.json
 ```
 
 ## Dataset counts
@@ -91,3 +97,18 @@ The synthetic improvement does not transfer safely. The v1 boosted tree is the
 only zero-miss learned policy on this small natural sample, but it is nearly as
 conservative as always repairing. These results rule out deploying the current
 synthetic-trained models and motivate calibration with natural causal labels.
+
+## Natural failure analysis
+
+`mtrag-natural-feature-analysis.json` compares all 27 features on the 52 causal
+MTRAG labels without fitting another model. The rows come from only seven
+transitions, and eight of the ten REPAIR labels belong to one transition. Only
+two transitions contain both REPAIR and REUSE blocks.
+
+Some prompt-level features therefore show large global differences while being
+constant inside a transition. Total changed-token counts can identify the prompt
+that produced most failures, but cannot identify its individual unsafe blocks.
+Edit spans before the candidate and changed-token Jaccard show some
+within-transition separation, but two mixed transitions are far too little
+evidence for a deployable rule. Future data must be split and evaluated by whole
+transition, never by randomly mixing blocks from the same prompt.
