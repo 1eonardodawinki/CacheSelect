@@ -6,7 +6,10 @@ from pathlib import Path
 
 from sklearn.ensemble import HistGradientBoostingClassifier
 
-from cacheselect.selector_features import FEATURE_NAMES
+from cacheselect.selector_features import (
+    BASELINE_FEATURE_SCHEMA,
+    SelectorFeatureSchema,
+)
 from benchmarks.train_logistic_selector import (
     evaluate_selector,
     load_selector_dataset,
@@ -20,8 +23,9 @@ def train_boosted_selector(
     dataset_path: Path,
     *,
     minimum_repair_recall: float = 0.95,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
 ) -> tuple[HistGradientBoostingClassifier, dict[str, object]]:
-    dataset = load_selector_dataset(dataset_path)
+    dataset = load_selector_dataset(dataset_path, feature_schema=feature_schema)
     train_features, train_labels = dataset["train"]
     validation_features, validation_labels = dataset["validation"]
     model = HistGradientBoostingClassifier(
@@ -44,7 +48,8 @@ def train_boosted_selector(
     report: dict[str, object] = {
         "dataset": str(dataset_path),
         "model": "hist_gradient_boosting",
-        "feature_names": list(FEATURE_NAMES),
+        "feature_schema": feature_schema.name,
+        "feature_names": list(feature_schema.feature_names),
         "minimum_validation_repair_recall": minimum_repair_recall,
         "selected_threshold": threshold,
         "hyperparameters": {

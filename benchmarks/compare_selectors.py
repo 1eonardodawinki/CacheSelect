@@ -6,6 +6,12 @@ import argparse
 import json
 from pathlib import Path
 
+from cacheselect.selector_features import (
+    BASELINE_FEATURE_SCHEMA,
+    FEATURE_SCHEMAS,
+    SelectorFeatureSchema,
+    selector_feature_schema,
+)
 from benchmarks.train_boosted_selector import train_boosted_selector
 from benchmarks.train_logistic_selector import train_logistic_selector
 from benchmarks.train_mlp_selector import train_mlp_selector
@@ -16,18 +22,22 @@ def compare_validation_selectors(
     dataset_path: Path,
     *,
     minimum_repair_recall: float = 0.95,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
 ) -> dict[str, object]:
     _, logistic = train_logistic_selector(
         dataset_path,
         minimum_repair_recall=minimum_repair_recall,
+        feature_schema=feature_schema,
     )
     _, boosted = train_boosted_selector(
         dataset_path,
         minimum_repair_recall=minimum_repair_recall,
+        feature_schema=feature_schema,
     )
     _, mlp = train_mlp_selector(
         dataset_path,
         minimum_repair_recall=minimum_repair_recall,
+        feature_schema=feature_schema,
     )
     logistic_validation = logistic["validation"]
     boosted_validation = boosted["validation"]
@@ -37,6 +47,7 @@ def compare_validation_selectors(
         "evaluation_split": "validation",
         "test_split_evaluated": False,
         "minimum_repair_recall": minimum_repair_recall,
+        "feature_schema": feature_schema.name,
         "feature_names": logistic["feature_names"],
         "models": {
             "logistic_regression": {
@@ -68,11 +79,17 @@ def main() -> None:
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--minimum-repair-recall", type=float, default=0.95)
+    parser.add_argument(
+        "--feature-schema",
+        choices=sorted(FEATURE_SCHEMAS),
+        default=BASELINE_FEATURE_SCHEMA.name,
+    )
     args = parser.parse_args()
 
     report = compare_validation_selectors(
         args.dataset,
         minimum_repair_recall=args.minimum_repair_recall,
+        feature_schema=selector_feature_schema(args.feature_schema),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")

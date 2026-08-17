@@ -48,6 +48,7 @@ class MlpSelectorTests(TestCase):
         )
 
         metrics = report["validation"]["mlp"]
+        self.assertEqual(report["feature_schema"], "block-v1")
         self.assertGreaterEqual(metrics["repair_recall"], 0.95)
         self.assertGreaterEqual(metrics["selected_reuse_rate"], 0.60)
         self.assertFalse(report["test_split_evaluated"])

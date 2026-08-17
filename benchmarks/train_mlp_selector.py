@@ -9,7 +9,10 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from cacheselect.selector_features import FEATURE_NAMES
+from cacheselect.selector_features import (
+    BASELINE_FEATURE_SCHEMA,
+    SelectorFeatureSchema,
+)
 from benchmarks.train_logistic_selector import (
     evaluate_selector,
     load_selector_dataset,
@@ -50,8 +53,9 @@ def train_mlp_selector(
     dataset_path: Path,
     *,
     minimum_repair_recall: float = 0.95,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
 ) -> tuple[Pipeline, dict[str, object]]:
-    dataset = load_selector_dataset(dataset_path)
+    dataset = load_selector_dataset(dataset_path, feature_schema=feature_schema)
     train_features, train_labels = dataset["train"]
     validation_features, validation_labels = dataset["validation"]
     balanced_features, balanced_labels = balanced_binary_training_rows(
@@ -89,7 +93,8 @@ def train_mlp_selector(
     report: dict[str, object] = {
         "dataset": str(dataset_path),
         "model": "mlp",
-        "feature_names": list(FEATURE_NAMES),
+        "feature_schema": feature_schema.name,
+        "feature_names": list(feature_schema.feature_names),
         "minimum_validation_repair_recall": minimum_repair_recall,
         "selected_threshold": threshold,
         "test_split_evaluated": False,

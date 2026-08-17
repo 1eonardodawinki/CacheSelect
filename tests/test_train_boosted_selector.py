@@ -14,6 +14,7 @@ class BoostedSelectorTests(TestCase):
         )
 
         self.assertEqual(report["model"], "hist_gradient_boosting")
+        self.assertEqual(report["feature_schema"], "block-v1")
         metrics = report["validation"]["hist_gradient_boosting"]
         self.assertGreaterEqual(metrics["repair_recall"], 0.95)
         self.assertEqual(metrics["examples"], 745)
@@ -30,7 +31,10 @@ class BoostedSelectorTests(TestCase):
         mlp = report["models"]["mlp"]
 
         self.assertFalse(report["test_split_evaluated"])
-        self.assertEqual(set(boosted["operating_points"]), {"0.90", "0.95", "0.99", "1.00"})
+        self.assertEqual(report["feature_schema"], "block-v1")
+        self.assertEqual(
+            set(boosted["operating_points"]), {"0.90", "0.95", "0.99", "1.00"}
+        )
         self.assertGreater(
             boosted["metrics"]["selected_reuse_rate"],
             logistic["metrics"]["selected_reuse_rate"],

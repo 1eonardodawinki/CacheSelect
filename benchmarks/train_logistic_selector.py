@@ -14,9 +14,10 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from cacheselect.selector_features import (
-    BOOLEAN_FEATURES,
-    FEATURE_NAMES,
-    NUMERIC_FEATURES,
+    BASELINE_FEATURE_SCHEMA,
+    FEATURE_SCHEMAS,
+    SelectorFeatureSchema,
+    selector_feature_schema,
 )
 
 SPLITS = ("train", "validation", "test")
@@ -35,6 +36,8 @@ def _parse_boolean(value: str, *, field_name: str) -> float:
 # Read only runtime-safe features and labels from the flat block dataset.
 def load_selector_dataset(
     path: Path,
+    *,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
 ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     grouped: dict[str, list[tuple[list[float], int]]] = {split: [] for split in SPLITS}
     with path.open(newline="") as input_file:
@@ -46,11 +49,14 @@ def load_selector_dataset(
             if decision not in ("repair", "reuse"):
                 raise ValueError(f"line {line_number}: invalid decision {decision!r}")
             try:
-                features = [float(row[name]) for name in NUMERIC_FEATURES]
-                features.extend(
-                    _parse_boolean(row[name], field_name=name)
-                    for name in BOOLEAN_FEATURES
-                )
+                features = [
+                    (
+                        _parse_boolean(row[name], field_name=name)
+                        if name in feature_schema.boolean_features
+                        else float(row[name])
+                    )
+                    for name in feature_schema.feature_names
+                ]
             except (KeyError, TypeError, ValueError) as error:
                 raise ValueError(
                     f"line {line_number}: invalid selector feature"
@@ -136,10 +142,13 @@ def select_repair_threshold(
 def baseline_metrics(
     features: np.ndarray,
     labels: np.ndarray,
+    *,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
 ) -> dict[str, dict[str, float | int]]:
-    distance = features[:, FEATURE_NAMES.index("nearest_changed_block_distance")]
+    feature_names = feature_schema.feature_names
+    distance = features[:, feature_names.index("nearest_changed_block_distance")]
     overlap_columns = [
-        FEATURE_NAMES.index(name)
+        feature_names.index(name)
         for name in (
             "changed_candidate_token_overlap_ratio",
             "introduced_candidate_token_overlap_ratio",
@@ -182,8 +191,9 @@ def train_logistic_selector(
     *,
     minimum_repair_recall: float = 0.95,
     evaluate_test: bool = False,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
 ) -> tuple[Pipeline, dict[str, object]]:
-    dataset = load_selector_dataset(dataset_path)
+    dataset = load_selector_dataset(dataset_path, feature_schema=feature_schema)
     train_features, train_labels = dataset["train"]
     validation_features, validation_labels = dataset["validation"]
     model = Pipeline(
@@ -210,13 +220,14 @@ def train_logistic_selector(
     classifier = model.named_steps["classifier"]
     report: dict[str, object] = {
         "dataset": str(dataset_path),
-        "feature_names": list(FEATURE_NAMES),
+        "feature_schema": feature_schema.name,
+        "feature_names": list(feature_schema.feature_names),
         "minimum_validation_repair_recall": minimum_repair_recall,
         "selected_threshold": threshold,
         "coefficients": {
             name: float(weight)
             for name, weight in zip(
-                FEATURE_NAMES,
+                feature_schema.feature_names,
                 classifier.coef_[0],
                 strict=True,
             )
@@ -230,6 +241,7 @@ def train_logistic_selector(
             "baselines": baseline_metrics(
                 validation_features,
                 validation_labels,
+                feature_schema=feature_schema,
             ),
             "operating_points": operating_points(
                 validation_labels,
@@ -246,7 +258,11 @@ def train_logistic_selector(
                 test_probabilities >= threshold,
                 repair_probabilities=test_probabilities,
             ),
-            "baselines": baseline_metrics(test_features, test_labels),
+            "baselines": baseline_metrics(
+                test_features,
+                test_labels,
+                feature_schema=feature_schema,
+            ),
         }
     return model, report
 
@@ -258,12 +274,18 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--minimum-repair-recall", type=float, default=0.95)
     parser.add_argument("--evaluate-test", action="store_true")
+    parser.add_argument(
+        "--feature-schema",
+        choices=sorted(FEATURE_SCHEMAS),
+        default=BASELINE_FEATURE_SCHEMA.name,
+    )
     args = parser.parse_args()
 
     _, report = train_logistic_selector(
         args.dataset,
         minimum_repair_recall=args.minimum_repair_recall,
         evaluate_test=args.evaluate_test,
+        feature_schema=selector_feature_schema(args.feature_schema),
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
