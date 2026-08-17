@@ -81,11 +81,18 @@ def select_audited_mtrag_counterfactual_pilot(
         max_testable_blocks,
         max_target_blocks,
     )
-    if any(isinstance(value, bool) or not isinstance(value, int) or value < 1 for value in bounds):
+    if any(
+        isinstance(value, bool) or not isinstance(value, int) or value < 1
+        for value in bounds
+    ):
         raise ValueError("pilot selection bounds must be positive integers")
     block_size = coverage.get("block_size")
     rows = coverage.get("transitions")
-    if isinstance(block_size, bool) or not isinstance(block_size, int) or block_size < 1:
+    if (
+        isinstance(block_size, bool)
+        or not isinstance(block_size, int)
+        or block_size < 1
+    ):
         raise ValueError("coverage block size must be positive")
     if not isinstance(rows, list):
         raise ValueError("coverage transitions must be a list")
@@ -109,7 +116,9 @@ def select_audited_mtrag_counterfactual_pilot(
         conversation_id, collection, previous_task_id, current_task_id = identity
         shared_documents = raw.get("shared_document_ids")
         opportunity = raw.get("reuse_opportunity")
-        if not isinstance(shared_documents, list) or not isinstance(opportunity, Mapping):
+        if not isinstance(shared_documents, list) or not isinstance(
+            opportunity, Mapping
+        ):
             raise ValueError("coverage transition has invalid overlap fields")
         aligned, testable, excluded = _testable_blocks(raw, block_size=block_size)
         prompt_tokens = opportunity.get("current_token_count")
@@ -168,10 +177,17 @@ def select_audited_mtrag_counterfactual_pilot(
         "split_seed": split_seed,
         "block_size": block_size,
         "quality_calibration_id": quality_calibration_id,
+        "per_collection": per_collection,
+        "max_prompt_tokens": max_prompt_tokens,
+        "max_testable_blocks": max_testable_blocks,
         "max_target_blocks": max_target_blocks,
         "transition_count": len(selected),
         "collection_count": len({row["collection"] for row in selected}),
-        "total_testable_blocks": sum(len(row["testable_block_indices"]) for row in selected),
-        "total_target_blocks": sum(len(row["target_block_indices"]) for row in selected),
+        "total_testable_blocks": sum(
+            len(row["testable_block_indices"]) for row in selected
+        ),
+        "total_target_blocks": sum(
+            len(row["target_block_indices"]) for row in selected
+        ),
         "transitions": selected,
     }

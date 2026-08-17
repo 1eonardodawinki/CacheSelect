@@ -48,9 +48,7 @@ class MtragPilotTests(TestCase):
             "block_size": 16,
             "transitions": [cloud, finance],
         }
-        approved = frozenset(
-            {cloud["current_task_id"], finance["current_task_id"]}
-        )
+        approved = frozenset({cloud["current_task_id"], finance["current_task_id"]})
 
         result = select_audited_mtrag_counterfactual_pilot(
             coverage,
@@ -61,12 +59,12 @@ class MtragPilotTests(TestCase):
         self.assertEqual(result["transition_count"], 2)
         self.assertEqual(result["total_testable_blocks"], 7)
         self.assertEqual(result["total_target_blocks"], 4)
+        self.assertEqual(result["per_collection"], 1)
+        self.assertEqual(result["max_target_blocks"], 2)
         for row in result["transitions"]:
             self.assertLessEqual(len(row["target_block_indices"]), 2)
             self.assertTrue(
-                set(row["target_block_indices"]).issubset(
-                    row["testable_block_indices"]
-                )
+                set(row["target_block_indices"]).issubset(row["testable_block_indices"])
             )
 
     # Reject a candidate whose final full block would be used for output logits.
