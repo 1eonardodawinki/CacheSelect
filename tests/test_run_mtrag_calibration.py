@@ -1,5 +1,6 @@
 import hashlib
 import json
+import subprocess
 import sys
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -11,6 +12,34 @@ from benchmarks.run_mtrag_calibration import main
 
 
 class RunMtragCalibrationCommandTests(TestCase):
+    # Keep the split launcher valid and prevent it from opening the test manifest.
+    def test_slurm_launcher_runs_only_train_and_validation(self):
+        script = (
+            Path(__file__).resolve().parents[1]
+            / "benchmarks"
+            / "run_mtrag_reference_splits.slurm"
+        )
+
+        subprocess.run(
+            ["bash", "-n", str(script)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        content = script.read_text(encoding="utf-8")
+        for token in (
+            "SPLITS=(train validation)",
+            "vllm serve",
+            "--max-model-len 8192",
+            "--enable-cacheselect",
+            "python -m benchmarks.run_mtrag_calibration",
+            "train-reference-calibration.json",
+            "validation-reference-calibration.json",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, content)
+        self.assertNotIn("test-manifest.json", content)
+
     # Wire source verification, recording, execution, and artifact saving together.
     def test_saves_complete_calibration_artifact(self):
         with TemporaryDirectory() as directory:

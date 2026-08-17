@@ -34,3 +34,24 @@ SHA-256:
 - Validation manifest: `8d531b80e99fb72d45164c22f48825d83d28c8e77d53c743abb983d5340d3eb8`
 - Test manifest: `1e74a4229fb364bc06856862e803f16731c7279409dc36f8f435883332e36397`
 - Split plan: `4fe9af032a7a38ad8a6eb351afbaa25a28555fbac8fc1daa4d888c06775f59e9`
+
+## Training and validation reference run
+
+The reference launcher starts vLLM once and records the 21 new training answers
+followed by the six validation answers. It never reads `test-manifest.json`.
+The 8,192-token server window leaves room for the 384-token completion after the
+longest selected prompt (3,853 tokens).
+
+```bash
+REFERENCE_JOB_ID=$(sbatch --parsable \
+  benchmarks/run_mtrag_reference_splits.slurm)
+echo "$REFERENCE_JOB_ID"
+```
+
+Monitor it with:
+
+```bash
+squeue -j "$REFERENCE_JOB_ID"
+tail -f \
+  "/vol/bitbucket/$USER/cacheselect-server-logs/mtrag-reference-$REFERENCE_JOB_ID.out"
+```
