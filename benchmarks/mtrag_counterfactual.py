@@ -65,6 +65,7 @@ def run_mtrag_counterfactual_cases(
             expected_testable_block_indices=case.expected_testable_block_indices,
             selected_block_indices=case.target_block_indices,
             required_reference_output=approved_output,
+            require_reference_output_match=False,
             require_exact_output_match=True,
         )
         summary = {
@@ -83,6 +84,7 @@ def run_mtrag_counterfactual_cases(
             "valid_training_rows",
             "invalid_trials",
             "abstained_trials",
+            "reference_drift_trials",
             "repair_labels",
             "reuse_labels",
         ):

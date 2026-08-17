@@ -44,6 +44,7 @@ class MtragCounterfactualTests(TestCase):
                 "valid_training_rows": 1,
                 "invalid_trials": 0,
                 "abstained_trials": 0,
+                "reference_drift_trials": 0,
                 "repair_labels": 0,
                 "reuse_labels": 1,
             },
@@ -52,6 +53,7 @@ class MtragCounterfactualTests(TestCase):
                 "valid_training_rows": 0,
                 "invalid_trials": 0,
                 "abstained_trials": 1,
+                "reference_drift_trials": 1,
                 "repair_labels": 0,
                 "reuse_labels": 0,
             },
@@ -89,6 +91,7 @@ class MtragCounterfactualTests(TestCase):
         first_call = run_workflow.call_args_list[0].kwargs
         self.assertEqual(first_call["selected_block_indices"], (2,))
         self.assertEqual(first_call["required_reference_output"], "answer 1")
+        self.assertFalse(first_call["require_reference_output_match"])
         self.assertTrue(first_call["require_exact_output_match"])
         self.assertIs(first_call["recorder"], recorder)
         self.assertEqual(first_summary["current_task_id"], "task-1")
@@ -96,6 +99,7 @@ class MtragCounterfactualTests(TestCase):
         self.assertEqual(result["trial_count"], 2)
         self.assertEqual(result["valid_training_rows"], 1)
         self.assertEqual(result["abstained_trials"], 1)
+        self.assertEqual(result["reference_drift_trials"], 1)
 
     # Reject a case whose answer was never approved by the manual audit.
     def test_rejects_case_without_approved_reference(self):

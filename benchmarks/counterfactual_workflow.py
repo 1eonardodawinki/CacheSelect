@@ -58,6 +58,7 @@ def run_counterfactual_dataset_workflow(
     expected_testable_block_indices: tuple[int, ...] | None = None,
     selected_block_indices: tuple[int, ...] | None = None,
     required_reference_output: str | None = None,
+    require_reference_output_match: bool = True,
     require_exact_output_match: bool = False,
 ) -> dict[str, Any]:
     transition, source, edited = _resolve_transition(trace, transition_id)
@@ -116,6 +117,7 @@ def run_counterfactual_dataset_workflow(
         selected_block_indices=selected,
         # Bind every trial to the full-compute answer produced by this server run.
         required_reference_output=fresh_reference_output,
+        require_reference_output_match=require_reference_output_match,
         require_exact_output_match=require_exact_output_match,
     )
     training_rows = save_counterfactual_training_dataset(
@@ -154,6 +156,9 @@ def run_counterfactual_dataset_workflow(
             and trial.label_result.valid_execution
             and trial.label_result.decision is None
             for trial in batch.trials
+        ),
+        "reference_drift_trials": sum(
+            trial.reference_output_exact_match is False for trial in batch.trials
         ),
         "repair_labels": decisions["repair"],
         "reuse_labels": decisions["reuse"],

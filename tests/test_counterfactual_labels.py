@@ -518,6 +518,7 @@ class CounterfactualLabelTests(TestCase):
         )
         observation = {
             "output_text": "changed answer",
+            "finish_reason": "stop",
             "quality": {"passed": True},
             "cached_tokens": 0,
             "runtime_policy": {"policy": "FULL_RECOMPUTE"},
@@ -544,3 +545,48 @@ class CounterfactualLabelTests(TestCase):
                 )
 
         self.assertEqual(observe.call_count, 1)
+
+    # Record reference drift while preserving exact within-trial causal labels.
+    def test_allows_recorded_reference_drift_for_natural_answers(self):
+        trace = build_rag_trace()
+        source, edited = trace.requests[:2]
+        intervention = SingleBlockIntervention(
+            trace.trace_id, trace.transitions[0].transition_id, (4,), 4
+        )
+        observation = {
+            "output_text": "fresh full-compute wording",
+            "finish_reason": "stop",
+            "quality": {"mode": "requirements", "passed": True},
+            "cached_tokens": 0,
+            "runtime_policy": {"policy": "FULL_RECOMPUTE"},
+            "server_metrics": {},
+        }
+
+        with (
+            patch(
+                "benchmarks.counterfactual_trial._observe_request",
+                side_effect=(observation, observation, observation),
+            ),
+            patch(
+                "benchmarks.counterfactual_trial.validate_counterfactual_execution",
+                return_value=_successful_execution(intervention),
+            ),
+        ):
+            result = run_single_block_counterfactual_trial(
+                source_request=source,
+                edited_request=edited,
+                intervention=intervention,
+                block_size=4,
+                url="http://vllm.test/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=8,
+                api_key=None,
+                timeout_seconds=2.0,
+                recorder=object(),
+                required_reference_output="previous discovery wording",
+                require_reference_output_match=False,
+                require_exact_output_match=True,
+            )
+
+        self.assertFalse(result.reference_output_exact_match)
+        self.assertEqual(result.label.decision, RepairDecision.REUSE)

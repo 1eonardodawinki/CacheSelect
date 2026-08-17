@@ -37,6 +37,7 @@ class CounterfactualWorkflowTests(TestCase):
                         valid_execution=True,
                         decision=RepairDecision.REUSE,
                     ),
+                    reference_output_exact_match=True,
                 ),
                 SimpleNamespace(
                     label=None,
@@ -45,6 +46,7 @@ class CounterfactualWorkflowTests(TestCase):
                         valid_execution=True,
                         decision=None,
                     ),
+                    reference_output_exact_match=False,
                 ),
             )
         )
@@ -95,6 +97,7 @@ class CounterfactualWorkflowTests(TestCase):
         self.assertEqual(result["valid_training_rows"], 1)
         self.assertEqual(result["invalid_trials"], 0)
         self.assertEqual(result["abstained_trials"], 1)
+        self.assertEqual(result["reference_drift_trials"], 1)
         self.assertEqual(result["reuse_labels"], 1)
         self.assertFalse(result["approved_reference_exact_match"])
         self.assertEqual(

@@ -35,6 +35,7 @@ class CounterfactualTrialResult:
     label_result: CounterfactualLabelResult
     label: BlockRepairLabel | None
     quality_comparison: dict[str, Any] | None = None
+    reference_output_exact_match: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -340,6 +341,7 @@ def run_single_block_counterfactual_trial(
     timeout_seconds: float,
     recorder: RequestRecorder,
     required_reference_output: str | None = None,
+    require_reference_output_match: bool = True,
     require_exact_output_match: bool = False,
 ) -> CounterfactualTrialResult:
     if source_request.request_id == edited_request.request_id:
@@ -390,11 +392,15 @@ def run_single_block_counterfactual_trial(
     _require_fresh_full_recompute(reference, "reference")
     if (
         required_reference_output is not None
-        and (
-            reference.get("output_text") != required_reference_output
-            or reference.get("finish_reason") != "stop"
-        )
+        and reference.get("finish_reason") != "stop"
     ):
+        raise RuntimeError("full-compute reference was truncated")
+    reference_output_exact_match = (
+        None
+        if required_reference_output is None
+        else reference.get("output_text") == required_reference_output
+    )
+    if require_reference_output_match and reference_output_exact_match is False:
         raise RuntimeError("full-compute output differs from its approved reference")
     donor = observe(
         donor_request,
@@ -445,6 +451,7 @@ def run_single_block_counterfactual_trial(
         result,
         label,
         quality_comparison,
+        reference_output_exact_match,
     )
 
 
@@ -462,6 +469,7 @@ def run_discovered_counterfactual_trials(
     recorder: RequestRecorder,
     selected_block_indices: tuple[int, ...] | None = None,
     required_reference_output: str | None = None,
+    require_reference_output_match: bool = True,
     require_exact_output_match: bool = False,
 ) -> CounterfactualTrialBatchResult:
     interventions = build_discovered_counterfactual_interventions(
@@ -484,6 +492,7 @@ def run_discovered_counterfactual_trials(
                 timeout_seconds=timeout_seconds,
                 recorder=recorder,
                 required_reference_output=required_reference_output,
+                require_reference_output_match=require_reference_output_match,
                 require_exact_output_match=require_exact_output_match,
             )
         )
