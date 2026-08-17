@@ -1,0 +1,14 @@
+{
+  "schema_version": 1,
+  "analysis": "mtrag-counterfactual-consolidation",
+  "source_summary": "/vol/bitbucket/lmw25/cacheselect-results/mtrag-counterfactual-275140/summary.json",
+  "output_dataset": "/vol/bitbucket/lmw25/cacheselect-results/mtrag-counterfactual-275140/mtrag-counterfactual-blocks.csv",
+  "case_count": 8,
+  "trial_count": 53,
+  "valid_training_rows": 26,
+  "invalid_trials": 0,
+  "abstained_trials": 27,
+  "reference_drift_trials": 26,
+  "repair_labels": 0,
+  "reuse_labels": 26
+}

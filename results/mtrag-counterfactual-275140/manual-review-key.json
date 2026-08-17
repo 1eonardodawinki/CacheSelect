@@ -1,0 +1,197 @@
+{
+  "schema_version": 1,
+  "source_ledger_sha256": "0ba7834e8b7903bf65d0fab1e690480248f5272bcb58a97b372d601b66b407f8",
+  "key": "mtrag-counterfactual-review-identity-key",
+  "warning": "Do not inspect until every blinded verdict and reason is frozen.",
+  "rows": [
+    {
+      "review_id": "review-001",
+      "trial_id": "21b7d31612154d6aaa5371aeb852b5d6",
+      "block_index": 68,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-002",
+      "trial_id": "93dbe13b688f415ead1ae6a79f4b5493",
+      "block_index": 63,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-003",
+      "trial_id": "80e0da66aed5419f9975915e58a593cf",
+      "block_index": 15,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-004",
+      "trial_id": "532609dddbe649bda0d45a86848c7cb9",
+      "block_index": 10,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-005",
+      "trial_id": "2f1af3caa04f43f784aa0b6604976a35",
+      "block_index": 53,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-006",
+      "trial_id": "f05e8eca4c13465b9a79e4c5bdf58a45",
+      "block_index": 35,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    },
+    {
+      "review_id": "review-007",
+      "trial_id": "757567ba4a4644e3b615ff76dc081a14",
+      "block_index": 47,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-008",
+      "trial_id": "0ea7644299aa4c929a8f69e76de102ad",
+      "block_index": 66,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-009",
+      "trial_id": "3a0ae53542bf40cd8fc774752306646c",
+      "block_index": 69,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-010",
+      "trial_id": "5e9968a37c27484794ee36f8689468a9",
+      "block_index": 143,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-011",
+      "trial_id": "07edf37242604e309b43ee9be4661acf",
+      "block_index": 62,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-012",
+      "trial_id": "9d8c3048f53d477680fec4c8a13b9743",
+      "block_index": 44,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    },
+    {
+      "review_id": "review-013",
+      "trial_id": "ccec76338ed244098e37b5e82099f922",
+      "block_index": 79,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-014",
+      "trial_id": "2f479748226f488ab83ee349eb3bfa0c",
+      "block_index": 134,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-015",
+      "trial_id": "8617387de31942e3be4cd6ed86f2888d",
+      "block_index": 126,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    },
+    {
+      "review_id": "review-016",
+      "trial_id": "294c9d393a9a43b3b65ee5e235cc5522",
+      "block_index": 48,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-017",
+      "trial_id": "0fcd18cce61b4a8f9cf8281538bfc13b",
+      "block_index": 19,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    },
+    {
+      "review_id": "review-018",
+      "trial_id": "f7e8e9fa3b53448e9f59753570a445b5",
+      "block_index": 124,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    },
+    {
+      "review_id": "review-019",
+      "trial_id": "78a5b03c4b474d42a8f23beb7d934229",
+      "block_index": 46,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    },
+    {
+      "review_id": "review-020",
+      "trial_id": "918d7063fba4414fb43ec08ee047a092",
+      "block_index": 2,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-021",
+      "trial_id": "0663ec77276c4c918ce284dca7d4321c",
+      "block_index": 15,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    },
+    {
+      "review_id": "review-022",
+      "trial_id": "cdec8d1493304d4b816080afa7593d55",
+      "block_index": 12,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-023",
+      "trial_id": "f3acf9a1eca648dab96ddd5e0baa7d12",
+      "block_index": 139,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-024",
+      "trial_id": "53141d40b30a4038a2616557f1eb6299",
+      "block_index": 40,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    },
+    {
+      "review_id": "review-025",
+      "trial_id": "383d58da4c5a4ac5b147f76a900e07bc",
+      "block_index": 62,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-026",
+      "trial_id": "30deea031e754b1e85c288a04a4be2f6",
+      "block_index": 55,
+      "reference_slot": "answer_b",
+      "intervention_slot": "answer_a"
+    },
+    {
+      "review_id": "review-027",
+      "trial_id": "f31f30c5d46f4a13b9622d14e36f4556",
+      "block_index": 147,
+      "reference_slot": "answer_a",
+      "intervention_slot": "answer_b"
+    }
+  ]
+}
