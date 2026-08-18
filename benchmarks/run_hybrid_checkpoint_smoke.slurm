@@ -18,6 +18,7 @@ START_TIMEOUT="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
 DELTA_CACHE_CAPACITY="${CACHESELECT_GDN_DELTA_CACHE_CAPACITY:-2}"
 EXECUTION_MODE="${CACHESELECT_GDN_DELTA_EXECUTION_MODE:-shadow}"
 RUN_ACTIVE_MATRIX="${CACHESELECT_RUN_ACTIVE_MATRIX:-0}"
+GPU_MEMORY_UTILIZATION="${CACHESELECT_GPU_MEMORY_UTILIZATION:-0.96}"
 MATRIX_RECORD_COUNTS="${CACHESELECT_MATRIX_RECORD_COUNTS:-64 112 160}"
 MATRIX_REPETITIONS="${CACHESELECT_MATRIX_REPETITIONS:-3}"
 
@@ -87,6 +88,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "gdn_delta_execution_mode=$EXECUTION_MODE"
   echo "attention_reuse_policy=native_apc_only"
   echo "run_active_matrix=$RUN_ACTIVE_MATRIX"
+  echo "gpu_memory_utilization=$GPU_MEMORY_UTILIZATION"
   echo "matrix_record_counts=$MATRIX_RECORD_COUNTS"
   echo "matrix_repetitions=$MATRIX_REPETITIONS"
   echo "max_model_len=4096"
@@ -143,7 +145,7 @@ setsid vllm serve "$MODEL" \
   --max-model-len 4096 \
   --max-num-seqs 1 \
   --max-num-batched-tokens 4096 \
-  --gpu-memory-utilization 0.95 \
+  --gpu-memory-utilization "$GPU_MEMORY_UTILIZATION" \
   --enable-prefix-caching \
   --mamba-cache-mode all \
   --gdn-delta-cache-capacity "$DELTA_CACHE_CAPACITY" \
