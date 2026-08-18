@@ -516,6 +516,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                 block_size=block_size,
                 value_heads=self.num_v_heads // self.tp_size,
                 key_width=self.head_k_dim,
+                value_width=self.head_v_dim,
                 dtype=torch.float32,
                 device=device,
             )
@@ -1592,6 +1593,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                         sidecar,
                         keys=key_non_spec.squeeze(0),
                         queries=query_non_spec.squeeze(0),
+                        values=value_non_spec.squeeze(0),
                         log_decays=g_non_spec.squeeze(0),
                         betas=beta_non_spec.squeeze(0),
                         query_start_locations=(

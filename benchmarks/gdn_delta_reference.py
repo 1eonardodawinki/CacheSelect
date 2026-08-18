@@ -43,7 +43,14 @@ def estimate_gdn_delta_cache(
     checkpoint_elements = value_heads * value_width * key_width
     transition_elements = value_heads * key_width * key_width
     response_elements = block_size * value_heads * key_width
-    auxiliary_elements = transition_elements + response_elements
+    state_bias_elements = value_heads * value_width * key_width
+    output_bias_elements = block_size * value_heads * value_width
+    auxiliary_elements = (
+        transition_elements
+        + response_elements
+        + state_bias_elements
+        + output_bias_elements
+    )
     existing_bytes_per_block_layer = checkpoint_elements * element_bytes
     auxiliary_bytes_per_block_layer = auxiliary_elements * element_bytes
     model_auxiliary_bytes = (
@@ -53,6 +60,8 @@ def estimate_gdn_delta_cache(
         "checkpoint_elements_per_block_layer": checkpoint_elements,
         "transition_elements_per_block_layer": transition_elements,
         "response_elements_per_block_layer": response_elements,
+        "state_bias_elements_per_block_layer": state_bias_elements,
+        "output_bias_elements_per_block_layer": output_bias_elements,
         "existing_bytes_per_block_layer": existing_bytes_per_block_layer,
         "auxiliary_bytes_per_block_layer": auxiliary_bytes_per_block_layer,
         "combined_bytes_per_block_layer": (

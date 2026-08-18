@@ -59,10 +59,15 @@ class GDNDeltaReferenceTests(unittest.TestCase):
         self.assertEqual(estimate["checkpoint_elements_per_block_layer"], 60)
         self.assertEqual(estimate["transition_elements_per_block_layer"], 36)
         self.assertEqual(estimate["response_elements_per_block_layer"], 84)
+        self.assertEqual(estimate["state_bias_elements_per_block_layer"], 60)
+        self.assertEqual(estimate["output_bias_elements_per_block_layer"], 140)
         self.assertEqual(estimate["existing_bytes_per_block_layer"], 120)
-        self.assertEqual(estimate["auxiliary_bytes_per_block_layer"], 240)
-        self.assertEqual(estimate["model_auxiliary_bytes"], 4800)
-        self.assertEqual(estimate["auxiliary_to_checkpoint_ratio"], 2.0)
+        self.assertEqual(estimate["auxiliary_bytes_per_block_layer"], 640)
+        self.assertEqual(estimate["model_auxiliary_bytes"], 12800)
+        self.assertAlmostEqual(
+            estimate["auxiliary_to_checkpoint_ratio"],
+            16 / 3,
+        )
 
     # Prove delta propagation equals two full runs when later coefficients match.
     def test_matches_difference_between_full_recurrences(self) -> None:

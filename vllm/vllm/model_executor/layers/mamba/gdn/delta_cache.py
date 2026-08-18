@@ -15,6 +15,42 @@ class GDNDeltaCacheEntry:
     slot: int
     transition: torch.Tensor
     output_responses: torch.Tensor
+    state_bias: torch.Tensor
+    output_biases: torch.Tensor
+
+
+# Apply one cached affine block operator to a new incoming recurrent state.
+def apply_gdn_affine_operator(
+    initial_state: torch.Tensor,
+    entry: GDNDeltaCacheEntry,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return the corrected final state and per-token recurrent outputs."""
+    if initial_state.ndim != 3:
+        raise ValueError("initial_state must have shape [HV,V,K]")
+    value_heads, value_width, key_width = initial_state.shape
+    if entry.transition.shape != (value_heads, key_width, key_width):
+        raise ValueError("initial state and transition dimensions do not agree")
+    if entry.state_bias.shape != initial_state.shape:
+        raise ValueError("initial state and state bias dimensions do not agree")
+    if entry.output_responses.shape[1:] != (value_heads, key_width):
+        raise ValueError("initial state and output response dimensions do not agree")
+    if entry.output_biases.shape != (
+        entry.output_responses.shape[0],
+        value_heads,
+        value_width,
+    ):
+        raise ValueError("output response and bias dimensions do not agree")
+
+    initial_state = initial_state.float()
+    final_state = (
+        torch.einsum("hvk,hkl->hvl", initial_state, entry.transition)
+        + entry.state_bias
+    )
+    outputs = (
+        torch.einsum("hvk,thk->thv", initial_state, entry.output_responses)
+        + entry.output_biases
+    )
+    return final_state, outputs
 
 
 # Repeat grouped key/query heads across the value heads that consume them.
@@ -82,12 +118,74 @@ def build_gdn_delta_operator(
     return transition, responses
 
 
+# Compose the full affine state/output transform for one unchanged GDN block.
+def build_gdn_affine_operator(
+    keys: torch.Tensor,
+    queries: torch.Tensor,
+    values: torch.Tensor,
+    log_decays: torch.Tensor,
+    betas: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
+    """Map a new incoming state to exact block states and recurrent outputs."""
+    transition, responses = build_gdn_delta_operator(
+        keys,
+        queries,
+        log_decays,
+        betas,
+    )
+    token_count, _, key_width = keys.shape
+    value_heads = log_decays.shape[1]
+    if values.ndim != 3 or values.shape[:2] != (token_count, value_heads):
+        raise ValueError("values must have shape [T,HV,V]")
+
+    expanded_keys = _expand_gdn_grouped_heads(keys, value_heads).float()
+    expanded_queries = _expand_gdn_grouped_heads(queries, value_heads).float()
+    values = values.float()
+    log_decays = log_decays.float()
+    betas = betas.float()
+    state_bias = torch.zeros(
+        value_heads,
+        values.shape[2],
+        key_width,
+        dtype=torch.float32,
+        device=keys.device,
+    )
+    output_biases = torch.empty(
+        token_count,
+        value_heads,
+        values.shape[2],
+        dtype=torch.float32,
+        device=keys.device,
+    )
+    output_scale = key_width**-0.5
+    for token_index in range(token_count):
+        key = expanded_keys[token_index]
+        state_bias = (
+            state_bias * log_decays[token_index].exp()[:, None, None]
+        )
+        prior_read = torch.einsum("hvk,hk->hv", state_bias, key)
+        innovation = betas[token_index, :, None] * (
+            values[token_index] - prior_read
+        )
+        state_bias = state_bias + innovation[:, :, None] * key[:, None, :]
+        output_biases[token_index] = (
+            torch.einsum(
+                "hvk,hk->hv",
+                state_bias,
+                expanded_queries[token_index],
+            )
+            * output_scale
+        )
+    return transition, responses, state_bias, output_biases
+
+
 # Cache operators for every complete logical block covered by one prefill batch.
 def store_completed_gdn_delta_operators(
     sidecar: "GDNDeltaOperatorSidecar",
     *,
     keys: torch.Tensor,
     queries: torch.Tensor,
+    values: torch.Tensor,
     log_decays: torch.Tensor,
     betas: torch.Tensor,
     query_start_locations: torch.Tensor,
@@ -101,6 +199,8 @@ def store_completed_gdn_delta_operators(
         raise ValueError("log_decays and betas must have matching [T,HV] shapes")
     if keys.shape[0] != log_decays.shape[0]:
         raise ValueError("token coefficient tensors must have the same length")
+    if values.ndim != 3 or values.shape[:2] != log_decays.shape:
+        raise ValueError("values must have shape [T,HV,V]")
 
     query_starts = query_start_locations.detach().cpu().tolist()
     computed_counts = num_computed_tokens.detach().cpu().tolist()
@@ -132,13 +232,22 @@ def store_completed_gdn_delta_operators(
                 continue
             coefficient_start = query_start + local_start
             coefficient_end = query_start + local_end
-            transition, responses = build_gdn_delta_operator(
-                keys[coefficient_start:coefficient_end],
-                queries[coefficient_start:coefficient_end],
-                log_decays[coefficient_start:coefficient_end],
-                betas[coefficient_start:coefficient_end],
+            transition, responses, state_bias, output_biases = (
+                build_gdn_affine_operator(
+                    keys[coefficient_start:coefficient_end],
+                    queries[coefficient_start:coefficient_end],
+                    values[coefficient_start:coefficient_end],
+                    log_decays[coefficient_start:coefficient_end],
+                    betas[coefficient_start:coefficient_end],
+                )
             )
-            sidecar.store(hashes[block_index], transition, responses)
+            sidecar.store(
+                hashes[block_index],
+                transition,
+                responses,
+                state_bias,
+                output_biases,
+            )
             stored_blocks.append((sequence_index, block_index))
     return tuple(stored_blocks)
 
@@ -154,10 +263,17 @@ class GDNDeltaOperatorSidecar:
         block_size: int,
         value_heads: int,
         key_width: int,
+        value_width: int,
         dtype: torch.dtype,
         device: torch.device | str,
     ) -> None:
-        dimensions = (capacity, block_size, value_heads, key_width)
+        dimensions = (
+            capacity,
+            block_size,
+            value_heads,
+            key_width,
+            value_width,
+        )
         if any(dimension <= 0 for dimension in dimensions):
             raise ValueError("all GDN sidecar dimensions must be positive")
         if not dtype.is_floating_point:
@@ -167,6 +283,7 @@ class GDNDeltaOperatorSidecar:
         self.block_size = block_size
         self.value_heads = value_heads
         self.key_width = key_width
+        self.value_width = value_width
         self.transitions = torch.empty(
             capacity,
             value_heads,
@@ -180,6 +297,22 @@ class GDNDeltaOperatorSidecar:
             block_size,
             value_heads,
             key_width,
+            dtype=dtype,
+            device=device,
+        )
+        self.state_biases = torch.empty(
+            capacity,
+            value_heads,
+            value_width,
+            key_width,
+            dtype=dtype,
+            device=device,
+        )
+        self.output_biases = torch.empty(
+            capacity,
+            block_size,
+            value_heads,
+            value_width,
             dtype=dtype,
             device=device,
         )
@@ -204,11 +337,19 @@ class GDNDeltaOperatorSidecar:
         block_hash: bytes,
         transition: torch.Tensor,
         output_responses: torch.Tensor,
+        state_bias: torch.Tensor,
+        output_biases: torch.Tensor,
     ) -> int:
         if not block_hash:
             raise ValueError("block_hash must be non-empty")
         expected_transition = (self.value_heads, self.key_width, self.key_width)
         expected_responses = (self.block_size, self.value_heads, self.key_width)
+        expected_state_bias = (self.value_heads, self.value_width, self.key_width)
+        expected_output_biases = (
+            self.block_size,
+            self.value_heads,
+            self.value_width,
+        )
         if transition.shape != expected_transition:
             raise ValueError(
                 f"transition must have shape {expected_transition}, "
@@ -219,6 +360,16 @@ class GDNDeltaOperatorSidecar:
                 f"output_responses must have shape {expected_responses}, "
                 f"received {tuple(output_responses.shape)}"
             )
+        if state_bias.shape != expected_state_bias:
+            raise ValueError(
+                f"state_bias must have shape {expected_state_bias}, "
+                f"received {tuple(state_bias.shape)}"
+            )
+        if output_biases.shape != expected_output_biases:
+            raise ValueError(
+                f"output_biases must have shape {expected_output_biases}, "
+                f"received {tuple(output_biases.shape)}"
+            )
 
         slot = self._key_to_slot.pop(block_hash, None)
         if slot is None:
@@ -228,6 +379,8 @@ class GDNDeltaOperatorSidecar:
                 _, slot = self._key_to_slot.popitem(last=False)
         self.transitions[slot].copy_(transition)
         self.output_responses[slot].copy_(output_responses)
+        self.state_biases[slot].copy_(state_bias)
+        self.output_biases[slot].copy_(output_biases)
         self._key_to_slot[block_hash] = slot
         return slot
 
@@ -241,6 +394,8 @@ class GDNDeltaOperatorSidecar:
             slot=slot,
             transition=self.transitions[slot],
             output_responses=self.output_responses[slot],
+            state_bias=self.state_biases[slot],
+            output_biases=self.output_biases[slot],
         )
 
     # Resolve a complete operator set atomically or leave the LRU untouched.
@@ -260,6 +415,8 @@ class GDNDeltaOperatorSidecar:
                     slot=optional_slot,
                     transition=self.transitions[optional_slot],
                     output_responses=self.output_responses[optional_slot],
+                    state_bias=self.state_biases[optional_slot],
+                    output_biases=self.output_biases[optional_slot],
                 )
             )
         return tuple(entries)

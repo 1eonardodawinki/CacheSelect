@@ -7,9 +7,27 @@ import torch
 
 from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     GDNDeltaOperatorSidecar,
+    apply_gdn_affine_operator,
+    build_gdn_affine_operator,
     build_gdn_delta_operator,
     store_completed_gdn_delta_operators,
 )
+
+
+# Store affine terms while keeping LRU-focused tests compact.
+def _store_test_operator(
+    cache: GDNDeltaOperatorSidecar,
+    key: bytes,
+    transition: torch.Tensor,
+    responses: torch.Tensor,
+) -> int:
+    return cache.store(
+        key,
+        transition,
+        responses,
+        torch.zeros(cache.value_heads, cache.value_width, cache.key_width),
+        torch.zeros(cache.block_size, cache.value_heads, cache.value_width),
+    )
 
 
 class GDNDeltaOperatorSidecarTests(unittest.TestCase):
@@ -20,11 +38,13 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
             block_size=2,
             value_heads=2,
             key_width=3,
+            value_width=3,
             dtype=torch.float32,
             device="cpu",
         )
         keys = torch.randn(10, 1, 3)
         queries = torch.randn(10, 1, 3)
+        values = torch.randn(10, 2, 3)
         log_decays = -torch.rand(10, 2)
         betas = torch.rand(10, 2)
 
@@ -32,6 +52,7 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
             sidecar,
             keys=keys,
             queries=queries,
+            values=values,
             log_decays=log_decays,
             betas=betas,
             query_start_locations=torch.tensor([0, 6, 10]),
@@ -55,16 +76,19 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
             block_size=2,
             value_heads=1,
             key_width=2,
+            value_width=2,
             dtype=torch.float32,
             device="cpu",
         )
         keys = torch.randn(5, 1, 2)
         queries = torch.randn(5, 1, 2)
+        values = torch.randn(5, 1, 2)
 
         stored = store_completed_gdn_delta_operators(
             sidecar,
             keys=keys,
             queries=queries,
+            values=values,
             log_decays=-torch.rand(5, 1),
             betas=torch.rand(5, 1),
             query_start_locations=torch.tensor([0, 5]),
@@ -121,6 +145,64 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
         torch.testing.assert_close(composed_final, direct_delta)
         torch.testing.assert_close(composed_outputs, torch.stack(direct_outputs))
 
+    # Match the affine operator against a complete GDN block recurrence.
+    def test_affine_operator_reconstructs_state_and_outputs(self) -> None:
+        generator = torch.Generator().manual_seed(29)
+        token_count, key_heads, value_heads = 4, 1, 2
+        key_width, value_width = 3, 5
+        keys = torch.randn(token_count, key_heads, key_width, generator=generator)
+        queries = torch.randn(
+            token_count, key_heads, key_width, generator=generator
+        )
+        values = torch.randn(
+            token_count, value_heads, value_width, generator=generator
+        )
+        log_decays = -torch.rand(token_count, value_heads, generator=generator)
+        betas = torch.rand(token_count, value_heads, generator=generator)
+        initial_state = torch.randn(
+            value_heads, value_width, key_width, generator=generator
+        )
+
+        transition, responses, state_bias, output_biases = (
+            build_gdn_affine_operator(
+                keys, queries, values, log_decays, betas
+            )
+        )
+        composed_state = (
+            torch.einsum("hvk,hkl->hvl", initial_state, transition)
+            + state_bias
+        )
+        composed_outputs = (
+            torch.einsum("hvk,thk->thv", initial_state, responses)
+            + output_biases
+        )
+
+        expanded_keys = keys.repeat_interleave(value_heads, dim=1)
+        expanded_queries = queries.repeat_interleave(value_heads, dim=1)
+        direct_state = initial_state
+        direct_outputs = []
+        for token_index in range(token_count):
+            key = expanded_keys[token_index]
+            direct_state = (
+                direct_state * log_decays[token_index].exp()[:, None, None]
+            )
+            prior_read = torch.einsum("hvk,hk->hv", direct_state, key)
+            innovation = betas[token_index, :, None] * (
+                values[token_index] - prior_read
+            )
+            direct_state = direct_state + innovation[:, :, None] * key[:, None, :]
+            direct_outputs.append(
+                torch.einsum(
+                    "hvk,hk->hv",
+                    direct_state,
+                    expanded_queries[token_index],
+                )
+                * key_width**-0.5
+            )
+
+        torch.testing.assert_close(composed_state, direct_state)
+        torch.testing.assert_close(composed_outputs, torch.stack(direct_outputs))
+
     # Store and retrieve an operator without copying its resident tensor views.
     def test_stores_and_resolves_operator(self) -> None:
         cache = GDNDeltaOperatorSidecar(
@@ -128,13 +210,22 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
             block_size=3,
             value_heads=2,
             key_width=4,
+            value_width=5,
             dtype=torch.float32,
             device="cpu",
         )
         transition = torch.arange(32, dtype=torch.float32).view(2, 4, 4)
         responses = torch.arange(24, dtype=torch.float32).view(3, 2, 4)
+        state_bias = torch.arange(40, dtype=torch.float32).view(2, 5, 4)
+        output_biases = torch.arange(30, dtype=torch.float32).view(3, 2, 5)
 
-        slot = cache.store(b"context:block-a", transition, responses)
+        slot = cache.store(
+            b"context:block-a",
+            transition,
+            responses,
+            state_bias,
+            output_biases,
+        )
         entry = cache.lookup(b"context:block-a")
 
         self.assertEqual(slot, 0)
@@ -143,6 +234,20 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
         self.assertEqual(entry.slot, slot)
         torch.testing.assert_close(entry.transition, transition)
         torch.testing.assert_close(entry.output_responses, responses)
+        torch.testing.assert_close(entry.state_bias, state_bias)
+        torch.testing.assert_close(entry.output_biases, output_biases)
+
+        initial_state = torch.randn(2, 5, 4)
+        final_state, outputs = apply_gdn_affine_operator(initial_state, entry)
+        expected_state = (
+            torch.einsum("hvk,hkl->hvl", initial_state, transition) + state_bias
+        )
+        expected_outputs = (
+            torch.einsum("hvk,thk->thv", initial_state, responses)
+            + output_biases
+        )
+        torch.testing.assert_close(final_state, expected_state)
+        torch.testing.assert_close(outputs, expected_outputs)
 
     # Resolve every requested operator together and refresh their LRU order.
     def test_resolves_complete_operator_set_atomically(self) -> None:
@@ -151,13 +256,14 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
             block_size=1,
             value_heads=1,
             key_width=2,
+            value_width=2,
             dtype=torch.float32,
             device="cpu",
         )
         transition = torch.eye(2).unsqueeze(0)
         responses = torch.ones(1, 1, 2)
-        cache.store(b"a", transition, responses)
-        cache.store(b"b", transition * 2, responses * 2)
+        _store_test_operator(cache, b"a", transition, responses)
+        _store_test_operator(cache, b"b", transition * 2, responses * 2)
 
         entries = cache.lookup_many((b"b", b"a"))
 
@@ -173,17 +279,18 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
             block_size=1,
             value_heads=1,
             key_width=2,
+            value_width=2,
             dtype=torch.float32,
             device="cpu",
         )
         transition = torch.eye(2).unsqueeze(0)
         responses = torch.ones(1, 1, 2)
-        cache.store(b"a", transition, responses)
-        cache.store(b"b", transition * 2, responses * 2)
+        _store_test_operator(cache, b"a", transition, responses)
+        _store_test_operator(cache, b"b", transition * 2, responses * 2)
 
         self.assertIsNone(cache.lookup_many((b"a", b"missing")))
         self.assertEqual(cache.resident_keys(), (b"a", b"b"))
-        cache.store(b"c", transition * 3, responses * 3)
+        _store_test_operator(cache, b"c", transition * 3, responses * 3)
         self.assertEqual(cache.resident_keys(), (b"b", b"c"))
 
     # Evict the least-recent entry while preserving a recently accessed hash.
@@ -193,16 +300,19 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
             block_size=1,
             value_heads=1,
             key_width=2,
+            value_width=2,
             dtype=torch.float32,
             device="cpu",
         )
         transition = torch.eye(2).unsqueeze(0)
         responses = torch.ones(1, 1, 2)
-        cache.store(b"a", transition, responses)
-        cache.store(b"b", transition * 2, responses * 2)
+        _store_test_operator(cache, b"a", transition, responses)
+        _store_test_operator(cache, b"b", transition * 2, responses * 2)
         self.assertIsNotNone(cache.lookup(b"a"))
 
-        reused_slot = cache.store(b"c", transition * 3, responses * 3)
+        reused_slot = _store_test_operator(
+            cache, b"c", transition * 3, responses * 3
+        )
 
         self.assertEqual(reused_slot, 1)
         self.assertIsNone(cache.lookup(b"b"))
@@ -216,12 +326,18 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
             block_size=1,
             value_heads=1,
             key_width=1,
+            value_width=1,
             dtype=torch.float32,
             device="cpu",
         )
-        slot = cache.store(b"same", torch.ones(1, 1, 1), torch.ones(1, 1, 1))
-        refreshed_slot = cache.store(
-            b"same", torch.full((1, 1, 1), 4.0), torch.full((1, 1, 1), 5.0)
+        slot = _store_test_operator(
+            cache, b"same", torch.ones(1, 1, 1), torch.ones(1, 1, 1)
+        )
+        refreshed_slot = _store_test_operator(
+            cache,
+            b"same",
+            torch.full((1, 1, 1), 4.0),
+            torch.full((1, 1, 1), 5.0),
         )
 
         self.assertEqual(refreshed_slot, slot)

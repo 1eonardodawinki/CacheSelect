@@ -29,13 +29,22 @@ def _make_sidecar(*keys: bytes, block_size: int = 2) -> GDNDeltaOperatorSidecar:
         block_size=block_size,
         value_heads=1,
         key_width=2,
+        value_width=2,
         dtype=torch.float32,
         device="cpu",
     )
     transition = torch.eye(2).unsqueeze(0)
     responses = torch.ones(block_size, 1, 2)
+    state_bias = torch.zeros(1, 2, 2)
+    output_biases = torch.zeros(block_size, 1, 2)
     for index, key in enumerate(keys, start=1):
-        sidecar.store(key, transition * index, responses * index)
+        sidecar.store(
+            key,
+            transition * index,
+            responses * index,
+            state_bias,
+            output_biases,
+        )
     return sidecar
 
 
