@@ -79,6 +79,75 @@ def plan_gdn_checkpoint_writes(
     return GDNCheckpointWritePlan(destination_blocks, source_chunks)
 
 
+# Copy intermediate and final recurrent states into their physical cache slots.
+def write_gdn_prefill_checkpoints(
+    *,
+    state_cache: torch.Tensor,
+    chunk_states: torch.Tensor,
+    final_states: torch.Tensor,
+    checkpoint_state_indices: torch.Tensor,
+    chunk_offsets: torch.Tensor,
+    num_computed_tokens: torch.Tensor,
+    first_scheduled_blocks: torch.Tensor,
+    last_scheduled_blocks: torch.Tensor,
+    block_size: int,
+    chunk_size: int,
+) -> None:
+    """Persist each completed block boundary and the final prefill state."""
+    num_sequences = final_states.shape[0]
+    if checkpoint_state_indices.shape[0] != num_sequences:
+        raise ValueError("checkpoint table and final states disagree on batch size")
+    if chunk_offsets.numel() != num_sequences + 1:
+        raise ValueError("chunk_offsets must contain one start and one final offset")
+    for values in (
+        num_computed_tokens,
+        first_scheduled_blocks,
+        last_scheduled_blocks,
+    ):
+        if values.numel() != num_sequences:
+            raise ValueError("checkpoint geometry must contain one value per sequence")
+
+    for sequence_index in range(num_sequences):
+        first_chunk_index = int(chunk_offsets[sequence_index].item())
+        first_block = int(first_scheduled_blocks[sequence_index].item())
+        last_block = int(last_scheduled_blocks[sequence_index].item())
+        plan = plan_gdn_checkpoint_writes(
+            first_chunk_index=first_chunk_index,
+            num_computed_tokens=int(num_computed_tokens[sequence_index].item()),
+            first_scheduled_block=first_block,
+            last_scheduled_block=last_block,
+            block_size=block_size,
+            chunk_size=chunk_size,
+        )
+
+        if plan.destination_block_indices:
+            destination_blocks = torch.tensor(
+                plan.destination_block_indices,
+                dtype=torch.long,
+                device=checkpoint_state_indices.device,
+            )
+            source_chunks = torch.tensor(
+                plan.source_chunk_indices,
+                dtype=torch.long,
+                device=chunk_states.device,
+            )
+            physical_slots = checkpoint_state_indices[
+                sequence_index, destination_blocks
+            ].long()
+            if torch.any(physical_slots < 0).item():
+                raise ValueError("an intermediate checkpoint has no physical slot")
+            state_cache[physical_slots] = chunk_states[0, source_chunks].to(
+                state_cache.dtype
+            )
+
+        final_slot = int(
+            checkpoint_state_indices[sequence_index, last_block].item()
+        )
+        if final_slot < 0:
+            raise ValueError("the final checkpoint has no physical slot")
+        state_cache[final_slot] = final_states[sequence_index].to(state_cache.dtype)
+
+
 class GDNAttentionBackend(AttentionBackend):
     @staticmethod
     def get_name() -> str:

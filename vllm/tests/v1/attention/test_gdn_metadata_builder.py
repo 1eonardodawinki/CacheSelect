@@ -21,6 +21,7 @@ from vllm.v1.attention.backends.gdn_attn import (
     GDNAttentionMetadata,
     GDNAttentionMetadataBuilder,
     plan_gdn_checkpoint_writes,
+    write_gdn_prefill_checkpoints,
 )
 from vllm.v1.kv_cache_interface import MambaSpec
 
@@ -323,6 +324,52 @@ def test_rejects_unaligned_gdn_checkpoint_write():
             num_computed_tokens=130,
             first_scheduled_block=2,
             last_scheduled_block=4,
+            block_size=64,
+            chunk_size=16,
+        )
+
+
+# Verify that logical block checkpoints land in their physical cache slots.
+def test_writes_gdn_prefill_checkpoints():
+    """Intermediate chunks and the final state should populate mapped slots."""
+    state_cache = torch.zeros((12, 1), dtype=torch.float32)
+    chunk_states = torch.arange(20, dtype=torch.float32).view(1, 20, 1)
+    final_states = torch.tensor([[99.0]])
+    checkpoint_table = torch.tensor([[7, 3, 10, 1, 8]], dtype=torch.int32)
+
+    write_gdn_prefill_checkpoints(
+        state_cache=state_cache,
+        chunk_states=chunk_states,
+        final_states=final_states,
+        checkpoint_state_indices=checkpoint_table,
+        chunk_offsets=torch.tensor([0, 20], dtype=torch.int32),
+        num_computed_tokens=torch.tensor([0], dtype=torch.int32),
+        first_scheduled_blocks=torch.tensor([0], dtype=torch.int32),
+        last_scheduled_blocks=torch.tensor([4], dtype=torch.int32),
+        block_size=64,
+        chunk_size=16,
+    )
+
+    assert state_cache[7].item() == 4
+    assert state_cache[3].item() == 8
+    assert state_cache[10].item() == 12
+    assert state_cache[1].item() == 16
+    assert state_cache[8].item() == 99
+
+
+# Reject a missing destination before a negative block ID can index the cache.
+def test_rejects_missing_gdn_checkpoint_slot():
+    """Null physical slots must fail closed instead of writing the wrong state."""
+    with pytest.raises(ValueError, match="no physical slot"):
+        write_gdn_prefill_checkpoints(
+            state_cache=torch.zeros((4, 1)),
+            chunk_states=torch.zeros((1, 4, 1)),
+            final_states=torch.ones((1, 1)),
+            checkpoint_state_indices=torch.tensor([[-1]], dtype=torch.int32),
+            chunk_offsets=torch.tensor([0, 4], dtype=torch.int32),
+            num_computed_tokens=torch.tensor([0], dtype=torch.int32),
+            first_scheduled_blocks=torch.tensor([0], dtype=torch.int32),
+            last_scheduled_blocks=torch.tensor([0], dtype=torch.int32),
             block_size=64,
             chunk_size=16,
         )
