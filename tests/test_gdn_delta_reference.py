@@ -3,7 +3,11 @@ import unittest
 
 import torch
 
-from benchmarks.gdn_delta_reference import propagate_gdn_state_delta
+from benchmarks.gdn_delta_reference import (
+    apply_gdn_block_delta_operator,
+    build_gdn_block_delta_operator,
+    propagate_gdn_state_delta,
+)
 
 
 # Execute the ordinary GDN recurrence for comparison with delta propagation.
@@ -107,6 +111,24 @@ class GDNDeltaReferenceTests(unittest.TestCase):
         self.assertEqual(tuple(outputs.shape), (3, 2, 3))
         self.assertEqual(torch.count_nonzero(states).item(), 0)
         self.assertEqual(torch.count_nonzero(outputs).item(), 0)
+
+    # Prove the reusable block form equals the direct token-by-token recurrence.
+    def test_block_operator_matches_token_delta_propagation(self) -> None:
+        generator = torch.Generator().manual_seed(19)
+        initial = torch.randn(4, 5, 3, generator=generator, dtype=torch.float64)
+        keys = torch.randn(7, 2, 3, generator=generator, dtype=torch.float64)
+        queries = torch.randn(7, 2, 3, generator=generator, dtype=torch.float64)
+        log_decays = -torch.rand(7, 4, generator=generator, dtype=torch.float64)
+        betas = torch.rand(7, 4, generator=generator, dtype=torch.float64)
+
+        direct_states, direct_outputs = propagate_gdn_state_delta(
+            initial, keys, queries, log_decays, betas
+        )
+        operator = build_gdn_block_delta_operator(keys, queries, log_decays, betas)
+        final_state, block_outputs = apply_gdn_block_delta_operator(initial, operator)
+
+        torch.testing.assert_close(final_state, direct_states[-1])
+        torch.testing.assert_close(block_outputs, direct_outputs)
 
 
 if __name__ == "__main__":
