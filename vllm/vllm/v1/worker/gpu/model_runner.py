@@ -999,6 +999,14 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     "candidate_block_count": preflight.candidate_count,
                     "resolved_layer_count": len(preflight.layers),
                 }
+                logger.info(
+                    "GDN delta diagnostic: worker received request=%s "
+                    "candidates=%d contextual_hashes=%d preflight=%s",
+                    req_id,
+                    len(gdn_plan.candidates),
+                    len(new_req_data.contextual_block_hashes),
+                    preflight.reason,
+                )
             if plan is not None:
                 self.partial_reuse_plans[req_id] = plan
                 assert resolved_candidates is not None

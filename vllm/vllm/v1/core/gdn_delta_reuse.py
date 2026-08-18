@@ -8,10 +8,13 @@ from collections import OrderedDict
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
+from vllm.logger import init_logger
 from vllm.v1.core.kv_cache_utils import resolve_block_hashes
 
 if TYPE_CHECKING:
     from vllm.v1.request import Request
+
+logger = init_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -96,6 +99,13 @@ class GDNDeltaSourceIndex:
         self.max_source_requests = max_source_requests
         self.max_candidate_blocks = max_candidate_blocks
         self._sources: OrderedDict[str, GDNDeltaSourceRequest] = OrderedDict()
+        logger.info(
+            "GDN delta diagnostic: source index enabled block_size=%d "
+            "hash_block_size=%d max_candidate_blocks=%s",
+            block_size,
+            hash_block_size,
+            max_candidate_blocks,
+        )
 
     # Read the request's active LoRA identity without retaining the adapter.
     @staticmethod
@@ -141,6 +151,16 @@ class GDNDeltaSourceIndex:
         self._sources.move_to_end(request_id)
         while len(self._sources) > self.max_source_requests:
             self._sources.popitem(last=False)
+        logger.info(
+            "GDN delta diagnostic: indexed engine_request=%s source_request=%s "
+            "prompt_tokens=%d blocks=%d hash_count=%d index_size=%d",
+            request.request_id,
+            request_id,
+            len(prompt_token_ids),
+            len(blocks),
+            len(hashes),
+            len(self._sources),
+        )
 
     # Resolve and refresh one indexed source request.
     def get(self, request_id: str) -> GDNDeltaSourceRequest | None:
@@ -157,9 +177,22 @@ class GDNDeltaSourceIndex:
     ) -> GDNDeltaReusePlan | None:
         source_request_id = request.cacheselect_source_request_id
         if source_request_id is None:
+            if request.cacheselect_request_id is not None:
+                logger.info(
+                    "GDN delta diagnostic: locate skipped target_request=%s "
+                    "because source metadata is absent",
+                    request.cacheselect_request_id,
+                )
             return None
         source = self.get(source_request_id)
         if source is None:
+            logger.info(
+                "GDN delta diagnostic: locate target_request=%s "
+                "source_request=%s reason=source_not_indexed index_size=%d",
+                request.cacheselect_request_id or request.request_id,
+                source_request_id,
+                len(self._sources),
+            )
             return self._plan(request, native_cached_tokens, "source_not_indexed")
         if source.cache_salt != request.cache_salt:
             return self._plan(request, native_cached_tokens, "cache_salt_mismatch")
@@ -203,12 +236,22 @@ class GDNDeltaSourceIndex:
                     source_contextual_hash=source_block.contextual_hash,
                 )
             )
-        return self._plan(
+        plan = self._plan(
             request,
             native_cached_tokens,
             "aligned_candidates" if candidates else "no_aligned_candidates",
             tuple(candidates),
         )
+        logger.info(
+            "GDN delta diagnostic: located target_request=%s source_request=%s "
+            "native_cached_tokens=%d candidates=%d reason=%s",
+            plan.target_request_id,
+            plan.source_request_id,
+            native_cached_tokens,
+            len(plan.candidates),
+            plan.reason,
+        )
+        return plan
 
     # Assemble a request-scoped lookup plan for worker transport.
     def _plan(

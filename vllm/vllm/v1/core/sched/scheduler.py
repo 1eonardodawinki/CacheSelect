@@ -281,6 +281,17 @@ class Scheduler(SchedulerInterface):
             gdn_delta_cache_capacity=self.cache_config.gdn_delta_cache_capacity,
             gdn_delta_block_size=self.cache_config.mamba_block_size,
         )
+        if self.cache_config.gdn_delta_cache_capacity > 0:
+            logger.info(
+                "GDN delta diagnostic: scheduler initialized has_mamba=%s "
+                "scheduler_block_size=%d hash_block_size=%d "
+                "mamba_block_size=%s source_index_enabled=%s",
+                kv_cache_config.has_mamba_layers,
+                self.block_size,
+                self.hash_block_size,
+                self.cache_config.mamba_block_size,
+                self.kv_cache_manager.gdn_delta_source_index is not None,
+            )
         # Bind GPU block pool to the KV connector. This must happen after
         # kv_cache_manager is constructed so block_pool is available.
         if self.connector is not None:
