@@ -24,6 +24,61 @@ from vllm.v1.attention.backends.utils import (
 from vllm.v1.kv_cache_interface import AttentionSpec, MambaSpec
 
 
+@dataclass(frozen=True)
+class GDNCheckpointWritePlan:
+    """Map cached block boundaries to states emitted by the GDN chunk kernel."""
+
+    destination_block_indices: tuple[int, ...]
+    source_chunk_indices: tuple[int, ...]
+
+
+# Map completed GDN blocks to the chunk-start states representing their ends.
+def plan_gdn_checkpoint_writes(
+    *,
+    first_chunk_index: int,
+    num_computed_tokens: int,
+    first_scheduled_block: int,
+    last_scheduled_block: int,
+    block_size: int,
+    chunk_size: int,
+) -> GDNCheckpointWritePlan:
+    """Plan intermediate checkpoint copies; the final block is saved separately."""
+    if block_size <= 0 or chunk_size <= 0:
+        raise ValueError("block_size and chunk_size must be positive")
+    if block_size % chunk_size != 0:
+        raise ValueError("GDN checkpoint blocks must align to whole kernel chunks")
+    if min(first_chunk_index, num_computed_tokens, first_scheduled_block) < 0:
+        raise ValueError("checkpoint positions must be non-negative")
+    if last_scheduled_block < first_scheduled_block:
+        raise ValueError("last_scheduled_block must not precede the first block")
+
+    destination_blocks = tuple(
+        range(first_scheduled_block, last_scheduled_block)
+    )
+    if not destination_blocks:
+        return GDNCheckpointWritePlan((), ())
+
+    # The chunk kernel's h[i] is the state immediately before chunk i. The
+    # state after a complete cache block is therefore the first chunk state
+    # belonging to the following block.
+    first_boundary_token = (first_scheduled_block + 1) * block_size
+    tokens_until_first_boundary = first_boundary_token - num_computed_tokens
+    if tokens_until_first_boundary < 0:
+        raise ValueError("the first checkpoint boundary precedes computed tokens")
+    if tokens_until_first_boundary % chunk_size != 0:
+        raise ValueError("computed tokens do not align with a checkpoint chunk")
+
+    first_source_chunk = (
+        first_chunk_index + tokens_until_first_boundary // chunk_size
+    )
+    chunks_per_block = block_size // chunk_size
+    source_chunks = tuple(
+        first_source_chunk + offset * chunks_per_block
+        for offset in range(len(destination_blocks))
+    )
+    return GDNCheckpointWritePlan(destination_blocks, source_chunks)
+
+
 class GDNAttentionBackend(AttentionBackend):
     @staticmethod
     def get_name() -> str:

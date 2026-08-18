@@ -20,6 +20,7 @@ from vllm.config.compilation import CUDAGraphMode
 from vllm.v1.attention.backends.gdn_attn import (
     GDNAttentionMetadata,
     GDNAttentionMetadataBuilder,
+    plan_gdn_checkpoint_writes,
 )
 from vllm.v1.kv_cache_interface import MambaSpec
 
@@ -263,3 +264,65 @@ def test_align_mode_does_not_build_block_checkpoint_metadata():
     assert meta.block_idx_first_scheduled_token is None
     assert meta.block_idx_last_scheduled_token is None
     assert meta.num_computed_tokens is None
+
+
+# Verify the chunk-state mapping for a fresh multi-block prefill.
+def test_plans_gdn_checkpoint_writes_from_prompt_start():
+    """Every complete non-final block should map to its following chunk state."""
+    plan = plan_gdn_checkpoint_writes(
+        first_chunk_index=0,
+        num_computed_tokens=0,
+        first_scheduled_block=0,
+        last_scheduled_block=4,
+        block_size=64,
+        chunk_size=16,
+    )
+
+    assert plan.destination_block_indices == (0, 1, 2, 3)
+    assert plan.source_chunk_indices == (4, 8, 12, 16)
+
+
+# Verify that a restored prefix and preceding batch rows shift source chunks.
+def test_plans_gdn_checkpoint_writes_after_cached_prefix():
+    """Chunk indices should be relative to both the restored prefix and batch row."""
+    plan = plan_gdn_checkpoint_writes(
+        first_chunk_index=10,
+        num_computed_tokens=128,
+        first_scheduled_block=2,
+        last_scheduled_block=4,
+        block_size=64,
+        chunk_size=16,
+    )
+
+    assert plan.destination_block_indices == (2, 3)
+    assert plan.source_chunk_indices == (14, 18)
+
+
+# Verify that the final-state-only case needs no intermediate copies.
+def test_plans_no_intermediate_write_for_one_partial_block():
+    """A single partial block is written from the kernel's final state later."""
+    plan = plan_gdn_checkpoint_writes(
+        first_chunk_index=0,
+        num_computed_tokens=128,
+        first_scheduled_block=2,
+        last_scheduled_block=2,
+        block_size=64,
+        chunk_size=16,
+    )
+
+    assert plan.destination_block_indices == ()
+    assert plan.source_chunk_indices == ()
+
+
+# Reject a schedule whose first cache boundary falls inside a kernel chunk.
+def test_rejects_unaligned_gdn_checkpoint_write():
+    """A checkpoint must never claim a state that the kernel did not emit."""
+    with pytest.raises(ValueError, match="do not align"):
+        plan_gdn_checkpoint_writes(
+            first_chunk_index=0,
+            num_computed_tokens=130,
+            first_scheduled_block=2,
+            last_scheduled_block=4,
+            block_size=64,
+            chunk_size=16,
+        )
