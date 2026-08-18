@@ -50,6 +50,17 @@ def analyze_hybrid_gdn_active(summary: dict[str, Any]) -> dict[str, Any]:
         active_seconds = float(target["client_wall_seconds"])
         if reference_seconds <= 0 or active_seconds <= 0:
             raise ValueError("request durations must be positive")
+        reference_ttft = reference.get("time_to_first_token_ms")
+        active_ttft = target.get("time_to_first_token_ms")
+        if (
+            not isinstance(reference_ttft, (int, float))
+            or isinstance(reference_ttft, bool)
+            or reference_ttft <= 0
+            or not isinstance(active_ttft, (int, float))
+            or isinstance(active_ttft, bool)
+            or active_ttft <= 0
+        ):
+            raise ValueError("time-to-first-token measurements must be positive")
         comparisons.append(
             {
                 "scenario": scenario,
@@ -59,6 +70,9 @@ def analyze_hybrid_gdn_active(summary: dict[str, Any]) -> dict[str, Any]:
                 "reference_seconds": reference_seconds,
                 "active_seconds": active_seconds,
                 "speedup": reference_seconds / active_seconds,
+                "reference_ttft_ms": float(reference_ttft),
+                "active_ttft_ms": float(active_ttft),
+                "ttft_speedup": float(reference_ttft) / float(active_ttft),
                 "native_cached_tokens": int(target["cached_tokens"]),
                 "candidate_blocks": int(metrics["candidate_block_count"]),
                 "executed_layers": int(metrics["active_executed_layer_count"]),
@@ -70,6 +84,7 @@ def analyze_hybrid_gdn_active(summary: dict[str, Any]) -> dict[str, Any]:
         )
 
     speedups = [row["speedup"] for row in comparisons]
+    ttft_speedups = [row["ttft_speedup"] for row in comparisons]
     return {
         "schema_version": 1,
         "experiment": "hybrid_gdn_active_analysis",
@@ -79,6 +94,8 @@ def analyze_hybrid_gdn_active(summary: dict[str, Any]) -> dict[str, Any]:
         "all_outputs_exact": all(row["exact_output_match"] for row in comparisons),
         "mean_speedup": statistics.fmean(speedups),
         "minimum_speedup": min(speedups),
+        "mean_ttft_speedup": statistics.fmean(ttft_speedups),
+        "minimum_ttft_speedup": min(ttft_speedups),
         "comparisons": comparisons,
     }
 

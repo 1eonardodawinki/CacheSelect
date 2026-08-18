@@ -54,15 +54,19 @@ def summarize_hybrid_gdn_matrix(
         for comparison in comparisons:
             scenario = comparison.get("scenario")
             speedup = comparison.get("speedup")
+            ttft_speedup = comparison.get("ttft_speedup")
             if not isinstance(scenario, str) or not scenario:
                 raise ValueError("comparison has an invalid scenario")
             if not isinstance(speedup, (int, float)) or speedup <= 0:
                 raise ValueError("comparison has an invalid speedup")
+            if not isinstance(ttft_speedup, (int, float)) or ttft_speedup <= 0:
+                raise ValueError("comparison has an invalid TTFT speedup")
             grouped.setdefault((record_count, scenario), []).append(comparison)
 
     cells = []
     for (record_count, scenario), rows in sorted(grouped.items()):
         speedups = [float(row["speedup"]) for row in rows]
+        ttft_speedups = [float(row["ttft_speedup"]) for row in rows]
         cells.append(
             {
                 "record_count": record_count,
@@ -74,6 +78,9 @@ def summarize_hybrid_gdn_matrix(
                 "mean_speedup": statistics.fmean(speedups),
                 "minimum_speedup": min(speedups),
                 "maximum_speedup": max(speedups),
+                "mean_ttft_speedup": statistics.fmean(ttft_speedups),
+                "minimum_ttft_speedup": min(ttft_speedups),
+                "maximum_ttft_speedup": max(ttft_speedups),
                 "mean_native_cached_tokens": statistics.fmean(
                     float(row["native_cached_tokens"]) for row in rows
                 ),

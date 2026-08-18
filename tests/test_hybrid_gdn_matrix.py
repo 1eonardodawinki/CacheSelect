@@ -28,6 +28,7 @@ class HybridGDNMatrixTests(unittest.TestCase):
                         {
                             "scenario": "early_edit",
                             "speedup": speedup,
+                            "ttft_speedup": speedup + 0.5,
                             "exact_output_match": True,
                             "native_cached_tokens": 64,
                             "reused_layer_tokens": 3072,
@@ -41,6 +42,7 @@ class HybridGDNMatrixTests(unittest.TestCase):
         self.assertTrue(summary["all_outputs_exact"])
         self.assertEqual(summary["run_count"], 2)
         self.assertAlmostEqual(summary["cells"][0]["mean_speedup"], 1.3)
+        self.assertAlmostEqual(summary["cells"][0]["mean_ttft_speedup"], 1.8)
         self.assertEqual(summary["cells"][0]["repetitions"], 2)
 
     # Reject duplicated lengths that would make matrix accounting ambiguous.

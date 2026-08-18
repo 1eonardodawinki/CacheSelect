@@ -17,9 +17,20 @@ MODEL="${CACHESELECT_HYBRID_MODEL:-Qwen/Qwen3.5-9B}"
 START_TIMEOUT="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
 DELTA_CACHE_CAPACITY="${CACHESELECT_GDN_DELTA_CACHE_CAPACITY:-2}"
 EXECUTION_MODE="${CACHESELECT_GDN_DELTA_EXECUTION_MODE:-shadow}"
+RUN_ACTIVE_MATRIX="${CACHESELECT_RUN_ACTIVE_MATRIX:-0}"
+MATRIX_RECORD_COUNTS="${CACHESELECT_MATRIX_RECORD_COUNTS:-64 112 160}"
+MATRIX_REPETITIONS="${CACHESELECT_MATRIX_REPETITIONS:-3}"
 
 if [[ "$EXECUTION_MODE" != "shadow" && "$EXECUTION_MODE" != "active" ]]; then
   echo "Unsupported GDN delta execution mode: $EXECUTION_MODE" >&2
+  exit 2
+fi
+if [[ "$RUN_ACTIVE_MATRIX" != "0" && "$RUN_ACTIVE_MATRIX" != "1" ]]; then
+  echo "CACHESELECT_RUN_ACTIVE_MATRIX must be 0 or 1" >&2
+  exit 2
+fi
+if [[ "$RUN_ACTIVE_MATRIX" == "1" && "$EXECUTION_MODE" != "active" ]]; then
+  echo "The graduated matrix requires active GDN execution mode" >&2
   exit 2
 fi
 
@@ -75,6 +86,9 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "gdn_delta_cache_capacity=$DELTA_CACHE_CAPACITY"
   echo "gdn_delta_execution_mode=$EXECUTION_MODE"
   echo "attention_reuse_policy=native_apc_only"
+  echo "run_active_matrix=$RUN_ACTIVE_MATRIX"
+  echo "matrix_record_counts=$MATRIX_RECORD_COUNTS"
+  echo "matrix_repetitions=$MATRIX_REPETITIONS"
   echo "max_model_len=4096"
   echo "max_completion_tokens=64"
 } >"$RESULT_DIR/metadata.env"
@@ -196,6 +210,21 @@ else
   python -m benchmarks.analyze_hybrid_gdn_active \
     --input "$SUMMARY_PATH" \
     --output "$ACTIVE_ANALYSIS_PATH"
+fi
+
+# Continue with repeated graduated contexts only after the strict smoke passes.
+if [[ "$RUN_ACTIVE_MATRIX" == "1" ]]; then
+  read -r -a MATRIX_RECORD_COUNT_ARGS <<<"$MATRIX_RECORD_COUNTS"
+  python -m benchmarks.run_hybrid_gdn_matrix \
+    --base-url "http://127.0.0.1:$PORT" \
+    --model "$MODEL" \
+    --run-id "$RUN_ID-matrix" \
+    --output-root "$RESULT_DIR/matrix" \
+    --request-log-root "$REQUEST_LOG_DIR/matrix" \
+    --record-counts "${MATRIX_RECORD_COUNT_ARGS[@]}" \
+    --repetitions "$MATRIX_REPETITIONS" \
+    --max-completion-tokens 64
+  test -s "$RESULT_DIR/matrix/matrix-summary.json"
 fi
 
 stop_server
