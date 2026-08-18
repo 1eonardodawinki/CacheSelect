@@ -242,6 +242,7 @@ class GDNAttentionMetadata:
     num_computed_tokens_cpu: torch.Tensor | None = None
     prefill_query_start_loc_cpu: torch.Tensor | None = None
     contextual_block_hashes: tuple[tuple[bytes, ...], ...] = ()
+    gdn_delta_reuse_candidates: tuple[tuple[tuple[int, bytes], ...], ...] = ()
 
     # The following attributes are for triton implementation of causal_conv1d
     nums_dict: dict | None = None
@@ -753,6 +754,7 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
             num_computed_tokens_cpu=num_computed_tokens_cpu,
             prefill_query_start_loc_cpu=prefill_query_start_loc_cpu,
             contextual_block_hashes=m.contextual_block_hashes,
+            gdn_delta_reuse_candidates=m.gdn_delta_reuse_candidates,
             spec_query_start_loc=spec_query_start_loc,
             non_spec_query_start_loc=non_spec_query_start_loc,
             spec_state_indices_tensor=spec_state_indices_tensor,

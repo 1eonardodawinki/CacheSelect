@@ -280,6 +280,12 @@ class MambaHybridModelState(DefaultModelState):
             contextual_block_hashes += ((),) * (
                 num_reqs - len(contextual_block_hashes)
             )
+        gdn_delta_reuse_candidates = input_batch.gdn_delta_reuse_candidates
+        if len(gdn_delta_reuse_candidates) < num_reqs:
+            # Dummy CUDA-graph rows never carry an experimental reuse mapping.
+            gdn_delta_reuse_candidates += ((),) * (
+                num_reqs - len(gdn_delta_reuse_candidates)
+            )
         return build_attn_metadata(
             attn_groups=attn_groups,
             num_reqs=num_reqs,
@@ -298,6 +304,7 @@ class MambaHybridModelState(DefaultModelState):
             for_cudagraph_capture=for_capture,
             rswa_prefix_lens=input_batch.prompt_lens,
             contextual_block_hashes=contextual_block_hashes,
+            gdn_delta_reuse_candidates=gdn_delta_reuse_candidates,
         )
 
     def postprocess_state(

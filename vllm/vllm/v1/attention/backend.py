@@ -483,6 +483,9 @@ class CommonAttentionMetadata:
     contextual_block_hashes: tuple[tuple[bytes, ...], ...] = ()
     """CPU-only chained identities for completed logical blocks by request."""
 
+    gdn_delta_reuse_candidates: tuple[tuple[tuple[int, bytes], ...], ...] = ()
+    """CPU-only target block and source-operator mappings approved by preflight."""
+
     # WARNING: Deprecated fields. Will be removed in a future release (v0.15.0)
     _seq_lens_cpu: torch.Tensor | None = None
     _num_computed_tokens_cpu: torch.Tensor | None = None
@@ -594,6 +597,10 @@ class CommonAttentionMetadata:
             dcp_local_seq_lens_cpu=maybe_slice_reqs(self.dcp_local_seq_lens_cpu),
             is_prefilling=maybe_slice_reqs(self.is_prefilling),
             rswa_prefix_lens=maybe_slice_reqs(self.rswa_prefix_lens),
+            contextual_block_hashes=self.contextual_block_hashes[:num_actual_reqs],
+            gdn_delta_reuse_candidates=self.gdn_delta_reuse_candidates[
+                :num_actual_reqs
+            ],
         )
 
 

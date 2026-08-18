@@ -81,6 +81,7 @@ from vllm.v1.worker.gpu.dp_utils import dispatch_cg_and_sync_dp
 from vllm.v1.worker.gpu.eplb_utils import EPLBController, step_eplb_after
 from vllm.v1.worker.gpu.gdn_delta_reuse import (
     GDNDeltaPreflightResult,
+    build_gdn_delta_reuse_candidates,
     collect_gdn_delta_sidecars,
     preflight_gdn_delta_reuse,
 )
@@ -1428,6 +1429,11 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             prompt_lens=prompt_lens,
             contextual_block_hashes=tuple(
                 self.contextual_block_hashes.get(req_id, ()) for req_id in req_ids
+            ),
+            gdn_delta_reuse_candidates=build_gdn_delta_reuse_candidates(
+                req_ids,
+                self.gdn_delta_reuse_plans,
+                self.gdn_delta_preflight_results,
             ),
         )
         return pcp.maybe_partition_pcp_batch(self.pcp_manager, input_batch)

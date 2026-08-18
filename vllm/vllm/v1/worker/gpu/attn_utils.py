@@ -509,6 +509,9 @@ def build_attn_metadata(
     causal: bool | torch.Tensor | Mapping[int, bool] = True,
     rswa_prefix_lens: torch.Tensor | None = None,
     contextual_block_hashes: tuple[tuple[bytes, ...], ...] = (),
+    gdn_delta_reuse_candidates: tuple[
+        tuple[tuple[int, bytes], ...], ...
+    ] = (),
 ) -> dict[str, Any]:
     seq_lens = seq_lens[:num_reqs]
     if dcp_local_seq_lens is not None:
@@ -554,6 +557,7 @@ def build_attn_metadata(
             mm_req_doc_ranges=mm_req_doc_ranges,
             rswa_prefix_lens=rswa_prefix_lens,
             contextual_block_hashes=contextual_block_hashes,
+            gdn_delta_reuse_candidates=gdn_delta_reuse_candidates,
             **common_attn_metadata_extra_kwargs,
         )
 

@@ -102,6 +102,9 @@ class InputBatch:
     # CPU-only contextual identities for each request's completed cache blocks.
     contextual_block_hashes: tuple[tuple[bytes, ...], ...] = ()
 
+    # CPU-only target block and source-operator mappings approved by preflight.
+    gdn_delta_reuse_candidates: tuple[tuple[tuple[int, bytes], ...], ...] = ()
+
     @classmethod
     def make_dummy(
         cls,

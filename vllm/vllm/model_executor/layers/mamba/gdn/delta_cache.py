@@ -19,6 +19,187 @@ class GDNDeltaCacheEntry:
     output_biases: torch.Tensor
 
 
+@dataclass(frozen=True)
+class GDNDeltaShadowComparison:
+    """Numerical divergence between cached-operator and full block execution."""
+
+    output_relative_l2: float
+    output_max_absolute_error: float
+    final_state_relative_l2: float
+    final_state_max_absolute_error: float
+
+
+@dataclass(frozen=True)
+class GDNDeltaBlockShadowResult:
+    """Shadow outcome for one target logical block in a prefill batch."""
+
+    sequence_index: int
+    target_block_index: int
+    source_contextual_hash: bytes
+    reason: str
+    comparison: GDNDeltaShadowComparison | None = None
+
+
+# Measure an error relative to the full-computation tensor's overall magnitude.
+def _relative_l2_error(candidate: torch.Tensor, reference: torch.Tensor) -> float:
+    difference_norm = torch.linalg.vector_norm(candidate - reference)
+    reference_norm = torch.linalg.vector_norm(reference)
+    denominator = reference_norm.clamp_min(torch.finfo(torch.float32).eps)
+    return float((difference_norm / denominator).item())
+
+
+# Compare a cached affine result with full computation without changing either.
+def compare_gdn_affine_shadow(
+    initial_state: torch.Tensor,
+    entry: GDNDeltaCacheEntry,
+    reference_outputs: torch.Tensor,
+    reference_final_state: torch.Tensor,
+) -> GDNDeltaShadowComparison:
+    """Apply one operator in shadow mode and summarize its numerical error."""
+    approximate_state, approximate_outputs = apply_gdn_affine_operator(
+        initial_state,
+        entry,
+    )
+    reference_outputs = reference_outputs.float()
+    reference_final_state = reference_final_state.float()
+    if approximate_outputs.shape != reference_outputs.shape:
+        raise ValueError("reference outputs do not match the cached block shape")
+    if approximate_state.shape != reference_final_state.shape:
+        raise ValueError("reference state does not match the cached state shape")
+
+    output_difference = (approximate_outputs - reference_outputs).abs()
+    state_difference = (approximate_state - reference_final_state).abs()
+    return GDNDeltaShadowComparison(
+        output_relative_l2=_relative_l2_error(
+            approximate_outputs,
+            reference_outputs,
+        ),
+        output_max_absolute_error=float(output_difference.max().item()),
+        final_state_relative_l2=_relative_l2_error(
+            approximate_state,
+            reference_final_state,
+        ),
+        final_state_max_absolute_error=float(state_difference.max().item()),
+    )
+
+
+# Compare every fully scheduled candidate block against its normal GDN result.
+def compare_completed_gdn_blocks_shadow(
+    sidecar: "GDNDeltaOperatorSidecar",
+    *,
+    state_cache: torch.Tensor,
+    full_outputs: torch.Tensor,
+    checkpoint_state_indices: torch.Tensor,
+    query_start_locations: torch.Tensor,
+    num_computed_tokens: torch.Tensor,
+    reuse_candidates: tuple[tuple[tuple[int, bytes], ...], ...],
+) -> tuple[GDNDeltaBlockShadowResult, ...]:
+    """Resolve checkpoint/token rows and compare candidates without mutation."""
+    if state_cache.ndim != 4:
+        raise ValueError("state_cache must have shape [slots,HV,V,K]")
+    if full_outputs.ndim != 3:
+        raise ValueError("full_outputs must have shape [tokens,HV,V]")
+    if checkpoint_state_indices.ndim != 2:
+        raise ValueError("checkpoint indices must have shape [sequences,blocks]")
+
+    query_starts = query_start_locations.detach().cpu().tolist()
+    computed_counts = num_computed_tokens.detach().cpu().tolist()
+    sequence_count = len(query_starts) - 1
+    if len(computed_counts) != sequence_count:
+        raise ValueError("computed counts must contain one value per sequence")
+    if len(reuse_candidates) != sequence_count:
+        raise ValueError("reuse candidates must contain one tuple per sequence")
+    if checkpoint_state_indices.shape[0] != sequence_count:
+        raise ValueError("checkpoint rows must contain one row per sequence")
+    if query_starts[0] != 0 or query_starts[-1] != full_outputs.shape[0]:
+        raise ValueError("query starts must span the flattened output tensor")
+
+    results = []
+    block_size = sidecar.block_size
+    for sequence_index, sequence_candidates in enumerate(reuse_candidates):
+        query_start = int(query_starts[sequence_index])
+        query_end = int(query_starts[sequence_index + 1])
+        computed = int(computed_counts[sequence_index])
+        for target_block_index, source_hash in sequence_candidates:
+            entry = sidecar.lookup(source_hash)
+            if entry is None:
+                results.append(
+                    GDNDeltaBlockShadowResult(
+                        sequence_index,
+                        target_block_index,
+                        source_hash,
+                        "operator_not_resident",
+                    )
+                )
+                continue
+            if target_block_index <= 0 or target_block_index >= (
+                checkpoint_state_indices.shape[1]
+            ):
+                results.append(
+                    GDNDeltaBlockShadowResult(
+                        sequence_index,
+                        target_block_index,
+                        source_hash,
+                        "invalid_target_block",
+                    )
+                )
+                continue
+
+            local_start = target_block_index * block_size - computed
+            output_start = query_start + local_start
+            output_end = output_start + block_size
+            if local_start < 0 or output_end > query_end:
+                results.append(
+                    GDNDeltaBlockShadowResult(
+                        sequence_index,
+                        target_block_index,
+                        source_hash,
+                        "block_not_fully_scheduled",
+                    )
+                )
+                continue
+
+            incoming_slot = int(
+                checkpoint_state_indices[
+                    sequence_index, target_block_index - 1
+                ].item()
+            )
+            final_slot = int(
+                checkpoint_state_indices[
+                    sequence_index, target_block_index
+                ].item()
+            )
+            if min(incoming_slot, final_slot) < 0 or max(
+                incoming_slot, final_slot
+            ) >= state_cache.shape[0]:
+                results.append(
+                    GDNDeltaBlockShadowResult(
+                        sequence_index,
+                        target_block_index,
+                        source_hash,
+                        "invalid_checkpoint_slot",
+                    )
+                )
+                continue
+
+            comparison = compare_gdn_affine_shadow(
+                state_cache[incoming_slot],
+                entry,
+                full_outputs[output_start:output_end],
+                state_cache[final_slot],
+            )
+            results.append(
+                GDNDeltaBlockShadowResult(
+                    sequence_index,
+                    target_block_index,
+                    source_hash,
+                    "compared",
+                    comparison,
+                )
+            )
+    return tuple(results)
+
+
 # Apply one cached affine block operator to a new incoming recurrent state.
 def apply_gdn_affine_operator(
     initial_state: torch.Tensor,

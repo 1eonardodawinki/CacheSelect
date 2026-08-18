@@ -10,6 +10,8 @@ from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     GDNDeltaOperatorSidecar,
 )
 from vllm.v1.worker.gpu.gdn_delta_reuse import (
+    GDNDeltaPreflightResult,
+    build_gdn_delta_reuse_candidates,
     collect_gdn_delta_sidecars,
     preflight_gdn_delta_reuse,
 )
@@ -59,6 +61,39 @@ def _make_plan(*keys: bytes, block_size: int = 2):
 
 
 class GDNDeltaReusePreflightTests(unittest.TestCase):
+    # Forward block mappings only for requests whose all-layer preflight succeeded.
+    def test_builds_candidates_only_for_eligible_requests(self) -> None:
+        plans = {
+            "eligible": SimpleNamespace(
+                candidates=(
+                    SimpleNamespace(
+                        target_block_index=7,
+                        source_contextual_hash=b"source-seven",
+                    ),
+                )
+            ),
+            "rejected": SimpleNamespace(
+                candidates=(
+                    SimpleNamespace(
+                        target_block_index=9,
+                        source_contextual_hash=b"source-nine",
+                    ),
+                )
+            ),
+        }
+        results = {
+            "eligible": GDNDeltaPreflightResult(True, "eligible", 1),
+            "rejected": GDNDeltaPreflightResult(
+                False, "operator_not_resident", 1
+            ),
+        }
+
+        candidates = build_gdn_delta_reuse_candidates(
+            ("eligible", "rejected", "ordinary"), plans, results
+        )
+
+        self.assertEqual(candidates, (((7, b"source-seven"),), (), ()))
+
     # Discover only modules that expose the Qwen GDN sidecar contract.
     def test_discovers_gdn_sidecars_from_model(self) -> None:
         model = torch.nn.Module()

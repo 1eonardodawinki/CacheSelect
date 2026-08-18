@@ -390,6 +390,14 @@ class PCPManager:
             if global_batch.contextual_block_hashes
             else ()
         )
+        local_gdn_delta_reuse_candidates = (
+            tuple(
+                global_batch.gdn_delta_reuse_candidates[global_batch_req_idx]
+                for global_batch_req_idx in local_to_global_batch_req_idx_np
+            )
+            if global_batch.gdn_delta_reuse_candidates
+            else ()
+        )
 
         num_local_tokens = int(local_num_scheduled_tokens.sum())
         num_local_tokens_padded = max(per_rank_num_tokens)
@@ -548,6 +556,7 @@ class PCPManager:
             cu_num_logits_np=cu_num_logits_np,
             prompt_lens=None,
             contextual_block_hashes=local_contextual_block_hashes,
+            gdn_delta_reuse_candidates=local_gdn_delta_reuse_candidates,
         )
 
     def prepare_attn(

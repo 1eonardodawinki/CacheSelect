@@ -10,6 +10,8 @@ from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     apply_gdn_affine_operator,
     build_gdn_affine_operator,
     build_gdn_delta_operator,
+    compare_completed_gdn_blocks_shadow,
+    compare_gdn_affine_shadow,
     store_completed_gdn_delta_operators,
 )
 
@@ -31,6 +33,159 @@ def _store_test_operator(
 
 
 class GDNDeltaOperatorSidecarTests(unittest.TestCase):
+    # Resolve logical blocks into flattened outputs and neighboring checkpoints.
+    def test_compares_completed_blocks_by_logical_index(self) -> None:
+        sidecar = GDNDeltaOperatorSidecar(
+            capacity=1,
+            block_size=2,
+            value_heads=1,
+            key_width=2,
+            value_width=2,
+            dtype=torch.float32,
+            device="cpu",
+        )
+        sidecar.store(
+            b"source",
+            torch.eye(2).unsqueeze(0),
+            torch.ones(2, 1, 2),
+            torch.zeros(1, 2, 2),
+            torch.zeros(2, 1, 2),
+        )
+        entry = sidecar.lookup(b"source")
+        assert entry is not None
+        state_cache = torch.zeros(4, 1, 2, 2)
+        state_cache[1] = 1.0
+        reference_state, reference_outputs = apply_gdn_affine_operator(
+            state_cache[1], entry
+        )
+        state_cache[2] = reference_state
+        full_outputs = torch.zeros(4, 1, 2)
+        full_outputs[2:4] = reference_outputs
+
+        results = compare_completed_gdn_blocks_shadow(
+            sidecar,
+            state_cache=state_cache,
+            full_outputs=full_outputs,
+            checkpoint_state_indices=torch.tensor([[0, 1, 2, 3]]),
+            query_start_locations=torch.tensor([0, 4]),
+            num_computed_tokens=torch.tensor([2]),
+            reuse_candidates=(((2, b"source"),),),
+        )
+
+        self.assertEqual(len(results), 1)
+        self.assertEqual(results[0].reason, "compared")
+        assert results[0].comparison is not None
+        self.assertEqual(results[0].comparison.output_relative_l2, 0.0)
+        self.assertEqual(results[0].comparison.final_state_relative_l2, 0.0)
+
+    # Decline a candidate whose complete token block is outside this prefill chunk.
+    def test_skips_block_that_is_not_fully_scheduled(self) -> None:
+        sidecar = GDNDeltaOperatorSidecar(
+            capacity=1,
+            block_size=2,
+            value_heads=1,
+            key_width=2,
+            value_width=2,
+            dtype=torch.float32,
+            device="cpu",
+        )
+        _store_test_operator(
+            sidecar,
+            b"source",
+            torch.eye(2).unsqueeze(0),
+            torch.ones(2, 1, 2),
+        )
+
+        results = compare_completed_gdn_blocks_shadow(
+            sidecar,
+            state_cache=torch.zeros(3, 1, 2, 2),
+            full_outputs=torch.zeros(1, 1, 2),
+            checkpoint_state_indices=torch.tensor([[0, 1, 2]]),
+            query_start_locations=torch.tensor([0, 1]),
+            num_computed_tokens=torch.tensor([2]),
+            reuse_candidates=(((2, b"source"),),),
+        )
+
+        self.assertEqual(results[0].reason, "block_not_fully_scheduled")
+        self.assertIsNone(results[0].comparison)
+
+    # Report zero shadow divergence when the cached result matches full execution.
+    def test_shadow_comparison_accepts_exact_affine_result(self) -> None:
+        sidecar = GDNDeltaOperatorSidecar(
+            capacity=1,
+            block_size=2,
+            value_heads=1,
+            key_width=2,
+            value_width=3,
+            dtype=torch.float32,
+            device="cpu",
+        )
+        sidecar.store(
+            b"block",
+            torch.eye(2).unsqueeze(0),
+            torch.ones(2, 1, 2),
+            torch.ones(1, 3, 2),
+            torch.ones(2, 1, 3),
+        )
+        entry = sidecar.lookup(b"block")
+        assert entry is not None
+        initial_state = torch.arange(6, dtype=torch.float32).view(1, 3, 2)
+        reference_state, reference_outputs = apply_gdn_affine_operator(
+            initial_state,
+            entry,
+        )
+
+        comparison = compare_gdn_affine_shadow(
+            initial_state,
+            entry,
+            reference_outputs,
+            reference_state,
+        )
+
+        self.assertEqual(comparison.output_relative_l2, 0.0)
+        self.assertEqual(comparison.output_max_absolute_error, 0.0)
+        self.assertEqual(comparison.final_state_relative_l2, 0.0)
+        self.assertEqual(comparison.final_state_max_absolute_error, 0.0)
+
+    # Detect output drift independently from a still-correct final state.
+    def test_shadow_comparison_reports_output_divergence(self) -> None:
+        sidecar = GDNDeltaOperatorSidecar(
+            capacity=1,
+            block_size=2,
+            value_heads=1,
+            key_width=2,
+            value_width=2,
+            dtype=torch.float32,
+            device="cpu",
+        )
+        sidecar.store(
+            b"block",
+            torch.eye(2).unsqueeze(0),
+            torch.ones(2, 1, 2),
+            torch.zeros(1, 2, 2),
+            torch.zeros(2, 1, 2),
+        )
+        entry = sidecar.lookup(b"block")
+        assert entry is not None
+        initial_state = torch.ones(1, 2, 2)
+        reference_state, reference_outputs = apply_gdn_affine_operator(
+            initial_state,
+            entry,
+        )
+        reference_outputs = reference_outputs.clone()
+        reference_outputs[0, 0, 0] += 1.0
+
+        comparison = compare_gdn_affine_shadow(
+            initial_state,
+            entry,
+            reference_outputs,
+            reference_state,
+        )
+
+        self.assertGreater(comparison.output_relative_l2, 0.0)
+        self.assertEqual(comparison.output_max_absolute_error, 1.0)
+        self.assertEqual(comparison.final_state_relative_l2, 0.0)
+
     # Store only complete blocks while respecting each sequence's absolute offset.
     def test_stores_complete_prefill_blocks_by_contextual_hash(self) -> None:
         sidecar = GDNDeltaOperatorSidecar(

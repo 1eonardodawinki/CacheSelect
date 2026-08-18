@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -35,6 +35,28 @@ class GDNDeltaPreflightResult:
     reason: str
     candidate_count: int
     layers: tuple[ResolvedGDNDeltaLayer, ...] = ()
+
+
+# Build per-request block mappings only for plans that passed every preflight check.
+def build_gdn_delta_reuse_candidates(
+    req_ids: Sequence[str],
+    plans: Mapping[str, GDNDeltaReusePlan],
+    preflight_results: Mapping[str, GDNDeltaPreflightResult],
+) -> tuple[tuple[tuple[int, bytes], ...], ...]:
+    batch_candidates = []
+    for req_id in req_ids:
+        plan = plans.get(req_id)
+        preflight = preflight_results.get(req_id)
+        if plan is None or preflight is None or not preflight.eligible:
+            batch_candidates.append(())
+            continue
+        batch_candidates.append(
+            tuple(
+                (candidate.target_block_index, candidate.source_contextual_hash)
+                for candidate in plan.candidates
+            )
+        )
+    return tuple(batch_candidates)
 
 
 # Discover Qwen GDN modules structurally without importing a model implementation.
