@@ -251,6 +251,13 @@ def run_hybrid_apc_baseline(
         "scenarios": [asdict(item) for item in build_hybrid_apc_scenarios()],
         "observations": rows,
         "reference_checks": reference_checks,
+        "reference_validation_passed": bool(reference_checks)
+        and all(
+            check["exact_output_match"]
+            and check["reference_finish_reason"] == "stop"
+            and check["target_finish_reason"] == "stop"
+            for check in reference_checks
+        ),
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
@@ -293,6 +300,8 @@ def main() -> None:
     for check in result["reference_checks"]:
         print(f"{check['scenario']}: exact_output_match={check['exact_output_match']}")
     print(f"Saved {result['request_ledger']}")
+    if args.validate_against_reference and not result["reference_validation_passed"]:
+        raise SystemExit("Hybrid checkpoint output validation failed")
 
 
 if __name__ == "__main__":

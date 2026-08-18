@@ -91,6 +91,7 @@ class HybridAPCBaselineTest(unittest.TestCase):
 
             self.assertEqual(len(result["observations"]), 8)
             self.assertTrue(result["ledger_complete"])
+            self.assertFalse(result["reference_validation_passed"])
             self.assertTrue(output.is_file())
             self.assertEqual(json.loads(output.read_text())["run_id"], "hybrid-test")
             ledger = validate_ledger(result["request_ledger"])
@@ -148,6 +149,7 @@ class HybridAPCBaselineTest(unittest.TestCase):
         self.assertTrue(
             all(check["exact_output_match"] for check in result["reference_checks"])
         )
+        self.assertTrue(result["reference_validation_passed"])
 
 
 if __name__ == "__main__":
