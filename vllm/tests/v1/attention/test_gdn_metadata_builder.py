@@ -125,6 +125,7 @@ GDN_BUILD_TEST_CASES = {
 def _create_gdn_builder(
     num_speculative_tokens: int = 0,
     full_cuda_graph: bool = False,
+    mamba_cache_mode: str = "none",
 ) -> GDNAttentionMetadataBuilder:
     """Create a GDNAttentionMetadataBuilder with minimal config."""
     vllm_config = create_vllm_config(
@@ -133,6 +134,7 @@ def _create_gdn_builder(
     )
     if full_cuda_graph:
         vllm_config.compilation_config.cudagraph_mode = CUDAGraphMode.FULL_AND_PIECEWISE
+    vllm_config.cache_config.mamba_cache_mode = mamba_cache_mode
     if num_speculative_tokens > 0:
         vllm_config.speculative_config = SpeculativeConfig(
             method="ngram",
@@ -142,6 +144,7 @@ def _create_gdn_builder(
         block_size=BLOCK_SIZE,
         shapes=((16, 64),),
         dtypes=(torch.float16,),
+        mamba_cache_mode=mamba_cache_mode,
     )
     return GDNAttentionMetadataBuilder(
         kv_cache_spec=mamba_spec,
@@ -221,3 +224,42 @@ def test_full_cudagraph_spec_metadata_uses_request_count():
     assert meta.spec_query_start_loc.shape == (batch.batch_size + 1,)
     assert meta.num_accepted_tokens is not None
     assert meta.num_accepted_tokens.shape == (batch.batch_size,)
+
+
+# Verify that all mode retains every physical checkpoint address and its geometry.
+def test_all_mode_exposes_block_checkpoint_metadata():
+    """GDN all mode should describe the recurrent states a prefill reads and writes."""
+    builder = _create_gdn_builder(mamba_cache_mode="all")
+    batch = BatchSpec(seq_lens=[80, 50], query_lens=[48, 30])
+    common = create_common_attn_metadata(
+        batch,
+        BLOCK_SIZE,
+        DEVICE,
+        arange_block_indices=True,
+    )
+
+    meta = builder.build(common_prefix_len=0, common_attn_metadata=common)
+
+    assert meta.checkpoint_state_indices is not None
+    assert torch.equal(meta.checkpoint_state_indices, common.block_table_tensor)
+    assert meta.num_computed_tokens is not None
+    assert meta.num_computed_tokens.tolist() == [32, 20]
+    assert meta.block_idx_last_computed_token is not None
+    assert meta.block_idx_last_computed_token.tolist() == [1, 1]
+    assert meta.block_idx_first_scheduled_token is not None
+    assert meta.block_idx_first_scheduled_token.tolist() == [2, 1]
+    assert meta.block_idx_last_scheduled_token is not None
+    assert meta.block_idx_last_scheduled_token.tolist() == [4, 3]
+
+
+# Verify that align mode remains on the existing single-state path.
+def test_align_mode_does_not_build_block_checkpoint_metadata():
+    """GDN align mode should not allocate or expose historical checkpoints."""
+    builder = _create_gdn_builder(mamba_cache_mode="align")
+    meta = _build(builder, BatchSpec(seq_lens=[80], query_lens=[48]))
+
+    assert meta.checkpoint_state_indices is None
+    assert meta.block_idx_last_computed_token is None
+    assert meta.block_idx_first_scheduled_token is None
+    assert meta.block_idx_last_scheduled_token is None
+    assert meta.num_computed_tokens is None

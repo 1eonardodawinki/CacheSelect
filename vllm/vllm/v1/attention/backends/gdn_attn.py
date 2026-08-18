@@ -73,6 +73,14 @@ class GDNAttentionMetadata:
     prefill_state_indices: torch.Tensor | None = None
     prefill_has_initial_state: torch.Tensor | None = None
 
+    # All-mode checkpoint metadata is kept separate from the existing
+    # single-state fields until the GDN kernels consume the full block table.
+    checkpoint_state_indices: torch.Tensor | None = None
+    block_idx_last_computed_token: torch.Tensor | None = None
+    block_idx_first_scheduled_token: torch.Tensor | None = None
+    block_idx_last_scheduled_token: torch.Tensor | None = None
+    num_computed_tokens: torch.Tensor | None = None
+
     # The following attributes are for triton implementation of causal_conv1d
     nums_dict: dict | None = None
     batch_ptr: torch.Tensor | None = None
@@ -165,6 +173,48 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
             device=device,
         )
 
+    # Locate the recurrent-state checkpoints read and written by one GDN step.
+    def _compute_prefix_caching_block_indices(
+        self,
+        num_computed_tokens: torch.Tensor,
+        seq_lens: torch.Tensor,
+    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        block_size = self.kv_cache_spec.block_size
+
+        # The initial state is stored at the end of the last computed block.
+        block_idx_last_computed_token = (
+            torch.div(
+                num_computed_tokens + block_size - 1,
+                block_size,
+                rounding_mode="floor",
+            )
+            - 1
+        )
+        # An unaligned continuation must overwrite its partially filled block.
+        block_idx_first_scheduled_token = (
+            torch.div(
+                num_computed_tokens + block_size,
+                block_size,
+                rounding_mode="floor",
+            )
+            - 1
+        )
+        block_idx_last_scheduled_token = (
+            torch.div(
+                seq_lens + block_size - 1,
+                block_size,
+                rounding_mode="floor",
+            )
+            - 1
+        )
+        block_idx_last_computed_token.clamp_(min=0)
+        block_idx_last_scheduled_token.clamp_(min=0)
+        return (
+            block_idx_last_computed_token,
+            block_idx_first_scheduled_token,
+            block_idx_last_scheduled_token,
+        )
+
     def build(  # type: ignore[override]
         self,
         common_prefix_len: int,
@@ -185,6 +235,25 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
             self.kv_cache_spec,
             self.vllm_config.cache_config.mamba_cache_mode,
         )
+
+        checkpoint_state_indices: torch.Tensor | None = None
+        block_idx_last_computed_token: torch.Tensor | None = None
+        block_idx_first_scheduled_token: torch.Tensor | None = None
+        block_idx_last_scheduled_token: torch.Tensor | None = None
+        num_computed_tokens: torch.Tensor | None = None
+        if self.vllm_config.cache_config.mamba_cache_mode == "all":
+            # Preserve the complete table; the legacy fields below deliberately
+            # keep selecting one state until checkpoint execution is implemented.
+            checkpoint_state_indices = block_table_tensor
+            num_computed_tokens = context_lens_tensor
+            (
+                block_idx_last_computed_token,
+                block_idx_first_scheduled_token,
+                block_idx_last_scheduled_token,
+            ) = self._compute_prefix_caching_block_indices(
+                num_computed_tokens,
+                m.seq_lens,
+            )
 
         spec_sequence_masks_cpu: torch.Tensor | None = None
         if (
@@ -498,6 +567,11 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
             prefill_query_start_loc=prefill_query_start_loc,
             prefill_state_indices=prefill_state_indices,
             prefill_has_initial_state=prefill_has_initial_state,
+            checkpoint_state_indices=checkpoint_state_indices,
+            block_idx_last_computed_token=block_idx_last_computed_token,
+            block_idx_first_scheduled_token=block_idx_first_scheduled_token,
+            block_idx_last_scheduled_token=block_idx_last_scheduled_token,
+            num_computed_tokens=num_computed_tokens,
             spec_query_start_loc=spec_query_start_loc,
             non_spec_query_start_loc=non_spec_query_start_loc,
             spec_state_indices_tensor=spec_state_indices_tensor,
