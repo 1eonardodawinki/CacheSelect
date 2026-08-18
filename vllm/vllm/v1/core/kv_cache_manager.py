@@ -133,6 +133,7 @@ class KVCacheManager:
         watermark: float = 0.0,
         enable_cacheselect: bool = False,
         gdn_delta_cache_capacity: int = 0,
+        gdn_delta_block_size: int | None = None,
     ) -> None:
         self.max_model_len = max_model_len
         # When unset, fall back to `max_model_len` so the recycling-aware cap
@@ -151,7 +152,9 @@ class KVCacheManager:
         )
         self.gdn_delta_source_index = (
             GDNDeltaSourceIndex(
-                block_size=scheduler_block_size,
+                # Hybrid page padding can make the shared scheduler block much
+                # larger than the logical GDN checkpoint interval.
+                block_size=gdn_delta_block_size or scheduler_block_size,
                 hash_block_size=hash_block_size,
                 max_candidate_blocks=gdn_delta_cache_capacity,
             )

@@ -279,6 +279,7 @@ class Scheduler(SchedulerInterface):
             watermark=self.scheduler_config.watermark,
             enable_cacheselect=self.cache_config.enable_cacheselect,
             gdn_delta_cache_capacity=self.cache_config.gdn_delta_cache_capacity,
+            gdn_delta_block_size=self.cache_config.mamba_block_size,
         )
         # Bind GPU block pool to the KV connector. This must happen after
         # kv_cache_manager is constructed so block_pool is available.
@@ -359,10 +360,13 @@ class Scheduler(SchedulerInterface):
             and self.cache_config.gdn_delta_cache_capacity > 0
         ):
             return ()
+        gdn_block_size = self.cache_config.mamba_block_size
+        if gdn_block_size is None:
+            return ()
         hashes = resolve_block_hashes(
             request.block_hashes,
             self.hash_block_size,
-            self.block_size,
+            gdn_block_size,
         )
         return tuple(hashes)
 

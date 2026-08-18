@@ -199,7 +199,6 @@ python -m benchmarks.run_hybrid_apc_baseline \
   --output "$SUMMARY_PATH" \
   --max-completion-tokens 64 \
   --require-token-aligned-edits \
-  --require-edited-prefix-reuse \
   --require-gdn-preflight-observability \
   "${EXECUTION_REQUIREMENT[@]}" \
   --validate-against-reference

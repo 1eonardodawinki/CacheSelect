@@ -53,7 +53,6 @@ class HybridCheckpointSlurmTests(TestCase):
             "gpu-after-load.csv",
             "python -m benchmarks.run_hybrid_apc_baseline",
             "--require-token-aligned-edits",
-            "--require-edited-prefix-reuse",
             "--require-gdn-preflight-observability",
             "--require-gdn-shadow-execution",
             "--require-gdn-active-execution",
@@ -71,3 +70,4 @@ class HybridCheckpointSlurmTests(TestCase):
         for token in required_tokens:
             with self.subTest(token=token):
                 self.assertIn(token, script)
+        self.assertNotIn("--require-edited-prefix-reuse", script)

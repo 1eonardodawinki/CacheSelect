@@ -210,13 +210,16 @@ def build_hybrid_apc_scenarios(
     early_edit_index = record_count // 20
     middle_edit_index = record_count // 2
     scenarios: list[HybridAPCScenario] = []
+    response_instruction = (
+        "\nReply with exactly: Cached state follows prompt order. /no_think"
+    )
     for name in ("exact", "append_only", "early_edit", "middle_edit"):
         sentences = [
             f"Hybrid APC {name} record {index:03d} says marker A and cached state "
             "follows prompt order."
             for index in range(record_count)
         ]
-        source = " ".join(sentences) + "\nSummarize this principle. /no_think"
+        source = " ".join(sentences) + response_instruction
         target_sentences = list(sentences)
         if name == "append_only":
             target_sentences.append(
@@ -234,7 +237,7 @@ def build_hybrid_apc_scenarios(
                 "and cached state "
                 "follows prompt order."
             )
-        target = " ".join(target_sentences) + "\nSummarize this principle. /no_think"
+        target = " ".join(target_sentences) + response_instruction
         scenarios.append(HybridAPCScenario(name, source, target))
     return tuple(scenarios)
 
