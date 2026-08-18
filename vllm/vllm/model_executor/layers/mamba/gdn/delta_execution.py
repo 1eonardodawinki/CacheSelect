@@ -58,6 +58,16 @@ class GDNDeltaActiveAdmission:
     reason: str
 
 
+@dataclass(frozen=True)
+class GDNDeltaActiveLayerSummary:
+    """Auditable outcome of one layer's behavior-changing reuse attempt."""
+
+    executed: bool
+    reason: str
+    recomputed_tokens: int = 0
+    reused_tokens: int = 0
+
+
 GDNRecomputeSpan = Callable[
     [int, int, torch.Tensor],
     tuple[torch.Tensor, torch.Tensor],

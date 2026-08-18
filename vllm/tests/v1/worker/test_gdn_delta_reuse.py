@@ -11,11 +11,15 @@ from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     GDNDeltaOperatorSidecar,
     GDNDeltaShadowComparison,
 )
+from vllm.model_executor.layers.mamba.gdn.delta_execution import (
+    GDNDeltaActiveLayerSummary,
+)
 from vllm.v1.worker.gpu.gdn_delta_reuse import (
     GDNDeltaPreflightResult,
     build_gdn_delta_reuse_candidates,
     collect_gdn_delta_sidecars,
     preflight_gdn_delta_reuse,
+    summarize_gdn_delta_active_results,
     summarize_gdn_delta_shadow_results,
 )
 
@@ -64,6 +68,31 @@ def _make_plan(*keys: bytes, block_size: int = 2):
 
 
 class GDNDeltaReusePreflightTests(unittest.TestCase):
+    # Aggregate active execution evidence without retaining large GPU tensors.
+    def test_summarizes_active_results_across_layers(self) -> None:
+        model = torch.nn.Module()
+        first = _FakeGDNLayer(None)
+        first.last_gdn_delta_active_summary = GDNDeltaActiveLayerSummary(
+            True, "executed", recomputed_tokens=64, reused_tokens=128
+        )
+        second = _FakeGDNLayer(None)
+        second.last_gdn_delta_active_summary = GDNDeltaActiveLayerSummary(
+            False, "operator_not_resident"
+        )
+        model.add_module("first", first)
+        model.add_module("second", second)
+
+        summary = summarize_gdn_delta_active_results(model)
+
+        self.assertEqual(summary["active_layer_result_count"], 2)
+        self.assertEqual(summary["active_executed_layer_count"], 1)
+        self.assertEqual(summary["active_recomputed_layer_tokens"], 64)
+        self.assertEqual(summary["active_reused_layer_tokens"], 128)
+        self.assertEqual(
+            summary["active_layer_results"][1]["reason"],
+            "operator_not_resident",
+        )
+
     # Map layer-local shadow rows back to request IDs and summarize worst errors.
     def test_summarizes_shadow_results_per_request(self) -> None:
         model = torch.nn.Module()

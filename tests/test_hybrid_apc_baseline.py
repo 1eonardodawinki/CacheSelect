@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from benchmarks.run_hybrid_apc_baseline import (
     PREFIX_HIT_METRIC,
+    assess_gdn_delta_active_execution,
     assess_gdn_delta_preflight_observability,
     assess_gdn_delta_shadow_execution,
     assess_hybrid_token_alignment,
@@ -18,6 +19,29 @@ from observability.request_recorder import validate_ledger
 
 
 class HybridAPCBaselineTest(unittest.TestCase):
+    # Require active reuse and recomputation across every resolved GDN layer.
+    def test_assesses_complete_gdn_delta_active_execution(self) -> None:
+        rows = [
+            {
+                "scenario": scenario,
+                "role": "target",
+                "gdn_delta_reuse": {
+                    "preflight_eligible": True,
+                    "resolved_layer_count": 24,
+                    "active_executed_layer_count": 24,
+                    "active_complete": True,
+                    "active_reused_layer_tokens": 3072,
+                    "active_recomputed_layer_tokens": 1536,
+                },
+            }
+            for scenario in ("early_edit", "middle_edit")
+        ]
+
+        assessment = assess_gdn_delta_active_execution(rows)
+
+        self.assertTrue(assessment["passed"])
+        self.assertEqual(assessment["details"]["middle_edit"]["executed_layers"], 24)
+
     # Detect an equal-length edit with an unchanged suffix at fixed positions.
     def test_assesses_token_aligned_edit(self) -> None:
         assessment = assess_hybrid_token_alignment(

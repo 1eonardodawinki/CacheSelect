@@ -154,6 +154,52 @@ def assess_gdn_delta_shadow_execution(
     }
 
 
+# Verify both edited requests actively reused GDN work across every model layer.
+def assess_gdn_delta_active_execution(
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Require complete layer execution plus nonzero reuse and recomputation."""
+    edited_targets = {
+        row["scenario"]: row
+        for row in rows
+        if row.get("role") == "target"
+        and row.get("scenario") in {"early_edit", "middle_edit"}
+    }
+    details = {}
+    for scenario, row in edited_targets.items():
+        metrics = row.get("gdn_delta_reuse")
+        if not isinstance(metrics, dict):
+            details[scenario] = {"passed": False, "reason": "metrics_missing"}
+            continue
+        expected_layers = metrics.get("resolved_layer_count")
+        executed_layers = metrics.get("active_executed_layer_count")
+        reused_tokens = metrics.get("active_reused_layer_tokens")
+        recomputed_tokens = metrics.get("active_recomputed_layer_tokens")
+        passed = (
+            metrics.get("preflight_eligible") is True
+            and isinstance(expected_layers, int)
+            and expected_layers > 0
+            and executed_layers == expected_layers
+            and metrics.get("active_complete") is True
+            and isinstance(reused_tokens, int)
+            and reused_tokens > 0
+            and isinstance(recomputed_tokens, int)
+            and recomputed_tokens > 0
+        )
+        details[scenario] = {
+            "passed": passed,
+            "expected_layers": expected_layers,
+            "executed_layers": executed_layers,
+            "reused_layer_tokens": reused_tokens,
+            "recomputed_layer_tokens": recomputed_tokens,
+        }
+    return {
+        "passed": set(details) == {"early_edit", "middle_edit"}
+        and all(detail["passed"] for detail in details.values()),
+        "details": details,
+    }
+
+
 # Build long prompts whose edits occur before, within, or after cache pages.
 def build_hybrid_apc_scenarios() -> tuple[HybridAPCScenario, ...]:
     scenarios: list[HybridAPCScenario] = []
@@ -417,6 +463,7 @@ def run_hybrid_apc_baseline(
     checkpoint_reuse = assess_hybrid_checkpoint_reuse(rows)
     gdn_delta_preflight = assess_gdn_delta_preflight_observability(rows)
     gdn_delta_shadow = assess_gdn_delta_shadow_execution(rows)
+    gdn_delta_active = assess_gdn_delta_active_execution(rows)
     reference_checks: list[dict[str, Any]] = []
     if validate_against_reference:
         for scenario in build_hybrid_apc_scenarios():
@@ -454,6 +501,7 @@ def run_hybrid_apc_baseline(
         "checkpoint_reuse": checkpoint_reuse,
         "gdn_delta_preflight": gdn_delta_preflight,
         "gdn_delta_shadow": gdn_delta_shadow,
+        "gdn_delta_active": gdn_delta_active,
         "reference_checks": reference_checks,
         "reference_validation_passed": bool(reference_checks)
         and all(
@@ -483,6 +531,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--require-token-aligned-edits", action="store_true")
     parser.add_argument("--require-gdn-preflight-observability", action="store_true")
     parser.add_argument("--require-gdn-shadow-execution", action="store_true")
+    parser.add_argument("--require-gdn-active-execution", action="store_true")
     return parser.parse_args()
 
 
@@ -518,6 +567,8 @@ def main() -> None:
         raise SystemExit("Hybrid GDN delta preflight observability validation failed")
     if args.require_gdn_shadow_execution and not result["gdn_delta_shadow"]["passed"]:
         raise SystemExit("Hybrid GDN delta shadow execution validation failed")
+    if args.require_gdn_active_execution and not result["gdn_delta_active"]["passed"]:
+        raise SystemExit("Hybrid GDN delta active execution validation failed")
     if args.validate_against_reference and not result["reference_validation_passed"]:
         raise SystemExit("Hybrid checkpoint output validation failed")
 

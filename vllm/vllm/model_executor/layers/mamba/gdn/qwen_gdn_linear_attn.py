@@ -34,6 +34,7 @@ from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     store_completed_gdn_delta_operators,
 )
 from vllm.model_executor.layers.mamba.gdn.delta_execution import (
+    GDNDeltaActiveLayerSummary,
     GDNDeltaExecutionSpan,
     GDNDeltaSequenceExecutionResult,
     assess_gdn_delta_active_admission,
@@ -508,6 +509,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         )
         self.gdn_delta_operator_sidecar: GDNDeltaOperatorSidecar | None = None
         self.last_gdn_delta_shadow_results: tuple[GDNDeltaBlockShadowResult, ...] = ()
+        self.last_gdn_delta_active_summary: GDNDeltaActiveLayerSummary | None = None
 
         compilation_config = get_current_vllm_config().compilation_config
         if prefix in compilation_config.static_forward_context:
@@ -552,7 +554,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         log_decays: torch.Tensor,
         betas: torch.Tensor,
         reuse_candidates: tuple[tuple[tuple[int, bytes], ...], ...],
-    ) -> GDNDeltaSequenceExecutionResult | None:
+    ) -> tuple[GDNDeltaSequenceExecutionResult | None, str]:
         """Run active reuse only for the fail-closed single-prefill path."""
         admission = assess_gdn_delta_active_admission(
             execution_mode=self.cache_config.gdn_delta_execution_mode,
@@ -564,7 +566,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             reuse_candidates=reuse_candidates,
         )
         if not admission.eligible:
-            return None
+            return None, admission.reason
         if initial_state.shape[0] != 1 or checkpoint_rows.shape[0] != 1:
             raise ValueError("active GDN reuse requires one prefill state row")
         if queries.shape[0] != 1:
@@ -592,7 +594,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             reuse_candidates=reuse_candidates,
         )
         if not plan.reused_block_indices:
-            return None
+            return None, "no_fully_scheduled_candidates"
 
         # Run the existing Triton recurrence on each changed token interval.
         def recompute_span(
@@ -666,7 +668,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                 final_state=outgoing_state.unsqueeze(0),
             )
 
-        return execute_gdn_delta_sequence_plan(
+        result = execute_gdn_delta_sequence_plan(
             plan,
             initial_state=initial_state[0],
             sidecar=sidecar,
@@ -674,6 +676,9 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             output_dtype=queries.dtype,
             span_complete=span_complete,
         )
+        if result is None:
+            return None, "operator_not_resident"
+        return result, "executed"
 
     def create_qkvz_proj(
         self,
@@ -1338,6 +1343,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         assert isinstance(attn_metadata, GDNAttentionMetadata)
         # Never expose shadow evidence from a previous model invocation.
         self.last_gdn_delta_shadow_results = ()
+        self.last_gdn_delta_active_summary = None
 
         # The AITER fused reshape/conv kernel expects Qwen3-Next's interleaved
         # GQA layout. Qwen3.5 uses a non-interleaved q/k/v/z layout and must use
@@ -1396,6 +1402,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         assert isinstance(attn_metadata, GDNAttentionMetadata)
         # Never expose shadow evidence from a previous model invocation.
         self.last_gdn_delta_shadow_results = ()
+        self.last_gdn_delta_active_summary = None
 
         if (
             self.enable_packed_recurrent_decode
@@ -1696,57 +1703,102 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             initial_state = ssm_state[initial_state_indices].contiguous()
             initial_state[~prefill_has_initial_state, ...] = 0
             if is_checkpointing:
-                (
-                    core_attn_out_non_spec,
-                    last_recurrent_state,
-                    intermediate_states,
-                ) = chunk_gated_delta_rule_inference_with_states(
-                    q=query_non_spec,
-                    k=key_non_spec,
-                    v=value_non_spec,
-                    g=g_non_spec,
-                    beta=beta_non_spec,
-                    initial_state=initial_state,
-                    output_final_state=True,
-                    cu_seqlens=attn_metadata.prefill_query_start_loc,
-                    chunk_indices=attn_metadata.chunk_indices,
-                    chunk_offsets=attn_metadata.chunk_offsets,
-                    use_qk_l2norm_in_kernel=False,
-                )
-                assert last_recurrent_state is not None
-                assert attn_metadata.chunk_offsets is not None
-                assert attn_metadata.num_computed_tokens is not None
-                assert attn_metadata.block_idx_first_scheduled_token is not None
-                assert attn_metadata.block_idx_last_scheduled_token is not None
-                mamba_block_size = self.cache_config.mamba_block_size
-                assert mamba_block_size is not None
-                write_gdn_prefill_checkpoints(
-                    state_cache=ssm_state,
-                    chunk_states=intermediate_states,
-                    final_states=last_recurrent_state,
-                    checkpoint_state_indices=checkpoint_rows,
-                    chunk_offsets=attn_metadata.chunk_offsets,
-                    num_computed_tokens=attn_metadata.num_computed_tokens[
-                        attn_metadata.num_decodes :
-                    ],
-                    first_scheduled_blocks=(
-                        attn_metadata.block_idx_first_scheduled_token[
-                            attn_metadata.num_decodes :
-                        ]
-                    ),
-                    last_scheduled_blocks=attn_metadata.block_idx_last_scheduled_token[
-                        attn_metadata.num_decodes :
-                    ],
-                    block_size=mamba_block_size,
-                    chunk_size=FLA_CHUNK_SIZE,
-                )
                 sidecar = self._get_gdn_delta_operator_sidecar(key_non_spec.device)
                 first_prefill = attn_metadata.num_decodes
                 final_prefill = first_prefill + attn_metadata.num_prefills
                 prefill_reuse_candidates = attn_metadata.gdn_delta_reuse_candidates[
                     first_prefill:final_prefill
                 ]
-                if sidecar is not None and any(prefill_reuse_candidates):
+
+                active_result = None
+                if self.cache_config.gdn_delta_execution_mode == "active":
+                    if sidecar is None:
+                        active_reason = "sidecar_disabled"
+                    else:
+                        active_result, active_reason = self._execute_active_gdn_prefill(
+                            attn_metadata=attn_metadata,
+                            sidecar=sidecar,
+                            state_cache=ssm_state,
+                            checkpoint_rows=checkpoint_rows,
+                            initial_state=initial_state,
+                            queries=query_non_spec,
+                            keys=key_non_spec,
+                            values=value_non_spec,
+                            log_decays=g_non_spec,
+                            betas=beta_non_spec,
+                            reuse_candidates=prefill_reuse_candidates,
+                        )
+                    self.last_gdn_delta_active_summary = GDNDeltaActiveLayerSummary(
+                        executed=active_result is not None,
+                        reason=active_reason,
+                        recomputed_tokens=(
+                            active_result.recomputed_tokens
+                            if active_result is not None
+                            else 0
+                        ),
+                        reused_tokens=(
+                            active_result.reused_tokens
+                            if active_result is not None
+                            else 0
+                        ),
+                    )
+
+                if active_result is not None:
+                    core_attn_out_non_spec = active_result.outputs.unsqueeze(0)
+                    last_recurrent_state = active_result.final_state.unsqueeze(0)
+                else:
+                    (
+                        core_attn_out_non_spec,
+                        last_recurrent_state,
+                        intermediate_states,
+                    ) = chunk_gated_delta_rule_inference_with_states(
+                        q=query_non_spec,
+                        k=key_non_spec,
+                        v=value_non_spec,
+                        g=g_non_spec,
+                        beta=beta_non_spec,
+                        initial_state=initial_state,
+                        output_final_state=True,
+                        cu_seqlens=attn_metadata.prefill_query_start_loc,
+                        chunk_indices=attn_metadata.chunk_indices,
+                        chunk_offsets=attn_metadata.chunk_offsets,
+                        use_qk_l2norm_in_kernel=False,
+                    )
+                    assert last_recurrent_state is not None
+                    assert attn_metadata.chunk_offsets is not None
+                    assert attn_metadata.num_computed_tokens is not None
+                    assert attn_metadata.block_idx_first_scheduled_token is not None
+                    assert attn_metadata.block_idx_last_scheduled_token is not None
+                    mamba_block_size = self.cache_config.mamba_block_size
+                    assert mamba_block_size is not None
+                    write_gdn_prefill_checkpoints(
+                        state_cache=ssm_state,
+                        chunk_states=intermediate_states,
+                        final_states=last_recurrent_state,
+                        checkpoint_state_indices=checkpoint_rows,
+                        chunk_offsets=attn_metadata.chunk_offsets,
+                        num_computed_tokens=attn_metadata.num_computed_tokens[
+                            attn_metadata.num_decodes :
+                        ],
+                        first_scheduled_blocks=(
+                            attn_metadata.block_idx_first_scheduled_token[
+                                attn_metadata.num_decodes :
+                            ]
+                        ),
+                        last_scheduled_blocks=(
+                            attn_metadata.block_idx_last_scheduled_token[
+                                attn_metadata.num_decodes :
+                            ]
+                        ),
+                        block_size=mamba_block_size,
+                        chunk_size=FLA_CHUNK_SIZE,
+                    )
+
+                if (
+                    active_result is None
+                    and sidecar is not None
+                    and any(prefill_reuse_candidates)
+                ):
                     assert attn_metadata.prefill_query_start_loc_cpu is not None
                     assert attn_metadata.num_computed_tokens_cpu is not None
                     self.last_gdn_delta_shadow_results = (

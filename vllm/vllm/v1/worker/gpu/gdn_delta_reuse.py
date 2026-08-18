@@ -15,6 +15,9 @@ from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     GDNDeltaCacheEntry,
     GDNDeltaOperatorSidecar,
 )
+from vllm.model_executor.layers.mamba.gdn.delta_execution import (
+    GDNDeltaActiveLayerSummary,
+)
 
 if TYPE_CHECKING:
     from vllm.v1.core.gdn_delta_reuse import GDNDeltaReusePlan
@@ -123,6 +126,43 @@ def summarize_gdn_delta_shadow_results(
             "shadow_results": results,
         }
     return summaries
+
+
+# Collect behavior-changing outcomes from every Qwen GDN layer after a forward.
+def summarize_gdn_delta_active_results(model: nn.Module) -> dict[str, Any]:
+    """Return layer-level proof that active recurrence reuse actually ran."""
+    layer_results = []
+    missing = object()
+    for layer_name, module in model.named_modules():
+        summary = getattr(module, "last_gdn_delta_active_summary", missing)
+        if summary is missing or summary is None:
+            continue
+        if not isinstance(summary, GDNDeltaActiveLayerSummary):
+            raise TypeError(
+                f"{layer_name}.last_gdn_delta_active_summary has an invalid type"
+            )
+        layer_results.append(
+            {
+                "layer_name": layer_name,
+                "executed": summary.executed,
+                "reason": summary.reason,
+                "recomputed_tokens": summary.recomputed_tokens,
+                "reused_tokens": summary.reused_tokens,
+            }
+        )
+
+    executed = [result for result in layer_results if result["executed"]]
+    return {
+        "active_layer_result_count": len(layer_results),
+        "active_executed_layer_count": len(executed),
+        "active_recomputed_layer_tokens": sum(
+            int(result["recomputed_tokens"]) for result in executed
+        ),
+        "active_reused_layer_tokens": sum(
+            int(result["reused_tokens"]) for result in executed
+        ),
+        "active_layer_results": layer_results,
+    }
 
 
 # Discover Qwen GDN modules structurally without importing a model implementation.

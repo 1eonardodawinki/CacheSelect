@@ -84,6 +84,7 @@ from vllm.v1.worker.gpu.gdn_delta_reuse import (
     build_gdn_delta_reuse_candidates,
     collect_gdn_delta_sidecars,
     preflight_gdn_delta_reuse,
+    summarize_gdn_delta_active_results,
     summarize_gdn_delta_shadow_results,
 )
 from vllm.v1.worker.gpu.input_batch import (
@@ -1099,6 +1100,23 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 }
             )
 
+    # Merge active layer execution proof into every planned request's evidence.
+    def _record_gdn_delta_active_metrics(self, req_ids: list[str]) -> None:
+        summary = summarize_gdn_delta_active_results(self.model)
+        result_count = int(summary["active_layer_result_count"])
+        executed_count = int(summary["active_executed_layer_count"])
+        for req_id in req_ids:
+            metrics = self.pending_gdn_delta_reuse_metrics.get(req_id)
+            if metrics is None:
+                continue
+            expected_layers = int(metrics["resolved_layer_count"])
+            metrics.update(summary)
+            metrics["active_complete"] = (
+                expected_layers > 0
+                and result_count == expected_layers
+                and executed_count == expected_layers
+            )
+
     # Apply explicitly enabled CacheSelect copies for newly scheduled plans.
     def _apply_cacheselect_block_copies(
         self, scheduler_output: SchedulerOutput
@@ -1998,6 +2016,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         )
         if not dummy_run:
             self._record_gdn_delta_shadow_metrics(input_batch.req_ids)
+            self._record_gdn_delta_active_metrics(input_batch.req_ids)
 
         if self.is_last_pp_rank:
             if self.use_aux_hidden_state_outputs:
