@@ -16,6 +16,53 @@ class GDNBlockDeltaOperator:
     output_responses: torch.Tensor
 
 
+# Estimate recurrent checkpoint and block-operator storage without allocating it.
+def estimate_gdn_delta_cache(
+    *,
+    block_size: int,
+    value_heads: int,
+    key_width: int,
+    value_width: int,
+    gdn_layers: int,
+    resident_blocks: int,
+    element_bytes: int,
+) -> dict[str, int | float]:
+    """Return per-block and model-wide byte costs for delta correction."""
+    dimensions = (
+        block_size,
+        value_heads,
+        key_width,
+        value_width,
+        gdn_layers,
+        resident_blocks,
+        element_bytes,
+    )
+    if any(dimension <= 0 for dimension in dimensions):
+        raise ValueError("all GDN cache dimensions must be positive")
+
+    checkpoint_elements = value_heads * value_width * key_width
+    transition_elements = value_heads * key_width * key_width
+    response_elements = block_size * value_heads * key_width
+    auxiliary_elements = transition_elements + response_elements
+    existing_bytes_per_block_layer = checkpoint_elements * element_bytes
+    auxiliary_bytes_per_block_layer = auxiliary_elements * element_bytes
+    model_auxiliary_bytes = (
+        auxiliary_bytes_per_block_layer * gdn_layers * resident_blocks
+    )
+    return {
+        "checkpoint_elements_per_block_layer": checkpoint_elements,
+        "transition_elements_per_block_layer": transition_elements,
+        "response_elements_per_block_layer": response_elements,
+        "existing_bytes_per_block_layer": existing_bytes_per_block_layer,
+        "auxiliary_bytes_per_block_layer": auxiliary_bytes_per_block_layer,
+        "combined_bytes_per_block_layer": (
+            existing_bytes_per_block_layer + auxiliary_bytes_per_block_layer
+        ),
+        "model_auxiliary_bytes": model_auxiliary_bytes,
+        "auxiliary_to_checkpoint_ratio": auxiliary_elements / checkpoint_elements,
+    }
+
+
 # Repeat each key/query head across the value heads that share it.
 def _expand_grouped_heads(tensor: torch.Tensor, value_heads: int) -> torch.Tensor:
     key_heads = tensor.shape[1]

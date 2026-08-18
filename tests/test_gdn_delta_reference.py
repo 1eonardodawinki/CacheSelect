@@ -6,6 +6,7 @@ import torch
 from benchmarks.gdn_delta_reference import (
     apply_gdn_block_delta_operator,
     build_gdn_block_delta_operator,
+    estimate_gdn_delta_cache,
     propagate_gdn_state_delta,
 )
 
@@ -43,6 +44,26 @@ def _run_full_recurrence(
 
 
 class GDNDeltaReferenceTests(unittest.TestCase):
+    # Quantify the extra cached tensors separately from existing GDN state.
+    def test_estimates_block_operator_memory(self) -> None:
+        estimate = estimate_gdn_delta_cache(
+            block_size=7,
+            value_heads=4,
+            key_width=3,
+            value_width=5,
+            gdn_layers=2,
+            resident_blocks=10,
+            element_bytes=2,
+        )
+
+        self.assertEqual(estimate["checkpoint_elements_per_block_layer"], 60)
+        self.assertEqual(estimate["transition_elements_per_block_layer"], 36)
+        self.assertEqual(estimate["response_elements_per_block_layer"], 84)
+        self.assertEqual(estimate["existing_bytes_per_block_layer"], 120)
+        self.assertEqual(estimate["auxiliary_bytes_per_block_layer"], 240)
+        self.assertEqual(estimate["model_auxiliary_bytes"], 4800)
+        self.assertEqual(estimate["auxiliary_to_checkpoint_ratio"], 2.0)
+
     # Prove delta propagation equals two full runs when later coefficients match.
     def test_matches_difference_between_full_recurrences(self) -> None:
         generator = torch.Generator().manual_seed(7)

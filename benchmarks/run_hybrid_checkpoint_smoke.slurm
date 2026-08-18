@@ -24,6 +24,7 @@ REQUEST_LOG_DIR="$STORAGE_ROOT/cacheselect-request-logs/$RUN_ID"
 SERVER_LOG_DIR="$STORAGE_ROOT/cacheselect-server-logs/$RUN_ID"
 SERVER_LOG="$SERVER_LOG_DIR/vllm.log"
 SUMMARY_PATH="$RESULT_DIR/summary.json"
+SERVER_INFO_PATH="$RESULT_DIR/server-info.json"
 
 mkdir -p \
   "$RESULT_DIR" \
@@ -41,6 +42,8 @@ export HF_HOME="$STORAGE_ROOT/hf-cache"
 export HF_HUB_OFFLINE="${CACHESELECT_HF_OFFLINE:-1}"
 export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
 export PYTHONUNBUFFERED=1
+# The server-info endpoint is bound to localhost inside this isolated job.
+export VLLM_SERVER_DEV_MODE=1
 
 command -v curl >/dev/null
 command -v nvidia-smi >/dev/null
@@ -126,6 +129,25 @@ SERVER_PID=$!
 wait_for_server
 echo "vLLM is healthy pid=$SERVER_PID"
 
+# Record and validate the effective configuration after vLLM fallback handling.
+curl --fail --silent \
+  "http://127.0.0.1:$PORT/server_info?config_format=json" \
+  --output "$SERVER_INFO_PATH"
+python - "$SERVER_INFO_PATH" <<'PY'
+import json
+import sys
+
+config = json.load(open(sys.argv[1], encoding="utf-8"))["vllm_config"]
+cache = config["cache_config"]
+additional = config["additional_config"]
+assert cache["enable_prefix_caching"] is True
+assert cache["mamba_cache_mode"] == "all"
+assert additional["gdn_prefill_backend"] == "triton"
+PY
+nvidia-smi \
+  --query-gpu=name,uuid,memory.total,memory.used,memory.free \
+  --format=csv,noheader >"$RESULT_DIR/gpu-after-load.csv"
+
 # Compare checkpointed requests with independent full-computation controls.
 python -m benchmarks.run_hybrid_apc_baseline \
   --base-url "http://127.0.0.1:$PORT" \
@@ -139,6 +161,7 @@ python -m benchmarks.run_hybrid_apc_baseline \
 
 stop_server
 test -s "$SUMMARY_PATH"
+test -s "$SERVER_INFO_PATH"
 
 echo "Hybrid checkpoint smoke completed successfully"
 echo "results=$RESULT_DIR"
