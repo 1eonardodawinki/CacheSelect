@@ -108,6 +108,9 @@ class CacheConfig:
     """Allow CacheSelect to execute partial KV reuse. This default-off switch
     is currently propagated to the GPU worker but does not yet change model
     execution."""
+    gdn_delta_cache_capacity: int = Field(default=0, ge=0)
+    """Maximum number of GDN block-delta operators cached per layer. Zero
+    disables the experimental bounded sidecar."""
     prefix_caching_hash_algo: PrefixCachingHashAlgo = "sha256"
     """Set the hash algorithm for prefix caching:
 
@@ -228,6 +231,7 @@ class CacheConfig:
             "cacheselect_repair_selector",
             "cacheselect_edit_radius",
             "cacheselect_execute_partial_reuse",
+            "gdn_delta_cache_capacity",
             "prefix_caching_hash_algo",
             # Prefix-caching implementation detail (doesn't affect compiled graph).
             "prefix_match_unit",
@@ -293,6 +297,17 @@ class CacheConfig:
             raise ValueError(
                 "CacheSelect partial-reuse execution requires CacheSelect to be enabled"
             )
+        return self
+
+    # Keep the experimental operator sidecar on the checkpoint-capable path.
+    @model_validator(mode="after")
+    def _validate_gdn_delta_cache_mode(self) -> "CacheConfig":
+        if self.gdn_delta_cache_capacity == 0:
+            return self
+        if not self.enable_prefix_caching:
+            raise ValueError("GDN delta caching requires prefix caching")
+        if self.mamba_cache_mode != "all":
+            raise ValueError("GDN delta caching requires mamba cache mode 'all'")
         return self
 
     @field_validator("calculate_kv_scales", mode="after")

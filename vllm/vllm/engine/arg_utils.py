@@ -520,6 +520,7 @@ class EngineArgs:
     cacheselect_execute_partial_reuse: bool = (
         CacheConfig.cacheselect_execute_partial_reuse
     )
+    gdn_delta_cache_capacity: int = CacheConfig.gdn_delta_cache_capacity
     prefix_caching_hash_algo: PrefixCachingHashAlgo = (
         CacheConfig.prefix_caching_hash_algo
     )
@@ -1199,6 +1200,10 @@ class EngineArgs:
         cache_group.add_argument(
             "--cacheselect-execute-partial-reuse",
             **cache_kwargs["cacheselect_execute_partial_reuse"],
+        )
+        cache_group.add_argument(
+            "--gdn-delta-cache-capacity",
+            **cache_kwargs["gdn_delta_cache_capacity"],
         )
         cache_group.add_argument(
             "--prefix-caching-hash-algo", **cache_kwargs["prefix_caching_hash_algo"]
@@ -1932,6 +1937,7 @@ class EngineArgs:
             cacheselect_repair_selector=self.cacheselect_repair_selector,
             cacheselect_edit_radius=self.cacheselect_edit_radius,
             cacheselect_execute_partial_reuse=(self.cacheselect_execute_partial_reuse),
+            gdn_delta_cache_capacity=self.gdn_delta_cache_capacity,
             prefix_caching_hash_algo=self.prefix_caching_hash_algo,
             calculate_kv_scales=self.calculate_kv_scales,
             kv_cache_dtype_skip_layers=self.kv_cache_dtype_skip_layers,

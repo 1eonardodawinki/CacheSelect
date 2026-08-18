@@ -355,6 +355,7 @@ class Scheduler(SchedulerInterface):
         if not (
             self.has_mamba_layers
             and self.cache_config.mamba_cache_mode == "all"
+            and self.cache_config.gdn_delta_cache_capacity > 0
         ):
             return ()
         hashes = resolve_block_hashes(

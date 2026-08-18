@@ -29,12 +29,14 @@ class HybridCheckpointSlurmTests(TestCase):
             "vllm serve",
             "--enable-prefix-caching",
             "--mamba-cache-mode all",
+            "--gdn-delta-cache-capacity",
             "--gdn-prefill-backend triton",
             "--no-enable-chunked-prefill",
             "--enforce-eager",
             "VLLM_SERVER_DEV_MODE=1",
             "/server_info?config_format=json",
             'cache["mamba_cache_mode"] == "all"',
+            'cache["gdn_delta_cache_capacity"] == int(sys.argv[2])',
             'additional["gdn_prefill_backend"] == "triton"',
             "gpu-after-load.csv",
             "python -m benchmarks.run_hybrid_apc_baseline",
@@ -42,6 +44,7 @@ class HybridCheckpointSlurmTests(TestCase):
             "--validate-against-reference",
             "--max-completion-tokens 64",
             'test -s "$SUMMARY_PATH"',
+            'grep -q "GDN delta sidecar populated" "$SERVER_LOG"',
         )
         for token in required_tokens:
             with self.subTest(token=token):

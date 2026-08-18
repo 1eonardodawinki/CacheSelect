@@ -8,10 +8,73 @@ import torch
 from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     GDNDeltaOperatorSidecar,
     build_gdn_delta_operator,
+    store_completed_gdn_delta_operators,
 )
 
 
 class GDNDeltaOperatorSidecarTests(unittest.TestCase):
+    # Store only complete blocks while respecting each sequence's absolute offset.
+    def test_stores_complete_prefill_blocks_by_contextual_hash(self) -> None:
+        sidecar = GDNDeltaOperatorSidecar(
+            capacity=5,
+            block_size=2,
+            value_heads=2,
+            key_width=3,
+            dtype=torch.float32,
+            device="cpu",
+        )
+        keys = torch.randn(10, 1, 3)
+        queries = torch.randn(10, 1, 3)
+        log_decays = -torch.rand(10, 2)
+        betas = torch.rand(10, 2)
+
+        stored = store_completed_gdn_delta_operators(
+            sidecar,
+            keys=keys,
+            queries=queries,
+            log_decays=log_decays,
+            betas=betas,
+            query_start_locations=torch.tensor([0, 6, 10]),
+            num_computed_tokens=torch.tensor([0, 2]),
+            contextual_block_hashes=(
+                (b"a0", b"a1", b"a2"),
+                (b"b0", b"b1", b"b2"),
+            ),
+        )
+
+        self.assertEqual(stored, ((0, 0), (0, 1), (0, 2), (1, 1), (1, 2)))
+        self.assertEqual(
+            sidecar.resident_keys(),
+            (b"a0", b"a1", b"a2", b"b1", b"b2"),
+        )
+
+    # Skip a leading partial block and cache later blocks that are fully covered.
+    def test_skips_partial_prefill_block(self) -> None:
+        sidecar = GDNDeltaOperatorSidecar(
+            capacity=2,
+            block_size=2,
+            value_heads=1,
+            key_width=2,
+            dtype=torch.float32,
+            device="cpu",
+        )
+        keys = torch.randn(5, 1, 2)
+        queries = torch.randn(5, 1, 2)
+
+        stored = store_completed_gdn_delta_operators(
+            sidecar,
+            keys=keys,
+            queries=queries,
+            log_decays=-torch.rand(5, 1),
+            betas=torch.rand(5, 1),
+            query_start_locations=torch.tensor([0, 5]),
+            num_computed_tokens=torch.tensor([1]),
+            contextual_block_hashes=((b"partial", b"full-1", b"full-2"),),
+        )
+
+        self.assertEqual(stored, ((0, 1), (0, 2)))
+        self.assertEqual(sidecar.resident_keys(), (b"full-1", b"full-2"))
+
     # Match the composed operator against direct token-by-token delta propagation.
     def test_block_operator_matches_direct_delta_recurrence(self) -> None:
         generator = torch.Generator().manual_seed(17)

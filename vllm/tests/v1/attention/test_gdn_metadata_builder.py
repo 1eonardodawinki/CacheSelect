@@ -248,6 +248,10 @@ def test_all_mode_exposes_block_checkpoint_metadata():
     assert torch.equal(meta.checkpoint_state_indices, common.block_table_tensor)
     assert meta.num_computed_tokens is not None
     assert meta.num_computed_tokens.tolist() == [32, 20]
+    assert meta.num_computed_tokens_cpu is not None
+    assert meta.num_computed_tokens_cpu.tolist() == [32, 20]
+    assert meta.prefill_query_start_loc_cpu is not None
+    assert meta.prefill_query_start_loc_cpu.tolist() == [0, 48, 78]
     assert meta.contextual_block_hashes == common.contextual_block_hashes
     assert meta.block_idx_last_computed_token is not None
     assert meta.block_idx_last_computed_token.tolist() == [1, 1]

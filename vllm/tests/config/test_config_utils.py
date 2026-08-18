@@ -228,6 +228,13 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
         ).compute_hash()
         == base_hash
     )
+    assert (
+        CacheConfig(
+            mamba_cache_mode="all",
+            gdn_delta_cache_capacity=8,
+        ).compute_hash()
+        == base_hash
+    )
 
 
 # Check that CacheSelect cannot run without native prefix caching.
@@ -249,3 +256,15 @@ def test_cacheselect_execution_requires_planner():
 def test_cacheselect_rejects_negative_edit_radius():
     with pytest.raises(ValueError, match="greater than or equal to 0"):
         CacheConfig(cacheselect_edit_radius=-1)
+
+
+# Check that the GDN sidecar is only enabled beside all-state prefix checkpoints.
+def test_gdn_delta_cache_requires_all_mode_prefix_caching():
+    with pytest.raises(ValueError, match="requires prefix caching"):
+        CacheConfig(
+            enable_prefix_caching=False,
+            mamba_cache_mode="all",
+            gdn_delta_cache_capacity=1,
+        )
+    with pytest.raises(ValueError, match="requires mamba cache mode 'all'"):
+        CacheConfig(gdn_delta_cache_capacity=1)

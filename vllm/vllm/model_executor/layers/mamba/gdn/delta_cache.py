@@ -82,6 +82,67 @@ def build_gdn_delta_operator(
     return transition, responses
 
 
+# Cache operators for every complete logical block covered by one prefill batch.
+def store_completed_gdn_delta_operators(
+    sidecar: "GDNDeltaOperatorSidecar",
+    *,
+    keys: torch.Tensor,
+    queries: torch.Tensor,
+    log_decays: torch.Tensor,
+    betas: torch.Tensor,
+    query_start_locations: torch.Tensor,
+    num_computed_tokens: torch.Tensor,
+    contextual_block_hashes: tuple[tuple[bytes, ...], ...],
+) -> tuple[tuple[int, int], ...]:
+    """Store complete block operators and return (sequence, block) pairs."""
+    if keys.ndim != 3 or queries.shape != keys.shape:
+        raise ValueError("keys and queries must have matching [T,H,K] shapes")
+    if log_decays.ndim != 2 or betas.shape != log_decays.shape:
+        raise ValueError("log_decays and betas must have matching [T,HV] shapes")
+    if keys.shape[0] != log_decays.shape[0]:
+        raise ValueError("token coefficient tensors must have the same length")
+
+    query_starts = query_start_locations.detach().cpu().tolist()
+    computed_counts = num_computed_tokens.detach().cpu().tolist()
+    sequence_count = len(query_starts) - 1
+    if len(computed_counts) != sequence_count:
+        raise ValueError("num_computed_tokens must contain one value per sequence")
+    if len(contextual_block_hashes) != sequence_count:
+        raise ValueError("contextual hashes must contain one tuple per sequence")
+    if query_starts[0] != 0 or query_starts[-1] != keys.shape[0]:
+        raise ValueError("query starts must span the flattened coefficient tensors")
+
+    block_size = sidecar.block_size
+    stored_blocks: list[tuple[int, int]] = []
+    for sequence_index in range(sequence_count):
+        query_start = int(query_starts[sequence_index])
+        query_end = int(query_starts[sequence_index + 1])
+        computed = int(computed_counts[sequence_index])
+        scheduled = query_end - query_start
+        first_complete_block = (computed + block_size - 1) // block_size
+        final_complete_block = (computed + scheduled) // block_size
+        hashes = contextual_block_hashes[sequence_index]
+        for block_index in range(first_complete_block, final_complete_block):
+            if block_index >= len(hashes):
+                # Generated tokens may complete blocks not present in prompt hashes.
+                continue
+            local_start = block_index * block_size - computed
+            local_end = local_start + block_size
+            if local_start < 0 or local_end > scheduled:
+                continue
+            coefficient_start = query_start + local_start
+            coefficient_end = query_start + local_end
+            transition, responses = build_gdn_delta_operator(
+                keys[coefficient_start:coefficient_end],
+                queries[coefficient_start:coefficient_end],
+                log_decays[coefficient_start:coefficient_end],
+                betas[coefficient_start:coefficient_end],
+            )
+            sidecar.store(hashes[block_index], transition, responses)
+            stored_blocks.append((sequence_index, block_index))
+    return tuple(stored_blocks)
+
+
 class GDNDeltaOperatorSidecar:
     """Fixed-capacity LRU storage kept outside ordinary Mamba cache pages."""
 

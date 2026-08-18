@@ -15,6 +15,7 @@ STORAGE_ROOT="${CACHESELECT_STORAGE_ROOT:-/vol/bitbucket/$USER}"
 CUDA_SETUP="${CACHESELECT_CUDA_SETUP:-/vol/cuda/13.0.0/setup.sh}"
 MODEL="${CACHESELECT_HYBRID_MODEL:-Qwen/Qwen3.5-9B}"
 START_TIMEOUT="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
+DELTA_CACHE_CAPACITY="${CACHESELECT_GDN_DELTA_CACHE_CAPACITY:-2}"
 
 EXPERIMENT_ID="${SLURM_JOB_ID:?Run this file with sbatch}"
 PORT=$((32000 + (EXPERIMENT_ID % 1000)))
@@ -63,6 +64,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "gpu=$GPU_DESCRIPTION"
   echo "mamba_cache_mode=all"
   echo "gdn_prefill_backend=triton"
+  echo "gdn_delta_cache_capacity=$DELTA_CACHE_CAPACITY"
   echo "max_model_len=4096"
   echo "max_completion_tokens=64"
 } >"$RESULT_DIR/metadata.env"
@@ -120,6 +122,7 @@ setsid vllm serve "$MODEL" \
   --gpu-memory-utilization 0.95 \
   --enable-prefix-caching \
   --mamba-cache-mode all \
+  --gdn-delta-cache-capacity "$DELTA_CACHE_CAPACITY" \
   --gdn-prefill-backend triton \
   --no-enable-chunked-prefill \
   --enforce-eager \
@@ -133,7 +136,7 @@ echo "vLLM is healthy pid=$SERVER_PID"
 curl --fail --silent \
   "http://127.0.0.1:$PORT/server_info?config_format=json" \
   --output "$SERVER_INFO_PATH"
-python - "$SERVER_INFO_PATH" <<'PY'
+python - "$SERVER_INFO_PATH" "$DELTA_CACHE_CAPACITY" <<'PY'
 import json
 import sys
 
@@ -142,6 +145,7 @@ cache = config["cache_config"]
 additional = config["additional_config"]
 assert cache["enable_prefix_caching"] is True
 assert cache["mamba_cache_mode"] == "all"
+assert cache["gdn_delta_cache_capacity"] == int(sys.argv[2])
 assert additional["gdn_prefill_backend"] == "triton"
 PY
 nvidia-smi \
@@ -162,6 +166,7 @@ python -m benchmarks.run_hybrid_apc_baseline \
 stop_server
 test -s "$SUMMARY_PATH"
 test -s "$SERVER_INFO_PATH"
+grep -q "GDN delta sidecar populated" "$SERVER_LOG"
 
 echo "Hybrid checkpoint smoke completed successfully"
 echo "results=$RESULT_DIR"

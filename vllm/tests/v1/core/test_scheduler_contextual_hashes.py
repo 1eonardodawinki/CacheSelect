@@ -10,7 +10,10 @@ from vllm.v1.core.sched.scheduler import Scheduler
 def _scheduler(*, has_mamba_layers: bool, mode: str) -> Scheduler:
     scheduler = Scheduler.__new__(Scheduler)
     scheduler.has_mamba_layers = has_mamba_layers
-    scheduler.cache_config = SimpleNamespace(mamba_cache_mode=mode)
+    scheduler.cache_config = SimpleNamespace(
+        mamba_cache_mode=mode,
+        gdn_delta_cache_capacity=2,
+    )
     scheduler.hash_block_size = 2
     scheduler.block_size = 4
     return scheduler

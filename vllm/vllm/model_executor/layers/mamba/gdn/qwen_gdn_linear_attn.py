@@ -27,6 +27,10 @@ from vllm.model_executor.layers.linear import (
     RowParallelLinear,
 )
 from vllm.model_executor.layers.mamba.gdn.base import GatedDeltaNetAttention
+from vllm.model_executor.layers.mamba.gdn.delta_cache import (
+    GDNDeltaOperatorSidecar,
+    store_completed_gdn_delta_operators,
+)
 from vllm.model_executor.layers.mamba.mamba_mixer2 import mamba_v2_sharded_weight_loader
 from vllm.model_executor.layers.mamba.mamba_utils import (
     MambaStateShapeCalculator,
@@ -488,11 +492,34 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         self.enable_packed_recurrent_decode = (
             envs.VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE
         )
+        self.gdn_delta_operator_sidecar: GDNDeltaOperatorSidecar | None = None
 
         compilation_config = get_current_vllm_config().compilation_config
         if prefix in compilation_config.static_forward_context:
             raise ValueError(f"Duplicate layer name: {prefix}")
         compilation_config.static_forward_context[prefix] = self
+
+    # Allocate the bounded operator sidecar lazily on the active model device.
+    def _get_gdn_delta_operator_sidecar(
+        self,
+        device: torch.device,
+    ) -> GDNDeltaOperatorSidecar | None:
+        capacity = self.cache_config.gdn_delta_cache_capacity
+        if capacity == 0:
+            return None
+        if self.gdn_delta_operator_sidecar is None:
+            block_size = self.cache_config.mamba_block_size
+            if block_size is None:
+                raise ValueError("GDN delta caching requires a Mamba block size")
+            self.gdn_delta_operator_sidecar = GDNDeltaOperatorSidecar(
+                capacity=capacity,
+                block_size=block_size,
+                value_heads=self.num_v_heads // self.tp_size,
+                key_width=self.head_k_dim,
+                dtype=torch.float32,
+                device=device,
+            )
+        return self.gdn_delta_operator_sidecar
 
     def create_qkvz_proj(
         self,
@@ -1023,6 +1050,8 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
 
         device = qkv_or_qkvz.device
         dtype = qkv_or_qkvz.dtype
+        # Reserve bounded sidecar memory during profiling, before KV sizing.
+        self._get_gdn_delta_operator_sidecar(device)
         num_k_heads = self.num_k_heads // self.tp_size
         num_v_heads = self.num_v_heads // self.tp_size
         _, state_dtype = self.get_state_dtype()
@@ -1553,6 +1582,35 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                     block_size=mamba_block_size,
                     chunk_size=FLA_CHUNK_SIZE,
                 )
+                sidecar = self._get_gdn_delta_operator_sidecar(key_non_spec.device)
+                if sidecar is not None and attn_metadata.contextual_block_hashes:
+                    assert attn_metadata.prefill_query_start_loc_cpu is not None
+                    assert attn_metadata.num_computed_tokens_cpu is not None
+                    first_prefill = attn_metadata.num_decodes
+                    final_prefill = first_prefill + attn_metadata.num_prefills
+                    stored_operators = store_completed_gdn_delta_operators(
+                        sidecar,
+                        keys=key_non_spec.squeeze(0),
+                        queries=query_non_spec.squeeze(0),
+                        log_decays=g_non_spec.squeeze(0),
+                        betas=beta_non_spec.squeeze(0),
+                        query_start_locations=(
+                            attn_metadata.prefill_query_start_loc_cpu
+                        ),
+                        num_computed_tokens=attn_metadata.num_computed_tokens_cpu[
+                            first_prefill:final_prefill
+                        ],
+                        contextual_block_hashes=(
+                            attn_metadata.contextual_block_hashes[
+                                first_prefill:final_prefill
+                            ]
+                        ),
+                    )
+                    if stored_operators:
+                        logger.info_once(
+                            "GDN delta sidecar populated for layer %s",
+                            self.prefix,
+                        )
             else:
                 (
                     core_attn_out_non_spec,

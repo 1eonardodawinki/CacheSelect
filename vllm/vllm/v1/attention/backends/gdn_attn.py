@@ -239,6 +239,8 @@ class GDNAttentionMetadata:
     block_idx_first_scheduled_token: torch.Tensor | None = None
     block_idx_last_scheduled_token: torch.Tensor | None = None
     num_computed_tokens: torch.Tensor | None = None
+    num_computed_tokens_cpu: torch.Tensor | None = None
+    prefill_query_start_loc_cpu: torch.Tensor | None = None
     contextual_block_hashes: tuple[tuple[bytes, ...], ...] = ()
 
     # The following attributes are for triton implementation of causal_conv1d
@@ -410,11 +412,17 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
         block_idx_first_scheduled_token: torch.Tensor | None = None
         block_idx_last_scheduled_token: torch.Tensor | None = None
         num_computed_tokens: torch.Tensor | None = None
+        num_computed_tokens_cpu: torch.Tensor | None = None
         if self.vllm_config.cache_config.mamba_cache_mode == "all":
             # Preserve the complete table; the legacy fields below deliberately
             # keep selecting one state until checkpoint execution is implemented.
             checkpoint_state_indices = block_table_tensor
             num_computed_tokens = context_lens_tensor
+            if m.seq_lens_cpu_upper_bound is not None:
+                query_lens_cpu = m.query_start_loc_cpu[1:] - m.query_start_loc_cpu[:-1]
+                num_computed_tokens_cpu = (
+                    m.seq_lens_cpu_upper_bound[: m.num_reqs] - query_lens_cpu
+                )
             (
                 block_idx_last_computed_token,
                 block_idx_first_scheduled_token,
@@ -566,6 +574,7 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
         chunk_indices: torch.Tensor | None = None
         chunk_offsets: torch.Tensor | None = None
         prefill_query_start_loc: torch.Tensor | None = None
+        prefill_query_start_loc_cpu: torch.Tensor | None = None
         prefill_state_indices: torch.Tensor | None = None
         prefill_has_initial_state: torch.Tensor | None = None
         if num_prefills > 0:
@@ -741,6 +750,8 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
             block_idx_first_scheduled_token=block_idx_first_scheduled_token,
             block_idx_last_scheduled_token=block_idx_last_scheduled_token,
             num_computed_tokens=num_computed_tokens,
+            num_computed_tokens_cpu=num_computed_tokens_cpu,
+            prefill_query_start_loc_cpu=prefill_query_start_loc_cpu,
             contextual_block_hashes=m.contextual_block_hashes,
             spec_query_start_loc=spec_query_start_loc,
             non_spec_query_start_loc=non_spec_query_start_loc,
