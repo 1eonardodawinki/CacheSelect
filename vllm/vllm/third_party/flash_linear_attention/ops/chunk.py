@@ -20,6 +20,7 @@ from .utils import FLA_CHUNK_SIZE, SUPPRESS_LEVEL, input_guard
 from .wy_fast import recompute_w_u_fwd
 
 
+# Execute the chunked Gated DeltaNet recurrence and expose requested state tensors.
 def chunk_gated_delta_rule_fwd(
     q: torch.Tensor,
     k: torch.Tensor,
@@ -33,6 +34,7 @@ def chunk_gated_delta_rule_fwd(
     chunk_indices: torch.Tensor | None = None,
     chunk_offsets: torch.Tensor | None = None,
     core_attn_out: torch.Tensor | None = None,
+    output_intermediate_states: bool = False,
 ):
     g = chunk_local_cumsum(
         g, chunk_size=FLA_CHUNK_SIZE, cu_seqlens=cu_seqlens, chunk_indices=chunk_indices
@@ -80,10 +82,9 @@ def chunk_gated_delta_rule_fwd(
         chunk_indices=chunk_indices,
         core_attn_out=core_attn_out,
     )
-    if SUPPRESS_LEVEL < 3:
+    if SUPPRESS_LEVEL < 3 and not output_intermediate_states:
         return g, o, A, final_state, None, None, None
-    elif SUPPRESS_LEVEL >= 3:
-        return g, o, A, final_state, w, h, v_new
+    return g, o, A, final_state, w, h, v_new
 
 
 class ChunkGatedDeltaRuleFunction(torch.autograd.Function):
@@ -132,6 +133,51 @@ class ChunkGatedDeltaRuleFunction(torch.autograd.Function):
             )
             assert q.dtype == o.dtype, "Incompatible dtype for inplace computation"
         return o.to(q.dtype), final_state
+
+
+# Expose chunk-boundary states needed for vLLM recurrent-state checkpoints.
+@torch.compiler.disable
+def chunk_gated_delta_rule_inference_with_states(
+    q: torch.Tensor,
+    k: torch.Tensor,
+    v: torch.Tensor,
+    g: torch.Tensor,
+    beta: torch.Tensor,
+    scale: float | None = None,
+    initial_state: torch.Tensor | None = None,
+    output_final_state: bool = True,
+    cu_seqlens: torch.Tensor | None = None,
+    chunk_indices: torch.Tensor | None = None,
+    chunk_offsets: torch.Tensor | None = None,
+    use_qk_l2norm_in_kernel: bool = False,
+    core_attn_out: torch.Tensor | None = None,
+) -> tuple[torch.Tensor, torch.Tensor | None, torch.Tensor]:
+    """Run the inference kernel and also return each chunk's starting state."""
+    if torch.is_grad_enabled():
+        raise RuntimeError("intermediate GDN states are inference-only")
+    if use_qk_l2norm_in_kernel:
+        q = l2norm_fwd(q)
+        k = l2norm_fwd(k)
+    if scale is None:
+        scale = k.shape[-1] ** -0.5
+
+    _, output, _, final_state, _, chunk_states, _ = chunk_gated_delta_rule_fwd(
+        q=q,
+        k=k,
+        v=v,
+        g=g,
+        beta=beta,
+        scale=scale,
+        initial_state=initial_state,
+        output_final_state=output_final_state,
+        cu_seqlens=cu_seqlens,
+        chunk_indices=chunk_indices,
+        chunk_offsets=chunk_offsets,
+        core_attn_out=core_attn_out,
+        output_intermediate_states=True,
+    )
+    assert chunk_states is not None
+    return output.to(q.dtype), final_state, chunk_states
 
 
 @torch.compiler.disable
