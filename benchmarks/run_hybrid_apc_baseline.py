@@ -117,6 +117,7 @@ def _run_recorded_request(
         "temperature": 0.0,
         "seed": 0,
         "max_completion_tokens": max_completion_tokens,
+        "chat_template_kwargs": {"enable_thinking": False},
         "stream": False,
         "cache_salt": cache_salt,
     }
@@ -125,16 +126,12 @@ def _run_recorded_request(
         sampling={"temperature": 0.0, "seed": 0},
         metadata={"scenario": scenario, "role": role},
     )
-    before_queries, before_hits = _read_prefix_counters(
-        metrics_url, timeout_seconds
-    )
+    before_queries, before_hits = _read_prefix_counters(metrics_url, timeout_seconds)
     started = time.perf_counter()
     try:
         response = _post_json(chat_url, payload, timeout_seconds)
         elapsed = time.perf_counter() - started
-        after_queries, after_hits = _read_prefix_counters(
-            metrics_url, timeout_seconds
-        )
+        after_queries, after_hits = _read_prefix_counters(metrics_url, timeout_seconds)
     except BaseException as error:
         pending.fail(error, metadata={"scenario": scenario, "role": role})
         raise
@@ -166,6 +163,7 @@ def run_hybrid_apc_baseline(
     output: Path,
     max_completion_tokens: int = 16,
     timeout_seconds: float = 120.0,
+    validate_against_reference: bool = False,
 ) -> dict[str, Any]:
     recorder = RequestRecorder(
         run_id=run_id,
@@ -176,6 +174,25 @@ def run_hybrid_apc_baseline(
     )
     rows: list[dict[str, Any]] = []
     for scenario in build_hybrid_apc_scenarios():
+        if validate_against_reference:
+            # A separate salt guarantees that this target performs a full prefill.
+            reference_salt = hashlib.sha256(
+                f"{recorder.invocation_id}:{scenario.name}:reference".encode()
+            ).hexdigest()
+            rows.append(
+                _run_recorded_request(
+                    recorder=recorder,
+                    chat_url=f"{base_url.rstrip('/')}/v1/chat/completions",
+                    metrics_url=f"{base_url.rstrip('/')}/metrics",
+                    model=model,
+                    scenario=scenario.name,
+                    role="reference",
+                    prompt=scenario.target_prompt,
+                    cache_salt=reference_salt,
+                    max_completion_tokens=max_completion_tokens,
+                    timeout_seconds=timeout_seconds,
+                )
+            )
         # A per-invocation salt prevents previous smoke requests contaminating a pair.
         cache_salt = hashlib.sha256(
             f"{recorder.invocation_id}:{scenario.name}".encode()
@@ -200,6 +217,30 @@ def run_hybrid_apc_baseline(
             )
 
     ledger = validate_ledger(recorder.path)
+    reference_checks: list[dict[str, Any]] = []
+    if validate_against_reference:
+        for scenario in build_hybrid_apc_scenarios():
+            reference = next(
+                row
+                for row in rows
+                if row["scenario"] == scenario.name and row["role"] == "reference"
+            )
+            target = next(
+                row
+                for row in rows
+                if row["scenario"] == scenario.name and row["role"] == "target"
+            )
+            reference_checks.append(
+                {
+                    "scenario": scenario.name,
+                    "exact_output_match": (
+                        reference["output_text"] == target["output_text"]
+                    ),
+                    "reference_finish_reason": reference["finish_reason"],
+                    "target_finish_reason": target["finish_reason"],
+                }
+            )
+
     result = {
         "schema_version": 1,
         "experiment": "hybrid_apc_baseline",
@@ -209,6 +250,7 @@ def run_hybrid_apc_baseline(
         "ledger_complete": ledger.is_complete,
         "scenarios": [asdict(item) for item in build_hybrid_apc_scenarios()],
         "observations": rows,
+        "reference_checks": reference_checks,
     }
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
@@ -225,6 +267,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-completion-tokens", type=int, default=16)
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
+    parser.add_argument("--validate-against-reference", action="store_true")
     return parser.parse_args()
 
 
@@ -239,6 +282,7 @@ def main() -> None:
         output=args.output,
         max_completion_tokens=args.max_completion_tokens,
         timeout_seconds=args.timeout_seconds,
+        validate_against_reference=args.validate_against_reference,
     )
     targets = [row for row in result["observations"] if row["role"] == "target"]
     for row in targets:
@@ -246,6 +290,8 @@ def main() -> None:
             f"{row['scenario']}: queried={row['queried_tokens']} "
             f"cached={row['cached_tokens']} seconds={row['client_wall_seconds']:.3f}"
         )
+    for check in result["reference_checks"]:
+        print(f"{check['scenario']}: exact_output_match={check['exact_output_match']}")
     print(f"Saved {result['request_ledger']}")
 
 

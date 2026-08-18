@@ -6,7 +6,6 @@ from unittest.mock import patch
 
 from benchmarks.run_hybrid_apc_baseline import (
     PREFIX_HIT_METRIC,
-    PREFIX_QUERY_METRIC,
     build_hybrid_apc_scenarios,
     parse_prometheus_counter,
     run_hybrid_apc_baseline,
@@ -47,9 +46,7 @@ class HybridAPCBaselineTest(unittest.TestCase):
             f'{PREFIX_HIT_METRIC}{{engine="1"}} 1056.0\n'
         )
 
-        self.assertEqual(
-            parse_prometheus_counter(metrics, PREFIX_HIT_METRIC), 1584.0
-        )
+        self.assertEqual(parse_prometheus_counter(metrics, PREFIX_HIT_METRIC), 1584.0)
 
     # Confirm the runner records all eight requests and exact counter deltas.
     def test_records_source_and_target_requests(self) -> None:
@@ -60,9 +57,7 @@ class HybridAPCBaselineTest(unittest.TestCase):
             return next(counters)
 
         # Return the minimal successful vLLM response needed by the runner.
-        def fake_post(
-            _url: str, _payload: dict, _timeout: float
-        ) -> dict:
+        def fake_post(_url: str, _payload: dict, _timeout: float) -> dict:
             return {
                 "choices": [
                     {
@@ -106,6 +101,53 @@ class HybridAPCBaselineTest(unittest.TestCase):
             self.assertTrue(
                 all(row["cached_tokens"] == 16 for row in result["observations"])
             )
+
+    # Confirm optional references are isolated, recorded, and compared.
+    def test_compares_checkpoint_outputs_with_uncached_references(self) -> None:
+        counters = iter((index * 100, index * 16) for index in range(24))
+
+        # Return deterministic fake counters for all twelve requests.
+        def fake_counters(_url: str, _timeout: float) -> tuple[int, int]:
+            return next(counters)
+
+        # Return identical deterministic text for reference and reused requests.
+        def fake_post(_url: str, _payload: dict, _timeout: float) -> dict:
+            return {
+                "choices": [
+                    {
+                        "message": {"content": "stable output"},
+                        "finish_reason": "stop",
+                    }
+                ],
+                "usage": {"prompt_tokens": 100},
+            }
+
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (
+                patch(
+                    "benchmarks.run_hybrid_apc_baseline._read_prefix_counters",
+                    side_effect=fake_counters,
+                ),
+                patch(
+                    "benchmarks.run_hybrid_apc_baseline._post_json",
+                    side_effect=fake_post,
+                ),
+            ):
+                result = run_hybrid_apc_baseline(
+                    base_url="http://example.test:8000",
+                    model="test-model",
+                    run_id="hybrid-validation",
+                    request_log_dir=root / "logs",
+                    output=root / "summary.json",
+                    validate_against_reference=True,
+                )
+
+        self.assertEqual(len(result["observations"]), 12)
+        self.assertEqual(len(result["reference_checks"]), 4)
+        self.assertTrue(
+            all(check["exact_output_match"] for check in result["reference_checks"])
+        )
 
 
 if __name__ == "__main__":
