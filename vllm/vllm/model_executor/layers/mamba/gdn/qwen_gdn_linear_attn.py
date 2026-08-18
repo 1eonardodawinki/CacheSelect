@@ -1286,6 +1286,20 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         if attn_metadata.num_prefills > 0:
             assert mixed_qkv_non_spec is not None
             mixed_qkv_non_spec_T = mixed_qkv_non_spec.transpose(0, 1)
+            is_checkpointing = self.cache_config.mamba_cache_mode == "all"
+            if is_checkpointing:
+                checkpoint_table = attn_metadata.checkpoint_state_indices
+                assert checkpoint_table is not None
+                assert attn_metadata.block_idx_first_scheduled_token is not None
+                assert attn_metadata.block_idx_last_scheduled_token is not None
+                assert attn_metadata.block_idx_last_computed_token is not None
+                assert attn_metadata.num_computed_tokens is not None
+                mamba_block_size = self.cache_config.mamba_block_size
+                assert mamba_block_size is not None
+                conv_cache_indices = checkpoint_table
+            else:
+                mamba_block_size = 0
+                conv_cache_indices = non_spec_state_indices_tensor
             # - "cache_indices" updates the conv_state cache in positions
             #   pointed to by "state_indices_tensor"
             mixed_qkv_non_spec = causal_conv1d_fn(
@@ -1295,8 +1309,17 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                 activation=self.activation,
                 conv_states=conv_state,
                 has_initial_state=has_initial_state,
-                cache_indices=non_spec_state_indices_tensor,
+                cache_indices=conv_cache_indices,
                 query_start_loc=non_spec_query_start_loc,
+                block_idx_first_scheduled_token=(
+                    attn_metadata.block_idx_first_scheduled_token
+                ),
+                block_idx_last_scheduled_token=(
+                    attn_metadata.block_idx_last_scheduled_token
+                ),
+                initial_state_idx=attn_metadata.block_idx_last_computed_token,
+                num_computed_tokens=attn_metadata.num_computed_tokens,
+                block_size_to_align=mamba_block_size,
                 metadata=attn_metadata,
             ).transpose(0, 1)
         elif attn_metadata.num_decodes > 0:
