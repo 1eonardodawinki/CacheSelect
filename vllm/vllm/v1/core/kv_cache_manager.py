@@ -180,7 +180,11 @@ class KVCacheManager:
             == kv_cache_config.kv_cache_groups[0].kv_cache_spec.block_size
         )
         self.partial_reuse_locator = (
-            AlignedBlockReuseLocator(self.block_pool, scheduler_block_size)
+            AlignedBlockReuseLocator(
+                self.block_pool,
+                scheduler_block_size,
+                hash_block_size=hash_block_size,
+            )
             if supports_aligned_reuse
             else None
         )

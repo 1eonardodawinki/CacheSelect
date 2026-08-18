@@ -10,6 +10,8 @@ from collections.abc import Collection, Sequence
 from dataclasses import asdict, dataclass, replace
 from typing import TYPE_CHECKING, Any
 
+from vllm.v1.core.kv_cache_utils import resolve_block_hashes
+
 if TYPE_CHECKING:
     from vllm.v1.core.block_pool import BlockPool
     from vllm.v1.core.kv_cache_utils import BlockHashWithGroupId, KVCacheBlock
@@ -22,6 +24,7 @@ class SourceBlock:
     token_ids: tuple[int, ...]
     block_id: int
     block_hash: BlockHashWithGroupId
+    contextual_hash: bytes | None = None
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,7 @@ class PartialReuseCandidate:
     requires_repair: bool = True
     block_displacement: int = 0
     nearest_changed_block_distance: int | None = None
+    source_contextual_hash: bytes | None = None
 
     def to_public_dict(self) -> dict[str, Any]:
         return {
@@ -50,6 +54,11 @@ class PartialReuseCandidate:
             "requires_repair": self.requires_repair,
             "block_displacement": self.block_displacement,
             "nearest_changed_block_distance": self.nearest_changed_block_distance,
+            "source_contextual_hash": (
+                self.source_contextual_hash.hex()
+                if self.source_contextual_hash is not None
+                else None
+            ),
         }
 
 
@@ -139,6 +148,7 @@ class AlignedBlockReuseLocator:
         block_pool: BlockPool,
         block_size: int,
         max_source_requests: int = 1024,
+        hash_block_size: int | None = None,
     ) -> None:
         if block_size < 1:
             raise ValueError("block_size must be positive")
@@ -146,6 +156,7 @@ class AlignedBlockReuseLocator:
             raise ValueError("max_source_requests must be positive")
         self.block_pool = block_pool
         self.block_size = block_size
+        self.hash_block_size = hash_block_size or block_size
         self.max_source_requests = max_source_requests
         self._sources: OrderedDict[str, SourceRequestIndex] = OrderedDict()
 
@@ -162,6 +173,11 @@ class AlignedBlockReuseLocator:
 
         indexed_blocks: list[SourceBlock] = []
         num_full_blocks = len(prompt_token_ids) // self.block_size
+        contextual_hashes = resolve_block_hashes(
+            request.block_hashes,
+            self.hash_block_size,
+            self.block_size,
+        )
         for block_index, block in enumerate(blocks[:num_full_blocks]):
             if block.is_null or block.block_hash is None:
                 continue
@@ -174,6 +190,11 @@ class AlignedBlockReuseLocator:
                     ),
                     block_id=block.block_id,
                     block_hash=block.block_hash,
+                    contextual_hash=(
+                        bytes(contextual_hashes[block_index])
+                        if block_index < len(contextual_hashes)
+                        else None
+                    ),
                 )
             )
 
@@ -233,6 +254,7 @@ class AlignedBlockReuseLocator:
                     target_block_index=target_block_index,
                     source_block_id=source_block.block_id,
                     source_resident=self._is_resident(source_block),
+                    source_contextual_hash=source_block.contextual_hash,
                 )
             )
 

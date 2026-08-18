@@ -510,12 +510,19 @@ def test_cacheselect_locates_resident_aligned_blocks_without_reusing_them():
         for candidate in target.partial_reuse_plan.candidates
     ] == [(2, 2), (3, 3), (4, 4)]
     assert [
+        candidate.source_contextual_hash
+        for candidate in target.partial_reuse_plan.candidates
+    ] == [bytes(source.block_hashes[index]) for index in (2, 3, 4)]
+    assert [
         candidate.nearest_changed_block_distance
         for candidate in target.partial_reuse_plan.candidates
     ] == [1, 2, 3]
     public_plan = target.partial_reuse_plan.to_dict()
     assert public_plan["candidate_token_count"] == 3 * block_size
     assert "source_block_id" not in public_plan["candidates"][0]
+    assert public_plan["candidates"][0]["source_contextual_hash"] == bytes(
+        source.block_hashes[2]
+    ).hex()
 
 
 def test_prefill_hybrid_model():
