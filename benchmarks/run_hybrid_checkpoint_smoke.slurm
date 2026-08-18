@@ -16,16 +16,23 @@ CUDA_SETUP="${CACHESELECT_CUDA_SETUP:-/vol/cuda/13.0.0/setup.sh}"
 MODEL="${CACHESELECT_HYBRID_MODEL:-Qwen/Qwen3.5-9B}"
 START_TIMEOUT="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
 DELTA_CACHE_CAPACITY="${CACHESELECT_GDN_DELTA_CACHE_CAPACITY:-2}"
+EXECUTION_MODE="${CACHESELECT_GDN_DELTA_EXECUTION_MODE:-shadow}"
+
+if [[ "$EXECUTION_MODE" != "shadow" && "$EXECUTION_MODE" != "active" ]]; then
+  echo "Unsupported GDN delta execution mode: $EXECUTION_MODE" >&2
+  exit 2
+fi
 
 EXPERIMENT_ID="${SLURM_JOB_ID:?Run this file with sbatch}"
 PORT=$((32000 + (EXPERIMENT_ID % 1000)))
-RUN_ID="hybrid-checkpoint-$EXPERIMENT_ID"
+RUN_ID="hybrid-checkpoint-$EXECUTION_MODE-$EXPERIMENT_ID"
 RESULT_DIR="$STORAGE_ROOT/cacheselect-results/$RUN_ID"
 REQUEST_LOG_DIR="$STORAGE_ROOT/cacheselect-request-logs/$RUN_ID"
 SERVER_LOG_DIR="$STORAGE_ROOT/cacheselect-server-logs/$RUN_ID"
 SERVER_LOG="$SERVER_LOG_DIR/vllm.log"
 SUMMARY_PATH="$RESULT_DIR/summary.json"
 SHADOW_ANALYSIS_PATH="$RESULT_DIR/gdn-shadow-analysis.json"
+ACTIVE_ANALYSIS_PATH="$RESULT_DIR/gdn-active-analysis.json"
 SERVER_INFO_PATH="$RESULT_DIR/server-info.json"
 
 mkdir -p \
@@ -66,7 +73,8 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "mamba_cache_mode=all"
   echo "gdn_prefill_backend=triton"
   echo "gdn_delta_cache_capacity=$DELTA_CACHE_CAPACITY"
-  echo "gdn_delta_execution_mode=shadow"
+  echo "gdn_delta_execution_mode=$EXECUTION_MODE"
+  echo "attention_reuse_policy=native_apc_only"
   echo "max_model_len=4096"
   echo "max_completion_tokens=64"
 } >"$RESULT_DIR/metadata.env"
@@ -125,7 +133,7 @@ setsid vllm serve "$MODEL" \
   --enable-prefix-caching \
   --mamba-cache-mode all \
   --gdn-delta-cache-capacity "$DELTA_CACHE_CAPACITY" \
-  --gdn-delta-execution-mode shadow \
+  --gdn-delta-execution-mode "$EXECUTION_MODE" \
   --gdn-prefill-backend triton \
   --no-enable-chunked-prefill \
   --enforce-eager \
@@ -140,7 +148,7 @@ echo "vLLM is healthy pid=$SERVER_PID"
 curl --fail --silent \
   "http://127.0.0.1:$PORT/server_info?config_format=json" \
   --output "$SERVER_INFO_PATH"
-python - "$SERVER_INFO_PATH" "$DELTA_CACHE_CAPACITY" <<'PY'
+python - "$SERVER_INFO_PATH" "$DELTA_CACHE_CAPACITY" "$EXECUTION_MODE" <<'PY'
 import json
 import sys
 
@@ -148,14 +156,23 @@ config = json.load(open(sys.argv[1], encoding="utf-8"))["vllm_config"]
 cache = config["cache_config"]
 additional = config["additional_config"]
 assert cache["enable_prefix_caching"] is True
+assert cache["enable_cacheselect"] is False
+assert cache["cacheselect_execute_partial_reuse"] is False
 assert cache["mamba_cache_mode"] == "all"
 assert cache["gdn_delta_cache_capacity"] == int(sys.argv[2])
-assert cache["gdn_delta_execution_mode"] == "shadow"
+assert cache["gdn_delta_execution_mode"] == sys.argv[3]
 assert additional["gdn_prefill_backend"] == "triton"
 PY
 nvidia-smi \
   --query-gpu=name,uuid,memory.total,memory.used,memory.free \
   --format=csv,noheader >"$RESULT_DIR/gpu-after-load.csv"
+
+# Select the execution proof required for the configured experiment mode.
+if [[ "$EXECUTION_MODE" == "active" ]]; then
+  EXECUTION_REQUIREMENT=(--require-gdn-active-execution)
+else
+  EXECUTION_REQUIREMENT=(--require-gdn-shadow-execution)
+fi
 
 # Compare checkpointed requests with independent full-computation controls.
 python -m benchmarks.run_hybrid_apc_baseline \
@@ -168,16 +185,26 @@ python -m benchmarks.run_hybrid_apc_baseline \
   --require-token-aligned-edits \
   --require-edited-prefix-reuse \
   --require-gdn-preflight-observability \
-  --require-gdn-shadow-execution \
+  "${EXECUTION_REQUIREMENT[@]}" \
   --validate-against-reference
 
-python -m benchmarks.analyze_hybrid_gdn_shadow \
-  --input "$SUMMARY_PATH" \
-  --output "$SHADOW_ANALYSIS_PATH"
+if [[ "$EXECUTION_MODE" == "shadow" ]]; then
+  python -m benchmarks.analyze_hybrid_gdn_shadow \
+    --input "$SUMMARY_PATH" \
+    --output "$SHADOW_ANALYSIS_PATH"
+else
+  python -m benchmarks.analyze_hybrid_gdn_active \
+    --input "$SUMMARY_PATH" \
+    --output "$ACTIVE_ANALYSIS_PATH"
+fi
 
 stop_server
 test -s "$SUMMARY_PATH"
-test -s "$SHADOW_ANALYSIS_PATH"
+if [[ "$EXECUTION_MODE" == "shadow" ]]; then
+  test -s "$SHADOW_ANALYSIS_PATH"
+else
+  test -s "$ACTIVE_ANALYSIS_PATH"
+fi
 test -s "$SERVER_INFO_PATH"
 grep -q "GDN delta sidecar populated" "$SERVER_LOG"
 
