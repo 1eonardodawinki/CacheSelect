@@ -28,7 +28,9 @@ from vllm.model_executor.layers.linear import (
 )
 from vllm.model_executor.layers.mamba.gdn.base import GatedDeltaNetAttention
 from vllm.model_executor.layers.mamba.gdn.delta_cache import (
+    GDNDeltaBlockShadowResult,
     GDNDeltaOperatorSidecar,
+    compare_completed_gdn_blocks_shadow,
     store_completed_gdn_delta_operators,
 )
 from vllm.model_executor.layers.mamba.mamba_mixer2 import mamba_v2_sharded_weight_loader
@@ -493,6 +495,9 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             envs.VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE
         )
         self.gdn_delta_operator_sidecar: GDNDeltaOperatorSidecar | None = None
+        self.last_gdn_delta_shadow_results: tuple[
+            GDNDeltaBlockShadowResult, ...
+        ] = ()
 
         compilation_config = get_current_vllm_config().compilation_config
         if prefix in compilation_config.static_forward_context:
@@ -1183,6 +1188,8 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         assert isinstance(attn_metadata_raw, dict)
         attn_metadata = attn_metadata_raw[self.prefix]  # type: ignore[index]
         assert isinstance(attn_metadata, GDNAttentionMetadata)
+        # Never expose shadow evidence from a previous model invocation.
+        self.last_gdn_delta_shadow_results = ()
 
         # The AITER fused reshape/conv kernel expects Qwen3-Next's interleaved
         # GQA layout. Qwen3.5 uses a non-interleaved q/k/v/z layout and must use
@@ -1239,6 +1246,8 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         assert isinstance(attn_metadata_raw, dict)
         attn_metadata = attn_metadata_raw[self.prefix]  # type: ignore[index]
         assert isinstance(attn_metadata, GDNAttentionMetadata)
+        # Never expose shadow evidence from a previous model invocation.
+        self.last_gdn_delta_shadow_results = ()
 
         if (
             self.enable_packed_recurrent_decode
@@ -1584,11 +1593,37 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                     chunk_size=FLA_CHUNK_SIZE,
                 )
                 sidecar = self._get_gdn_delta_operator_sidecar(key_non_spec.device)
+                first_prefill = attn_metadata.num_decodes
+                final_prefill = first_prefill + attn_metadata.num_prefills
+                prefill_reuse_candidates = (
+                    attn_metadata.gdn_delta_reuse_candidates[
+                        first_prefill:final_prefill
+                    ]
+                )
+                if sidecar is not None and any(prefill_reuse_candidates):
+                    assert attn_metadata.prefill_query_start_loc_cpu is not None
+                    assert attn_metadata.num_computed_tokens_cpu is not None
+                    self.last_gdn_delta_shadow_results = (
+                        compare_completed_gdn_blocks_shadow(
+                            sidecar,
+                            state_cache=ssm_state,
+                            full_outputs=core_attn_out_non_spec.squeeze(0),
+                            checkpoint_state_indices=checkpoint_rows,
+                            query_start_locations=(
+                                attn_metadata.prefill_query_start_loc_cpu
+                            ),
+                            num_computed_tokens=(
+                                attn_metadata.num_computed_tokens_cpu[
+                                    first_prefill:final_prefill
+                                ]
+                            ),
+                            reuse_candidates=prefill_reuse_candidates,
+                            sequence_index_offset=first_prefill,
+                        )
+                    )
                 if sidecar is not None and attn_metadata.contextual_block_hashes:
                     assert attn_metadata.prefill_query_start_loc_cpu is not None
                     assert attn_metadata.num_computed_tokens_cpu is not None
-                    first_prefill = attn_metadata.num_decodes
-                    final_prefill = first_prefill + attn_metadata.num_prefills
                     stored_operators = store_completed_gdn_delta_operators(
                         sidecar,
                         keys=key_non_spec.squeeze(0),

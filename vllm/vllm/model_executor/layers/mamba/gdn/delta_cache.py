@@ -93,6 +93,7 @@ def compare_completed_gdn_blocks_shadow(
     query_start_locations: torch.Tensor,
     num_computed_tokens: torch.Tensor,
     reuse_candidates: tuple[tuple[tuple[int, bytes], ...], ...],
+    sequence_index_offset: int = 0,
 ) -> tuple[GDNDeltaBlockShadowResult, ...]:
     """Resolve checkpoint/token rows and compare candidates without mutation."""
     if state_cache.ndim != 4:
@@ -125,7 +126,7 @@ def compare_completed_gdn_blocks_shadow(
             if entry is None:
                 results.append(
                     GDNDeltaBlockShadowResult(
-                        sequence_index,
+                        sequence_index + sequence_index_offset,
                         target_block_index,
                         source_hash,
                         "operator_not_resident",
@@ -137,7 +138,7 @@ def compare_completed_gdn_blocks_shadow(
             ):
                 results.append(
                     GDNDeltaBlockShadowResult(
-                        sequence_index,
+                        sequence_index + sequence_index_offset,
                         target_block_index,
                         source_hash,
                         "invalid_target_block",
@@ -151,7 +152,7 @@ def compare_completed_gdn_blocks_shadow(
             if local_start < 0 or output_end > query_end:
                 results.append(
                     GDNDeltaBlockShadowResult(
-                        sequence_index,
+                        sequence_index + sequence_index_offset,
                         target_block_index,
                         source_hash,
                         "block_not_fully_scheduled",
@@ -174,7 +175,7 @@ def compare_completed_gdn_blocks_shadow(
             ) >= state_cache.shape[0]:
                 results.append(
                     GDNDeltaBlockShadowResult(
-                        sequence_index,
+                        sequence_index + sequence_index_offset,
                         target_block_index,
                         source_hash,
                         "invalid_checkpoint_slot",
@@ -190,7 +191,7 @@ def compare_completed_gdn_blocks_shadow(
             )
             results.append(
                 GDNDeltaBlockShadowResult(
-                    sequence_index,
+                    sequence_index + sequence_index_offset,
                     target_block_index,
                     source_hash,
                     "compared",

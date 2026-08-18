@@ -6,11 +6,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import torch.nn as nn
 
 from vllm.model_executor.layers.mamba.gdn.delta_cache import (
+    GDNDeltaBlockShadowResult,
     GDNDeltaCacheEntry,
     GDNDeltaOperatorSidecar,
 )
@@ -57,6 +58,71 @@ def build_gdn_delta_reuse_candidates(
             )
         )
     return tuple(batch_candidates)
+
+
+# Collect layer-local shadow records and map their batch rows to request IDs.
+def summarize_gdn_delta_shadow_results(
+    model: nn.Module,
+    req_ids: Sequence[str],
+) -> dict[str, dict[str, Any]]:
+    per_request: dict[str, list[dict[str, Any]]] = {}
+    missing = object()
+    for layer_name, module in model.named_modules():
+        results = getattr(module, "last_gdn_delta_shadow_results", missing)
+        if results is missing:
+            continue
+        if not isinstance(results, tuple) or not all(
+            isinstance(result, GDNDeltaBlockShadowResult) for result in results
+        ):
+            raise TypeError(
+                f"{layer_name}.last_gdn_delta_shadow_results has an invalid type"
+            )
+        for result in results:
+            if result.sequence_index < 0 or result.sequence_index >= len(req_ids):
+                raise ValueError("GDN shadow result refers to an invalid batch row")
+            serialized: dict[str, Any] = {
+                "layer_name": layer_name,
+                "target_block_index": result.target_block_index,
+                "source_contextual_hash": result.source_contextual_hash.hex(),
+                "reason": result.reason,
+            }
+            if result.comparison is not None:
+                serialized.update(
+                    {
+                        "output_relative_l2": (
+                            result.comparison.output_relative_l2
+                        ),
+                        "output_max_absolute_error": (
+                            result.comparison.output_max_absolute_error
+                        ),
+                        "final_state_relative_l2": (
+                            result.comparison.final_state_relative_l2
+                        ),
+                        "final_state_max_absolute_error": (
+                            result.comparison.final_state_max_absolute_error
+                        ),
+                    }
+                )
+            req_id = req_ids[result.sequence_index]
+            per_request.setdefault(req_id, []).append(serialized)
+
+    summaries = {}
+    for req_id, results in per_request.items():
+        compared = [result for result in results if result["reason"] == "compared"]
+        summaries[req_id] = {
+            "shadow_result_count": len(results),
+            "shadow_compared_count": len(compared),
+            "shadow_max_output_relative_l2": max(
+                (result["output_relative_l2"] for result in compared),
+                default=None,
+            ),
+            "shadow_max_final_state_relative_l2": max(
+                (result["final_state_relative_l2"] for result in compared),
+                default=None,
+            ),
+            "shadow_results": results,
+        }
+    return summaries
 
 
 # Discover Qwen GDN modules structurally without importing a model implementation.

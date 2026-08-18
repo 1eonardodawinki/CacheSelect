@@ -84,6 +84,7 @@ from vllm.v1.worker.gpu.gdn_delta_reuse import (
     build_gdn_delta_reuse_candidates,
     collect_gdn_delta_sidecars,
     preflight_gdn_delta_reuse,
+    summarize_gdn_delta_shadow_results,
 )
 from vllm.v1.worker.gpu.input_batch import (
     InputBatch,
@@ -1064,6 +1065,40 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         }
         return metrics or None
 
+    # Merge read-only layer comparisons into the request's one-shot GDN evidence.
+    def _record_gdn_delta_shadow_metrics(self, req_ids: list[str]) -> None:
+        summaries = summarize_gdn_delta_shadow_results(self.model, req_ids)
+        for req_id in req_ids:
+            metrics = self.pending_gdn_delta_reuse_metrics.get(req_id)
+            if metrics is None:
+                continue
+            expected_count = (
+                metrics["candidate_block_count"] * metrics["resolved_layer_count"]
+                if metrics["preflight_eligible"]
+                else 0
+            )
+            summary = summaries.get(req_id, {})
+            compared_count = int(summary.get("shadow_compared_count", 0))
+            metrics.update(
+                {
+                    "shadow_expected_count": expected_count,
+                    "shadow_result_count": int(
+                        summary.get("shadow_result_count", 0)
+                    ),
+                    "shadow_compared_count": compared_count,
+                    "shadow_complete": (
+                        expected_count > 0 and compared_count == expected_count
+                    ),
+                    "shadow_max_output_relative_l2": summary.get(
+                        "shadow_max_output_relative_l2"
+                    ),
+                    "shadow_max_final_state_relative_l2": summary.get(
+                        "shadow_max_final_state_relative_l2"
+                    ),
+                    "shadow_results": summary.get("shadow_results", []),
+                }
+            )
+
     # Apply explicitly enabled CacheSelect copies for newly scheduled plans.
     def _apply_cacheselect_block_copies(
         self, scheduler_output: SchedulerOutput
@@ -1961,6 +1996,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             dummy_run,
             execute_full_forward,
         )
+        if not dummy_run:
+            self._record_gdn_delta_shadow_metrics(input_batch.req_ids)
 
         if self.is_last_pp_rank:
             if self.use_aux_hidden_state_outputs:

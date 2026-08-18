@@ -7,13 +7,16 @@ from types import SimpleNamespace
 import torch
 
 from vllm.model_executor.layers.mamba.gdn.delta_cache import (
+    GDNDeltaBlockShadowResult,
     GDNDeltaOperatorSidecar,
+    GDNDeltaShadowComparison,
 )
 from vllm.v1.worker.gpu.gdn_delta_reuse import (
     GDNDeltaPreflightResult,
     build_gdn_delta_reuse_candidates,
     collect_gdn_delta_sidecars,
     preflight_gdn_delta_reuse,
+    summarize_gdn_delta_shadow_results,
 )
 
 
@@ -61,6 +64,33 @@ def _make_plan(*keys: bytes, block_size: int = 2):
 
 
 class GDNDeltaReusePreflightTests(unittest.TestCase):
+    # Map layer-local shadow rows back to request IDs and summarize worst errors.
+    def test_summarizes_shadow_results_per_request(self) -> None:
+        model = torch.nn.Module()
+        layer = _FakeGDNLayer(None)
+        layer.last_gdn_delta_shadow_results = (
+            GDNDeltaBlockShadowResult(
+                sequence_index=1,
+                target_block_index=7,
+                source_contextual_hash=b"source-seven",
+                reason="compared",
+                comparison=GDNDeltaShadowComparison(0.25, 0.5, 0.125, 0.25),
+            ),
+        )
+        model.add_module("gdn", layer)
+
+        summaries = summarize_gdn_delta_shadow_results(
+            model,
+            ("decode-request", "edited-request"),
+        )
+
+        summary = summaries["edited-request"]
+        self.assertEqual(summary["shadow_result_count"], 1)
+        self.assertEqual(summary["shadow_compared_count"], 1)
+        self.assertEqual(summary["shadow_max_output_relative_l2"], 0.25)
+        self.assertEqual(summary["shadow_max_final_state_relative_l2"], 0.125)
+        self.assertEqual(summary["shadow_results"][0]["layer_name"], "gdn")
+
     # Forward block mappings only for requests whose all-layer preflight succeeded.
     def test_builds_candidates_only_for_eligible_requests(self) -> None:
         plans = {

@@ -9,6 +9,10 @@ from unittest.mock import Mock, patch
 import pytest
 import torch
 
+from vllm.model_executor.layers.mamba.gdn.delta_cache import (
+    GDNDeltaBlockShadowResult,
+    GDNDeltaShadowComparison,
+)
 from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 from vllm.v1.core.sched.output import (
     CachedRequestData,
@@ -81,7 +85,40 @@ def mock_model_runner_with_req_states():
     runner._take_gdn_delta_reuse_metrics = (
         GPUModelRunner._take_gdn_delta_reuse_metrics.__get__(runner)
     )
+    runner._record_gdn_delta_shadow_metrics = (
+        GPUModelRunner._record_gdn_delta_shadow_metrics.__get__(runner)
+    )
     return runner
+
+
+# Merge one layer's comparison into the existing request-scoped GDN evidence.
+def test_records_complete_gdn_shadow_metrics(mock_model_runner_with_req_states):
+    runner = mock_model_runner_with_req_states
+    layer = torch.nn.Module()
+    layer.last_gdn_delta_shadow_results = (
+        GDNDeltaBlockShadowResult(
+            sequence_index=0,
+            target_block_index=4,
+            source_contextual_hash=b"source-four",
+            reason="compared",
+            comparison=GDNDeltaShadowComparison(0.2, 0.4, 0.1, 0.3),
+        ),
+    )
+    runner.model.add_module("gdn", layer)
+    runner.pending_gdn_delta_reuse_metrics["edited"] = {
+        "preflight_eligible": True,
+        "candidate_block_count": 1,
+        "resolved_layer_count": 1,
+    }
+
+    runner._record_gdn_delta_shadow_metrics(["edited"])
+
+    metrics = runner.pending_gdn_delta_reuse_metrics["edited"]
+    assert metrics["shadow_expected_count"] == 1
+    assert metrics["shadow_compared_count"] == 1
+    assert metrics["shadow_complete"]
+    assert metrics["shadow_max_output_relative_l2"] == 0.2
+    assert metrics["shadow_max_final_state_relative_l2"] == 0.1
 
 
 # Check that the runner records advisory compute rows without changing its batch.
