@@ -8,6 +8,7 @@ from benchmarks.run_hybrid_apc_baseline import (
     PREFIX_HIT_METRIC,
     assess_gdn_delta_preflight_observability,
     assess_gdn_delta_shadow_execution,
+    assess_hybrid_token_alignment,
     assess_hybrid_checkpoint_reuse,
     build_hybrid_apc_scenarios,
     parse_prometheus_counter,
@@ -17,6 +18,55 @@ from observability.request_recorder import validate_ledger
 
 
 class HybridAPCBaselineTest(unittest.TestCase):
+    # Detect an equal-length edit with an unchanged suffix at fixed positions.
+    def test_assesses_token_aligned_edit(self) -> None:
+        assessment = assess_hybrid_token_alignment(
+            [1, 2, 3, 4, 5, 6],
+            [1, 2, 9, 4, 5, 6],
+        )
+
+        self.assertTrue(assessment["passed"])
+        self.assertEqual(assessment["shared_prefix_tokens"], 2)
+        self.assertEqual(assessment["shared_suffix_tokens"], 3)
+
+    # Reject a text edit that shifted every later token position.
+    def test_rejects_token_length_shift(self) -> None:
+        assessment = assess_hybrid_token_alignment(
+            [1, 2, 3, 4, 5],
+            [1, 2, 8, 9, 4, 5],
+        )
+
+        self.assertFalse(assessment["passed"])
+        self.assertFalse(assessment["same_token_count"])
+
+    # Abort before generation when the live tokenizer reports shifted edits.
+    def test_rejects_misaligned_workload_before_requests(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (
+                patch(
+                    "benchmarks.run_hybrid_apc_baseline.inspect_hybrid_token_alignment",
+                    return_value={
+                        "passed": False,
+                        "details": {"early_edit": {"same_token_count": False}},
+                    },
+                ),
+                patch(
+                    "benchmarks.run_hybrid_apc_baseline._run_recorded_request"
+                ) as run_request,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "not token aligned"):
+                    run_hybrid_apc_baseline(
+                        base_url="http://example.test:8000",
+                        model="test-model",
+                        run_id="misaligned",
+                        request_log_dir=root / "logs",
+                        output=root / "summary.json",
+                        require_token_aligned_edits=True,
+                    )
+
+            run_request.assert_not_called()
+
     # Require every candidate-layer pair to produce finite shadow divergence.
     def test_assesses_complete_gdn_delta_shadow_execution(self) -> None:
         rows = [
@@ -168,6 +218,10 @@ class HybridAPCBaselineTest(unittest.TestCase):
                     "benchmarks.run_hybrid_apc_baseline._post_json",
                     side_effect=fake_post,
                 ),
+                patch(
+                    "benchmarks.run_hybrid_apc_baseline.inspect_hybrid_token_alignment",
+                    return_value={"passed": True, "details": {}},
+                ),
             ):
                 result = run_hybrid_apc_baseline(
                     base_url="http://example.test:8000",
@@ -221,6 +275,10 @@ class HybridAPCBaselineTest(unittest.TestCase):
                 patch(
                     "benchmarks.run_hybrid_apc_baseline._post_json",
                     side_effect=fake_post,
+                ),
+                patch(
+                    "benchmarks.run_hybrid_apc_baseline.inspect_hybrid_token_alignment",
+                    return_value={"passed": True, "details": {}},
                 ),
             ):
                 result = run_hybrid_apc_baseline(

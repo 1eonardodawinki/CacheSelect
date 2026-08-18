@@ -162,6 +162,7 @@ python -m benchmarks.run_hybrid_apc_baseline \
   --request-log-dir "$REQUEST_LOG_DIR" \
   --output "$SUMMARY_PATH" \
   --max-completion-tokens 64 \
+  --require-token-aligned-edits \
   --require-edited-prefix-reuse \
   --require-gdn-preflight-observability \
   --require-gdn-shadow-execution \

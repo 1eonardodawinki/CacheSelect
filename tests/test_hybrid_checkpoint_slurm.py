@@ -41,6 +41,7 @@ class HybridCheckpointSlurmTests(TestCase):
             'additional["gdn_prefill_backend"] == "triton"',
             "gpu-after-load.csv",
             "python -m benchmarks.run_hybrid_apc_baseline",
+            "--require-token-aligned-edits",
             "--require-edited-prefix-reuse",
             "--require-gdn-preflight-observability",
             "--require-gdn-shadow-execution",

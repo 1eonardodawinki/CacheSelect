@@ -29,6 +29,37 @@ class HybridAPCScenario:
     target_prompt: str
 
 
+# Measure whether one edited prompt preserves later absolute token positions.
+def assess_hybrid_token_alignment(
+    source_tokens: list[int],
+    target_tokens: list[int],
+) -> dict[str, Any]:
+    shared_prefix = 0
+    for source_token, target_token in zip(source_tokens, target_tokens):
+        if source_token != target_token:
+            break
+        shared_prefix += 1
+
+    shared_suffix = 0
+    for source_token, target_token in zip(
+        reversed(source_tokens), reversed(target_tokens)
+    ):
+        if source_token != target_token:
+            break
+        shared_suffix += 1
+    same_length = len(source_tokens) == len(target_tokens)
+    return {
+        "passed": same_length
+        and shared_prefix < len(source_tokens)
+        and shared_suffix > 0,
+        "source_token_count": len(source_tokens),
+        "target_token_count": len(target_tokens),
+        "same_token_count": same_length,
+        "shared_prefix_tokens": shared_prefix,
+        "shared_suffix_tokens": shared_suffix,
+    }
+
+
 # Check that block checkpoints expose progressively longer edited prefixes.
 def assess_hybrid_checkpoint_reuse(rows: list[dict[str, Any]]) -> dict[str, Any]:
     targets = {row["scenario"]: row for row in rows if row.get("role") == "target"}
@@ -194,6 +225,44 @@ def _post_json(
         return json.loads(response.read())
 
 
+# Tokenize edited scenarios with the running server's exact chat template.
+def inspect_hybrid_token_alignment(
+    *,
+    base_url: str,
+    model: str,
+    timeout_seconds: float,
+) -> dict[str, Any]:
+    details = {}
+    tokenize_url = f"{base_url.rstrip('/')}/tokenize"
+    for scenario in build_hybrid_apc_scenarios():
+        if scenario.name not in {"early_edit", "middle_edit"}:
+            continue
+        token_lists = []
+        for prompt in (scenario.source_prompt, scenario.target_prompt):
+            response = _post_json(
+                tokenize_url,
+                {
+                    "model": model,
+                    "messages": [{"role": "user", "content": prompt}],
+                    "chat_template_kwargs": {"enable_thinking": False},
+                },
+                timeout_seconds,
+            )
+            tokens = response.get("tokens")
+            if not isinstance(tokens, list) or not all(
+                isinstance(token, int) and not isinstance(token, bool)
+                for token in tokens
+            ):
+                raise RuntimeError("vLLM tokenize response omitted integer tokens")
+            token_lists.append(tokens)
+        details[scenario.name] = assess_hybrid_token_alignment(*token_lists)
+    return {
+        "passed": set(details) == {"early_edit", "middle_edit"}
+        and all(detail["passed"] for detail in details.values()),
+        "details": details,
+    }
+
+
 # Execute and record one request together with its exact counter deltas.
 def _run_recorded_request(
     *,
@@ -274,6 +343,7 @@ def run_hybrid_apc_baseline(
     max_completion_tokens: int = 16,
     timeout_seconds: float = 120.0,
     validate_against_reference: bool = False,
+    require_token_aligned_edits: bool = False,
 ) -> dict[str, Any]:
     recorder = RequestRecorder(
         run_id=run_id,
@@ -282,6 +352,16 @@ def run_hybrid_apc_baseline(
         log_dir=request_log_dir,
         invocation_metadata={"experiment": "hybrid_apc_baseline"},
     )
+    token_alignment = inspect_hybrid_token_alignment(
+        base_url=base_url,
+        model=model,
+        timeout_seconds=timeout_seconds,
+    )
+    if require_token_aligned_edits and not token_alignment["passed"]:
+        # Abort before issuing any generation requests for a misaligned workload.
+        raise RuntimeError(
+            f"hybrid edits are not token aligned: {token_alignment['details']}"
+        )
     rows: list[dict[str, Any]] = []
     for scenario in build_hybrid_apc_scenarios():
         if validate_against_reference:
@@ -369,6 +449,7 @@ def run_hybrid_apc_baseline(
         "request_ledger": str(recorder.path),
         "ledger_complete": ledger.is_complete,
         "scenarios": [asdict(item) for item in build_hybrid_apc_scenarios()],
+        "token_alignment": token_alignment,
         "observations": rows,
         "checkpoint_reuse": checkpoint_reuse,
         "gdn_delta_preflight": gdn_delta_preflight,
@@ -399,6 +480,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
     parser.add_argument("--validate-against-reference", action="store_true")
     parser.add_argument("--require-edited-prefix-reuse", action="store_true")
+    parser.add_argument("--require-token-aligned-edits", action="store_true")
     parser.add_argument("--require-gdn-preflight-observability", action="store_true")
     parser.add_argument("--require-gdn-shadow-execution", action="store_true")
     return parser.parse_args()
@@ -416,6 +498,7 @@ def main() -> None:
         max_completion_tokens=args.max_completion_tokens,
         timeout_seconds=args.timeout_seconds,
         validate_against_reference=args.validate_against_reference,
+        require_token_aligned_edits=args.require_token_aligned_edits,
     )
     targets = [row for row in result["observations"] if row["role"] == "target"]
     for row in targets:
