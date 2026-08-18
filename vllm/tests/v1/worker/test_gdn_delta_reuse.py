@@ -9,7 +9,17 @@ import torch
 from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     GDNDeltaOperatorSidecar,
 )
-from vllm.v1.worker.gpu.gdn_delta_reuse import preflight_gdn_delta_reuse
+from vllm.v1.worker.gpu.gdn_delta_reuse import (
+    collect_gdn_delta_sidecars,
+    preflight_gdn_delta_reuse,
+)
+
+
+class _FakeGDNLayer(torch.nn.Module):
+    # Expose the same sidecar attribute used by Qwen GDN layers.
+    def __init__(self, sidecar: GDNDeltaOperatorSidecar | None) -> None:
+        super().__init__()
+        self.gdn_delta_operator_sidecar = sidecar
 
 
 # Build one small CPU sidecar with the requested operator keys.
@@ -40,6 +50,18 @@ def _make_plan(*keys: bytes, block_size: int = 2):
 
 
 class GDNDeltaReusePreflightTests(unittest.TestCase):
+    # Discover only modules that expose the Qwen GDN sidecar contract.
+    def test_discovers_gdn_sidecars_from_model(self) -> None:
+        model = torch.nn.Module()
+        model.add_module("ordinary", torch.nn.Linear(2, 2))
+        sidecar = _make_sidecar(b"a")
+        model.add_module("gdn", _FakeGDNLayer(sidecar))
+        model.add_module("empty_gdn", _FakeGDNLayer(None))
+
+        layers = collect_gdn_delta_sidecars(model)
+
+        self.assertEqual(layers, (("gdn", sidecar), ("empty_gdn", None)))
+
     # Resolve the same ordered candidate set across every GDN layer.
     def test_accepts_only_complete_all_layer_residency(self) -> None:
         result = preflight_gdn_delta_reuse(

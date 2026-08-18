@@ -132,7 +132,7 @@ class KVCacheManager:
         metrics_collector: KVCacheMetricsCollector | None = None,
         watermark: float = 0.0,
         enable_cacheselect: bool = False,
-        enable_gdn_delta_reuse: bool = False,
+        gdn_delta_cache_capacity: int = 0,
     ) -> None:
         self.max_model_len = max_model_len
         # When unset, fall back to `max_model_len` so the recycling-aware cap
@@ -153,8 +153,9 @@ class KVCacheManager:
             GDNDeltaSourceIndex(
                 block_size=scheduler_block_size,
                 hash_block_size=hash_block_size,
+                max_candidate_blocks=gdn_delta_cache_capacity,
             )
-            if enable_gdn_delta_reuse
+            if gdn_delta_cache_capacity > 0
             else None
         )
         # FIXME: make prefix cache stats conditional on log_stats. We still need

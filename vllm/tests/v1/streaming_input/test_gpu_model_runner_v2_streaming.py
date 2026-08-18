@@ -49,9 +49,12 @@ def mock_model_runner_with_req_states():
     runner.sampler = None
     runner.prompt_logprobs_worker = None
     runner.is_last_pp_rank = False
+    runner.model = torch.nn.Module()
     runner.contextual_block_hashes = {}
     runner.partial_reuse_plans = {}
     runner.gdn_delta_reuse_plans = {}
+    runner.gdn_delta_preflight_results = {}
+    runner.pending_gdn_delta_reuse_metrics = {}
     runner.resolved_partial_reuse_candidates = {}
     runner.partial_reuse_copy_instructions = {}
     runner.partial_reuse_repair_instructions = {}
@@ -74,6 +77,9 @@ def mock_model_runner_with_req_states():
     runner.add_requests = GPUModelRunner.add_requests.__get__(runner)
     runner._take_cacheselect_repair_metrics = (
         GPUModelRunner._take_cacheselect_repair_metrics.__get__(runner)
+    )
+    runner._take_gdn_delta_reuse_metrics = (
+        GPUModelRunner._take_gdn_delta_reuse_metrics.__get__(runner)
     )
     return runner
 
@@ -261,7 +267,11 @@ def test_partial_reuse_plan_follows_request_lifecycle(
         block_size=1,
         counterfactual_reuse_block_index=5,
     )
-    gdn_plan = SimpleNamespace(candidates=(), block_size=16)
+    gdn_plan = SimpleNamespace(
+        candidates=(),
+        block_size=16,
+        to_dict=lambda: {"reason": "no_aligned_candidates"},
+    )
     request_data = NewRequestData(
         req_id=req_id,
         prompt_token_ids=[1, 2, 3, 4, 5, 6],
@@ -281,6 +291,17 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert runner.contextual_block_hashes[req_id] == (b"block-0", b"block-1")
     assert runner.partial_reuse_plans[req_id] is plan
     assert runner.gdn_delta_reuse_plans[req_id] is gdn_plan
+    assert runner.gdn_delta_preflight_results[req_id].reason == "no_candidates"
+    gdn_metrics = runner._take_gdn_delta_reuse_metrics([req_id])
+    assert gdn_metrics == {
+        req_id: {
+            "plan": {"reason": "no_aligned_candidates"},
+            "preflight_eligible": False,
+            "preflight_reason": "no_candidates",
+            "candidate_block_count": 0,
+            "resolved_layer_count": 0,
+        }
+    }
     resolved = runner.resolved_partial_reuse_candidates[req_id]
     assert len(resolved) == 1
     assert resolved[0].source_block_id == 42
@@ -313,6 +334,8 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert req_id not in runner.contextual_block_hashes
     assert req_id not in runner.partial_reuse_plans
     assert req_id not in runner.gdn_delta_reuse_plans
+    assert req_id not in runner.gdn_delta_preflight_results
+    assert req_id not in runner.pending_gdn_delta_reuse_metrics
     assert req_id not in runner.resolved_partial_reuse_candidates
     assert req_id not in runner.partial_reuse_copy_instructions
     assert req_id not in runner.partial_reuse_repair_instructions

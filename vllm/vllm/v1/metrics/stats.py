@@ -258,6 +258,7 @@ class RequestStateStats:
     cacheselect_copy_time_ms: float | None = None
     cacheselect_preparation_time_ms: float | None = None
     cacheselect_forward_time_ms: float | None = None
+    gdn_delta_reuse: dict[str, Any] | None = None
 
 
 @dataclass
@@ -312,6 +313,7 @@ class PrefillStats:
         cacheselect_copy_time_ms: GPU time spent copying candidate KV blocks.
         cacheselect_preparation_time_ms: CPU time spent preparing compacted spans.
         cacheselect_forward_time_ms: GPU time spent in the selected forward path.
+        gdn_delta_reuse: Hybrid GDN plan and all-layer preflight result.
     """
 
     num_prompt_tokens: int = 0
@@ -342,6 +344,7 @@ class PrefillStats:
     cacheselect_copy_time_ms: float | None = None
     cacheselect_preparation_time_ms: float | None = None
     cacheselect_forward_time_ms: float | None = None
+    gdn_delta_reuse: dict[str, Any] | None = None
 
     def set(
         self,

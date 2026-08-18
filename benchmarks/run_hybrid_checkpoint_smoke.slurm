@@ -126,6 +126,7 @@ setsid vllm serve "$MODEL" \
   --gdn-prefill-backend triton \
   --no-enable-chunked-prefill \
   --enforce-eager \
+  --enable-per-request-metrics \
   >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
@@ -161,6 +162,7 @@ python -m benchmarks.run_hybrid_apc_baseline \
   --output "$SUMMARY_PATH" \
   --max-completion-tokens 64 \
   --require-edited-prefix-reuse \
+  --require-gdn-preflight-observability \
   --validate-against-reference
 
 stop_server

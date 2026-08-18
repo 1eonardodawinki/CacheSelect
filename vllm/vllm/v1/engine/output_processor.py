@@ -657,6 +657,9 @@ class OutputProcessor:
                         req_state.stats.cacheselect_partial_reuse_plan = (
                             prefill_stats.cacheselect_partial_reuse_plan
                         )
+                        req_state.stats.gdn_delta_reuse = (
+                            prefill_stats.gdn_delta_reuse
+                        )
                         req_state.stats.cacheselect_repair_selector = (
                             prefill_stats.cacheselect_repair_selector
                         )

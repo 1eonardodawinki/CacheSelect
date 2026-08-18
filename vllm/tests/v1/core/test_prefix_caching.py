@@ -533,7 +533,7 @@ def test_hybrid_gdn_delta_reuse_plan_survives_source_block_free():
         max_model_len=8192,
         enable_caching=True,
         hash_block_size=block_size,
-        enable_gdn_delta_reuse=True,
+        gdn_delta_cache_capacity=2,
     )
     source = make_request(
         "chatcmpl-source",

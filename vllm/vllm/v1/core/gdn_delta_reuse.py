@@ -81,6 +81,7 @@ class GDNDeltaSourceIndex:
         block_size: int,
         hash_block_size: int,
         max_source_requests: int = 1024,
+        max_candidate_blocks: int | None = None,
     ) -> None:
         if block_size < 1 or hash_block_size < 1:
             raise ValueError("block sizes must be positive")
@@ -88,9 +89,12 @@ class GDNDeltaSourceIndex:
             raise ValueError("block_size must be divisible by hash_block_size")
         if max_source_requests < 1:
             raise ValueError("max_source_requests must be positive")
+        if max_candidate_blocks is not None and max_candidate_blocks < 1:
+            raise ValueError("max_candidate_blocks must be positive")
         self.block_size = block_size
         self.hash_block_size = hash_block_size
         self.max_source_requests = max_source_requests
+        self.max_candidate_blocks = max_candidate_blocks
         self._sources: OrderedDict[str, GDNDeltaSourceRequest] = OrderedDict()
 
     # Read the request's active LoRA identity without retaining the adapter.
@@ -165,8 +169,14 @@ class GDNDeltaSourceIndex:
         if prompt_token_ids is None:
             return self._plan(request, native_cached_tokens, "token_ids_unavailable")
 
+        candidate_source_blocks = source.blocks
+        if self.max_candidate_blocks is not None:
+            # Sidecars insert source operators in block order, retaining the tail.
+            candidate_source_blocks = candidate_source_blocks[
+                -self.max_candidate_blocks :
+            ]
         by_content: dict[tuple[int, ...], list[GDNDeltaSourceBlock]] = {}
-        for block in source.blocks:
+        for block in candidate_source_blocks:
             by_content.setdefault(block.token_ids, []).append(block)
         first_target_block = (
             native_cached_tokens + self.block_size - 1

@@ -278,9 +278,7 @@ class Scheduler(SchedulerInterface):
             metrics_collector=self.kv_metrics_collector,
             watermark=self.scheduler_config.watermark,
             enable_cacheselect=self.cache_config.enable_cacheselect,
-            enable_gdn_delta_reuse=(
-                self.cache_config.gdn_delta_cache_capacity > 0
-            ),
+            gdn_delta_cache_capacity=self.cache_config.gdn_delta_cache_capacity,
         )
         # Bind GPU block pool to the KV connector. This must happen after
         # kv_cache_manager is constructed so block_pool is available.
@@ -1675,6 +1673,7 @@ class Scheduler(SchedulerInterface):
         cacheselect_repair_metrics = (
             model_runner_output.cacheselect_repair_metrics or {}
         )
+        gdn_delta_reuse_metrics = model_runner_output.gdn_delta_reuse_metrics or {}
         kv_connector_output = model_runner_output.kv_connector_output
         cudagraph_stats = model_runner_output.cudagraph_stats
 
@@ -1801,6 +1800,9 @@ class Scheduler(SchedulerInterface):
                 request.prefill_stats.cacheselect_forward_time_ms = (
                     repair_metrics.forward_time_ms
                 )
+            gdn_metrics = gdn_delta_reuse_metrics.get(req_id)
+            if gdn_metrics is not None and request.prefill_stats is not None:
+                request.prefill_stats.gdn_delta_reuse = gdn_metrics
 
             req_index = model_runner_output.req_id_to_index[req_id]
             generated_token_ids = (

@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from benchmarks.run_hybrid_apc_baseline import (
     PREFIX_HIT_METRIC,
+    assess_gdn_delta_preflight_observability,
     assess_hybrid_checkpoint_reuse,
     build_hybrid_apc_scenarios,
     parse_prometheus_counter,
@@ -15,6 +16,24 @@ from observability.request_recorder import validate_ledger
 
 
 class HybridAPCBaselineTest(unittest.TestCase):
+    # Require both edited scenarios to expose plan and preflight evidence.
+    def test_assesses_gdn_delta_preflight_observability(self) -> None:
+        rows = [
+            {
+                "scenario": scenario,
+                "role": "target",
+                "gdn_delta_reuse": {
+                    "plan": {"reason": "aligned_candidates"},
+                    "preflight_reason": "eligible",
+                },
+            }
+            for scenario in ("early_edit", "middle_edit")
+        ]
+
+        assessment = assess_gdn_delta_preflight_observability(rows)
+
+        self.assertTrue(assessment["passed"])
+
     # Confirm the four transitions isolate the intended kinds of prompt change.
     def test_builds_controlled_scenarios(self) -> None:
         scenarios = {item.name: item for item in build_hybrid_apc_scenarios()}

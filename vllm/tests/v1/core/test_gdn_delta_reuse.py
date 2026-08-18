@@ -87,6 +87,32 @@ def test_locates_aligned_suffix_blocks_after_edit() -> None:
     assert plan.to_dict()["candidate_block_count"] == 2
 
 
+# Propose only tail operators expected to remain in the bounded GPU sidecar.
+def test_limits_candidates_to_expected_sidecar_residency() -> None:
+    index = GDNDeltaSourceIndex(
+        block_size=4,
+        hash_block_size=2,
+        max_candidate_blocks=1,
+    )
+    index.index(_request("source"))
+    target = SimpleNamespace(
+        request_id="target",
+        cacheselect_request_id="target",
+        cacheselect_source_request_id="source",
+        prompt_token_ids=[0, 1, 2, 3, 90, 91, 92, 93, *range(4, 12)],
+        cache_salt="experiment",
+        lora_request=None,
+    )
+
+    plan = index.locate(target, native_cached_tokens=4)
+
+    assert plan is not None
+    assert [
+        (candidate.source_block_index, candidate.target_block_index)
+        for candidate in plan.candidates
+    ] == [(2, 3)]
+
+
 # Reject a cross-namespace source rather than looking up another tenant's operator.
 def test_rejects_cache_salt_mismatch() -> None:
     index = GDNDeltaSourceIndex(block_size=4, hash_block_size=2)

@@ -4,7 +4,7 @@
 from abc import ABC, abstractmethod
 from copy import copy
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, NamedTuple, TypeAlias
+from typing import TYPE_CHECKING, Any, NamedTuple, TypeAlias
 
 import numpy as np
 import torch
@@ -284,6 +284,9 @@ class ModelRunnerOutput:
 
     # One-shot CacheSelect selector summaries keyed by request ID.
     cacheselect_repair_metrics: dict[str, CacheSelectRepairMetrics] | None = None
+
+    # One-shot hybrid GDN plan/preflight summaries keyed by request ID.
+    gdn_delta_reuse_metrics: dict[str, dict[str, Any]] | None = None
 
     @staticmethod
     def with_kv_conn_output_only(

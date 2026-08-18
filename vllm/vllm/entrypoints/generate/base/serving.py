@@ -100,6 +100,7 @@ def build_per_request_timing_metrics(
         cacheselect_reason=metrics.cacheselect_reason,
         cacheselect_native_cached_tokens=metrics.cacheselect_native_cached_tokens,
         cacheselect_partial_reuse_plan=metrics.cacheselect_partial_reuse_plan,
+        gdn_delta_reuse=metrics.gdn_delta_reuse,
         cacheselect_repair_selector=metrics.cacheselect_repair_selector,
         cacheselect_candidate_tokens=metrics.cacheselect_candidate_tokens,
         cacheselect_repair_tokens=metrics.cacheselect_repair_tokens,

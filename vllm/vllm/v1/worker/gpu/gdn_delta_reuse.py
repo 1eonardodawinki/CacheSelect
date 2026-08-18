@@ -8,6 +8,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import torch.nn as nn
+
 from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     GDNDeltaCacheEntry,
     GDNDeltaOperatorSidecar,
@@ -33,6 +35,26 @@ class GDNDeltaPreflightResult:
     reason: str
     candidate_count: int
     layers: tuple[ResolvedGDNDeltaLayer, ...] = ()
+
+
+# Discover Qwen GDN modules structurally without importing a model implementation.
+def collect_gdn_delta_sidecars(
+    model: nn.Module,
+) -> tuple[tuple[str, GDNDeltaOperatorSidecar | None], ...]:
+    missing = object()
+    layers = []
+    for layer_name, module in model.named_modules():
+        sidecar = getattr(module, "gdn_delta_operator_sidecar", missing)
+        if sidecar is missing:
+            continue
+        if sidecar is not None and not isinstance(
+            sidecar, GDNDeltaOperatorSidecar
+        ):
+            raise TypeError(
+                f"{layer_name}.gdn_delta_operator_sidecar has an invalid type"
+            )
+        layers.append((layer_name, sidecar))
+    return tuple(layers)
 
 
 # Resolve every candidate on every layer, or return a recompute-only result.

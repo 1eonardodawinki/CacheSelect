@@ -79,6 +79,11 @@ from vllm.v1.worker.gpu.cudagraph_utils import (
 )
 from vllm.v1.worker.gpu.dp_utils import dispatch_cg_and_sync_dp
 from vllm.v1.worker.gpu.eplb_utils import EPLBController, step_eplb_after
+from vllm.v1.worker.gpu.gdn_delta_reuse import (
+    GDNDeltaPreflightResult,
+    collect_gdn_delta_sidecars,
+    preflight_gdn_delta_reuse,
+)
 from vllm.v1.worker.gpu.input_batch import (
     InputBatch,
     InputBuffers,
@@ -178,6 +183,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.contextual_block_hashes: dict[str, tuple[bytes, ...]] = {}
         self.partial_reuse_plans: dict[str, PartialReusePlan] = {}
         self.gdn_delta_reuse_plans: dict[str, GDNDeltaReusePlan] = {}
+        self.gdn_delta_preflight_results: dict[str, GDNDeltaPreflightResult] = {}
+        self.pending_gdn_delta_reuse_metrics: dict[str, dict[str, Any]] = {}
         self.resolved_partial_reuse_candidates: dict[
             str, tuple[ResolvedPartialReuseCandidate, ...]
         ] = {}
@@ -857,6 +864,8 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.contextual_block_hashes.pop(req_id, None)
         self.partial_reuse_plans.pop(req_id, None)
         self.gdn_delta_reuse_plans.pop(req_id, None)
+        self.gdn_delta_preflight_results.pop(req_id, None)
+        self.pending_gdn_delta_reuse_metrics.pop(req_id, None)
         self.resolved_partial_reuse_candidates.pop(req_id, None)
         self.partial_reuse_copy_instructions.pop(req_id, None)
         self.partial_reuse_repair_instructions.pop(req_id, None)
@@ -973,9 +982,20 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                     new_req_data.contextual_block_hashes
                 )
             if new_req_data.gdn_delta_reuse_plan is not None:
-                self.gdn_delta_reuse_plans[req_id] = (
-                    new_req_data.gdn_delta_reuse_plan
+                gdn_plan = new_req_data.gdn_delta_reuse_plan
+                self.gdn_delta_reuse_plans[req_id] = gdn_plan
+                preflight = preflight_gdn_delta_reuse(
+                    gdn_plan,
+                    collect_gdn_delta_sidecars(self.model),
                 )
+                self.gdn_delta_preflight_results[req_id] = preflight
+                self.pending_gdn_delta_reuse_metrics[req_id] = {
+                    "plan": gdn_plan.to_dict(),
+                    "preflight_eligible": preflight.eligible,
+                    "preflight_reason": preflight.reason,
+                    "candidate_block_count": preflight.candidate_count,
+                    "resolved_layer_count": len(preflight.layers),
+                }
             if plan is not None:
                 self.partial_reuse_plans[req_id] = plan
                 assert resolved_candidates is not None
@@ -1029,6 +1049,17 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             req_id: self.pending_cacheselect_repair_metrics.pop(req_id)
             for req_id in req_ids
             if req_id in self.pending_cacheselect_repair_metrics
+        }
+        return metrics or None
+
+    # Consume one-shot GDN planning evidence for the scheduler response.
+    def _take_gdn_delta_reuse_metrics(
+        self, req_ids: list[str]
+    ) -> dict[str, dict[str, Any]] | None:
+        metrics = {
+            req_id: self.pending_gdn_delta_reuse_metrics.pop(req_id)
+            for req_id in req_ids
+            if req_id in self.pending_gdn_delta_reuse_metrics
         }
         return metrics or None
 
@@ -2029,6 +2060,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             cacheselect_repair_metrics=self._take_cacheselect_repair_metrics(
                 input_batch.req_ids
             ),
+            gdn_delta_reuse_metrics=self._take_gdn_delta_reuse_metrics(
+                input_batch.req_ids
+            ),
         )
         # Start async output copy here so that it can overlap with speculator proposal.
         async_output = AsyncOutput(
@@ -2135,6 +2169,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             req_id_to_index={req_id: i for i, req_id in enumerate(input_batch.req_ids)},
             kv_connector_output=kv_connector_output,
             cacheselect_repair_metrics=self._take_cacheselect_repair_metrics(
+                input_batch.req_ids
+            ),
+            gdn_delta_reuse_metrics=self._take_gdn_delta_reuse_metrics(
                 input_batch.req_ids
             ),
         )

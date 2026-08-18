@@ -54,6 +54,29 @@ def assess_hybrid_checkpoint_reuse(rows: list[dict[str, Any]]) -> dict[str, Any]
     }
 
 
+# Verify edited requests expose their hybrid plan and worker preflight result.
+def assess_gdn_delta_preflight_observability(
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    edited_targets = {
+        row["scenario"]: row
+        for row in rows
+        if row.get("role") == "target"
+        and row.get("scenario") in {"early_edit", "middle_edit"}
+    }
+    observed = {
+        scenario: isinstance(row.get("gdn_delta_reuse"), dict)
+        and "plan" in row["gdn_delta_reuse"]
+        and "preflight_reason" in row["gdn_delta_reuse"]
+        for scenario, row in edited_targets.items()
+    }
+    return {
+        "passed": set(observed) == {"early_edit", "middle_edit"}
+        and all(observed.values()),
+        "observed": observed,
+    }
+
+
 # Build long prompts whose edits occur before, within, or after cache pages.
 def build_hybrid_apc_scenarios() -> tuple[HybridAPCScenario, ...]:
     scenarios: list[HybridAPCScenario] = []
@@ -133,6 +156,8 @@ def _run_recorded_request(
     role: str,
     prompt: str,
     cache_salt: str,
+    cacheselect_request_id: str,
+    cacheselect_source_request_id: str | None,
     max_completion_tokens: int,
     timeout_seconds: float,
 ) -> dict[str, Any]:
@@ -146,6 +171,14 @@ def _run_recorded_request(
         "chat_template_kwargs": {"enable_thinking": False},
         "stream": False,
         "cache_salt": cache_salt,
+        "vllm_xargs": {
+            "cacheselect_request_id": cacheselect_request_id,
+            **(
+                {"cacheselect_source_request_id": cacheselect_source_request_id}
+                if cacheselect_source_request_id is not None
+                else {}
+            ),
+        },
     }
     pending = recorder.start(
         model_input={"api": "OpenAI Chat Completions", "payload": payload},
@@ -165,6 +198,7 @@ def _run_recorded_request(
     choices = response.get("choices") or []
     message = (choices[0].get("message") or {}) if choices else {}
     usage = response.get("usage") or {}
+    response_metrics = response.get("metrics") or {}
     row = {
         "scenario": scenario,
         "role": role,
@@ -174,6 +208,7 @@ def _run_recorded_request(
         "client_wall_seconds": elapsed,
         "finish_reason": choices[0].get("finish_reason") if choices else None,
         "output_text": message.get("content"),
+        "gdn_delta_reuse": response_metrics.get("gdn_delta_reuse"),
     }
     pending.complete(output={"raw_response": response}, metrics=row)
     return row
@@ -215,6 +250,10 @@ def run_hybrid_apc_baseline(
                     role="reference",
                     prompt=scenario.target_prompt,
                     cache_salt=reference_salt,
+                    cacheselect_request_id=(
+                        f"{run_id}:{scenario.name}:reference"
+                    ),
+                    cacheselect_source_request_id=None,
                     max_completion_tokens=max_completion_tokens,
                     timeout_seconds=timeout_seconds,
                 )
@@ -223,6 +262,7 @@ def run_hybrid_apc_baseline(
         cache_salt = hashlib.sha256(
             f"{recorder.invocation_id}:{scenario.name}".encode()
         ).hexdigest()
+        source_request_id = f"{run_id}:{scenario.name}:source"
         for role, prompt in (
             ("source", scenario.source_prompt),
             ("target", scenario.target_prompt),
@@ -237,6 +277,10 @@ def run_hybrid_apc_baseline(
                     role=role,
                     prompt=prompt,
                     cache_salt=cache_salt,
+                    cacheselect_request_id=f"{run_id}:{scenario.name}:{role}",
+                    cacheselect_source_request_id=(
+                        source_request_id if role == "target" else None
+                    ),
                     max_completion_tokens=max_completion_tokens,
                     timeout_seconds=timeout_seconds,
                 )
@@ -244,6 +288,7 @@ def run_hybrid_apc_baseline(
 
     ledger = validate_ledger(recorder.path)
     checkpoint_reuse = assess_hybrid_checkpoint_reuse(rows)
+    gdn_delta_preflight = assess_gdn_delta_preflight_observability(rows)
     reference_checks: list[dict[str, Any]] = []
     if validate_against_reference:
         for scenario in build_hybrid_apc_scenarios():
@@ -278,6 +323,7 @@ def run_hybrid_apc_baseline(
         "scenarios": [asdict(item) for item in build_hybrid_apc_scenarios()],
         "observations": rows,
         "checkpoint_reuse": checkpoint_reuse,
+        "gdn_delta_preflight": gdn_delta_preflight,
         "reference_checks": reference_checks,
         "reference_validation_passed": bool(reference_checks)
         and all(
@@ -304,6 +350,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
     parser.add_argument("--validate-against-reference", action="store_true")
     parser.add_argument("--require-edited-prefix-reuse", action="store_true")
+    parser.add_argument("--require-gdn-preflight-observability", action="store_true")
     return parser.parse_args()
 
 
@@ -331,6 +378,11 @@ def main() -> None:
     print(f"Saved {result['request_ledger']}")
     if args.require_edited_prefix_reuse and not result["checkpoint_reuse"]["passed"]:
         raise SystemExit("Hybrid checkpoint edited-prefix reuse validation failed")
+    if (
+        args.require_gdn_preflight_observability
+        and not result["gdn_delta_preflight"]["passed"]
+    ):
+        raise SystemExit("Hybrid GDN delta preflight observability validation failed")
     if args.validate_against_reference and not result["reference_validation_passed"]:
         raise SystemExit("Hybrid checkpoint output validation failed")
 
