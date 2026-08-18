@@ -17,6 +17,71 @@ class GDNDeltaCacheEntry:
     output_responses: torch.Tensor
 
 
+# Repeat grouped key/query heads across the value heads that consume them.
+def _expand_gdn_grouped_heads(
+    tensor: torch.Tensor,
+    value_heads: int,
+) -> torch.Tensor:
+    key_heads = tensor.shape[1]
+    if value_heads % key_heads != 0:
+        raise ValueError("value-head count must be divisible by key-head count")
+    return tensor.repeat_interleave(value_heads // key_heads, dim=1)
+
+
+# Compose one unchanged GDN block into final-state and output response tensors.
+def build_gdn_delta_operator(
+    keys: torch.Tensor,
+    queries: torch.Tensor,
+    log_decays: torch.Tensor,
+    betas: torch.Tensor,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Build the linear response to an incoming recurrent-state difference."""
+    if keys.ndim != 3 or queries.shape != keys.shape:
+        raise ValueError("keys and queries must have matching [T,H,K] shapes")
+    token_count, _, key_width = keys.shape
+    if log_decays.ndim != 2 or betas.shape != log_decays.shape:
+        raise ValueError("log_decays and betas must have matching [T,HV] shapes")
+    if log_decays.shape[0] != token_count:
+        raise ValueError("coefficient and token counts must agree")
+
+    value_heads = log_decays.shape[1]
+    expanded_keys = _expand_gdn_grouped_heads(keys, value_heads).float()
+    expanded_queries = _expand_gdn_grouped_heads(queries, value_heads).float()
+    log_decays = log_decays.float()
+    betas = betas.float()
+    transition = torch.eye(
+        key_width,
+        dtype=torch.float32,
+        device=keys.device,
+    ).expand(value_heads, key_width, key_width).clone()
+    responses = torch.empty(
+        token_count,
+        value_heads,
+        key_width,
+        dtype=torch.float32,
+        device=keys.device,
+    )
+    output_scale = key_width**-0.5
+    for token_index in range(token_count):
+        key = expanded_keys[token_index]
+        transition_read = torch.einsum("hkl,hl->hk", transition, key)
+        transition = log_decays[token_index].exp()[:, None, None] * (
+            transition
+            - betas[token_index, :, None, None]
+            * transition_read[:, :, None]
+            * key[:, None, :]
+        )
+        responses[token_index] = (
+            torch.einsum(
+                "hkl,hl->hk",
+                transition,
+                expanded_queries[token_index],
+            )
+            * output_scale
+        )
+    return transition, responses
+
+
 class GDNDeltaOperatorSidecar:
     """Fixed-capacity LRU storage kept outside ordinary Mamba cache pages."""
 

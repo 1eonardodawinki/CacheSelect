@@ -480,6 +480,9 @@ class CommonAttentionMetadata:
     fixed sliding window. None disables R-SWA. The attention backend copies this
     into its own persistent buffer and reads ``rswa_window`` from model config."""
 
+    contextual_block_hashes: tuple[tuple[bytes, ...], ...] = ()
+    """CPU-only chained identities for completed logical blocks by request."""
+
     # WARNING: Deprecated fields. Will be removed in a future release (v0.15.0)
     _seq_lens_cpu: torch.Tensor | None = None
     _num_computed_tokens_cpu: torch.Tensor | None = None

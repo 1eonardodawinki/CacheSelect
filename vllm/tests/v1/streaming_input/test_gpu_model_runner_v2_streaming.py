@@ -49,6 +49,7 @@ def mock_model_runner_with_req_states():
     runner.sampler = None
     runner.prompt_logprobs_worker = None
     runner.is_last_pp_rank = False
+    runner.contextual_block_hashes = {}
     runner.partial_reuse_plans = {}
     runner.resolved_partial_reuse_candidates = {}
     runner.partial_reuse_copy_instructions = {}
@@ -270,9 +271,11 @@ def test_partial_reuse_plan_follows_request_lifecycle(
         num_computed_tokens=0,
         lora_request=None,
         partial_reuse_plan=plan,
+        contextual_block_hashes=(b"block-0", b"block-1"),
     )
 
     runner.add_requests(_make_scheduler_output([request_data]))
+    assert runner.contextual_block_hashes[req_id] == (b"block-0", b"block-1")
     assert runner.partial_reuse_plans[req_id] is plan
     resolved = runner.resolved_partial_reuse_candidates[req_id]
     assert len(resolved) == 1
@@ -303,6 +306,7 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     assert req_id not in runner.pending_cacheselect_repair_metrics
 
     runner._remove_request(req_id)
+    assert req_id not in runner.contextual_block_hashes
     assert req_id not in runner.partial_reuse_plans
     assert req_id not in runner.resolved_partial_reuse_candidates
     assert req_id not in runner.partial_reuse_copy_instructions

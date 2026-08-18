@@ -99,6 +99,9 @@ class InputBatch:
     # [num_reqs] per-request prompt length, only populated for R-SWA.
     prompt_lens: torch.Tensor | None
 
+    # CPU-only contextual identities for each request's completed cache blocks.
+    contextual_block_hashes: tuple[tuple[bytes, ...], ...] = ()
+
     @classmethod
     def make_dummy(
         cls,

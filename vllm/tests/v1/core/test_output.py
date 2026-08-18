@@ -65,6 +65,29 @@ def test_from_request_uses_explicit_partial_reuse_plan() -> None:
     assert unapproved_request_data.partial_reuse_plan is None
 
 
+# Check that scheduler-approved contextual hashes survive the worker payload.
+def test_from_request_forwards_contextual_block_hashes() -> None:
+    request = SimpleNamespace(
+        request_id="test_req",
+        prompt_token_ids=[1, 2, 3],
+        mm_features=[],
+        sampling_params=None,
+        pooling_params=None,
+        lora_request=None,
+        prompt_embeds=None,
+        prompt_is_token_ids=None,
+        num_computed_tokens=0,
+    )
+
+    request_data = NewRequestData.from_request(
+        request,
+        block_ids=([],),
+        contextual_block_hashes=(b"first", b"second"),
+    )
+
+    assert request_data.contextual_block_hashes == (b"first", b"second")
+
+
 def test_scheduler_output_exposes_partial_reuse_plans() -> None:
     plan = object()
     request_with_plan = _create_new_requests_data(None)

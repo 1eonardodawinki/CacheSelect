@@ -382,6 +382,14 @@ class PCPManager:
             global_batch.req_ids[global_batch_req_idx]
             for global_batch_req_idx in local_to_global_batch_req_idx_np
         ]
+        local_contextual_block_hashes = (
+            tuple(
+                global_batch.contextual_block_hashes[global_batch_req_idx]
+                for global_batch_req_idx in local_to_global_batch_req_idx_np
+            )
+            if global_batch.contextual_block_hashes
+            else ()
+        )
 
         num_local_tokens = int(local_num_scheduled_tokens.sum())
         num_local_tokens_padded = max(per_rank_num_tokens)
@@ -539,6 +547,7 @@ class PCPManager:
             cu_num_logits=cu_num_logits,
             cu_num_logits_np=cu_num_logits_np,
             prompt_lens=None,
+            contextual_block_hashes=local_contextual_block_hashes,
         )
 
     def prepare_attn(

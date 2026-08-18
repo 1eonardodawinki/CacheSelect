@@ -50,6 +50,9 @@ class NewRequestData:
     # Shadow-only CacheSelect plan forwarded to the model runner.
     partial_reuse_plan: PartialReusePlan | None = None
 
+    # Context-chained identities for complete logical cache blocks.
+    contextual_block_hashes: tuple[bytes, ...] = ()
+
     # Build worker-facing request data with an explicitly approved reuse plan.
     @classmethod
     def from_request(
@@ -58,6 +61,7 @@ class NewRequestData:
         block_ids: tuple[list[int], ...],
         prefill_token_ids: list[int] | None = None,
         partial_reuse_plan: PartialReusePlan | None = None,
+        contextual_block_hashes: tuple[bytes, ...] = (),
     ) -> "NewRequestData":
         return cls(
             req_id=request.request_id,
@@ -72,6 +76,7 @@ class NewRequestData:
             prompt_is_token_ids=request.prompt_is_token_ids,
             prefill_token_ids=prefill_token_ids,
             partial_reuse_plan=partial_reuse_plan,
+            contextual_block_hashes=contextual_block_hashes,
         )
 
     def __repr__(self) -> str:

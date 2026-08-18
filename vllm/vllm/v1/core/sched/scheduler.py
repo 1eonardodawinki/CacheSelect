@@ -38,7 +38,7 @@ from vllm.v1.core.encoder_cache_manager import (
 from vllm.v1.core.kv_cache_coordinator import HybridKVCacheCoordinator
 from vllm.v1.core.kv_cache_manager import KVCacheBlocks, KVCacheManager
 from vllm.v1.core.kv_cache_metrics import KVCacheMetricsCollector
-from vllm.v1.core.kv_cache_utils import KVCacheBlock
+from vllm.v1.core.kv_cache_utils import KVCacheBlock, resolve_block_hashes
 from vllm.v1.core.partial_reuse import PartialReusePlan
 from vllm.v1.core.sched.interface import PauseState, SchedulerInterface
 from vllm.v1.core.sched.output import (
@@ -349,6 +349,20 @@ class Scheduler(SchedulerInterface):
         # In-flight requests still prefilling (prefill chunks + in-progress
         # async KV loads). Their remaining-block reservation gates async loads.
         self._inflight_prefills: set[Request] = set()
+
+    # Resolve authoritative contextual identities only for all-state Mamba caches.
+    def _get_contextual_block_hashes(self, request: Request) -> tuple[bytes, ...]:
+        if not (
+            self.has_mamba_layers
+            and self.cache_config.mamba_cache_mode == "all"
+        ):
+            return ()
+        hashes = resolve_block_hashes(
+            request.block_hashes,
+            self.hash_block_size,
+            self.block_size,
+        )
+        return tuple(hashes)
 
     def _mamba_block_aligned_split(
         self,
@@ -1134,6 +1148,7 @@ class Scheduler(SchedulerInterface):
                     partial_reuse_plan=partial_reuse_plans_for_step.get(
                         req.request_id
                     ),
+                    contextual_block_hashes=self._get_contextual_block_hashes(req),
                 )
                 for req in scheduled_new_reqs
             ]
@@ -1145,6 +1160,7 @@ class Scheduler(SchedulerInterface):
                     partial_reuse_plan=partial_reuse_plans_for_step.get(
                         req.request_id
                     ),
+                    contextual_block_hashes=self._get_contextual_block_hashes(req),
                 )
                 for req in scheduled_new_reqs
             ]

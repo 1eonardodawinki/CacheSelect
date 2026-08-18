@@ -239,6 +239,7 @@ class GDNAttentionMetadata:
     block_idx_first_scheduled_token: torch.Tensor | None = None
     block_idx_last_scheduled_token: torch.Tensor | None = None
     num_computed_tokens: torch.Tensor | None = None
+    contextual_block_hashes: tuple[tuple[bytes, ...], ...] = ()
 
     # The following attributes are for triton implementation of causal_conv1d
     nums_dict: dict | None = None
@@ -740,6 +741,7 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
             block_idx_first_scheduled_token=block_idx_first_scheduled_token,
             block_idx_last_scheduled_token=block_idx_last_scheduled_token,
             num_computed_tokens=num_computed_tokens,
+            contextual_block_hashes=m.contextual_block_hashes,
             spec_query_start_loc=spec_query_start_loc,
             non_spec_query_start_loc=non_spec_query_start_loc,
             spec_state_indices_tensor=spec_state_indices_tensor,

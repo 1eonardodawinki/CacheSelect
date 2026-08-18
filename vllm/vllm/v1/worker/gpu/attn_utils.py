@@ -508,6 +508,7 @@ def build_attn_metadata(
     for_cudagraph_capture: bool = False,
     causal: bool | torch.Tensor | Mapping[int, bool] = True,
     rswa_prefix_lens: torch.Tensor | None = None,
+    contextual_block_hashes: tuple[tuple[bytes, ...], ...] = (),
 ) -> dict[str, Any]:
     seq_lens = seq_lens[:num_reqs]
     if dcp_local_seq_lens is not None:
@@ -552,6 +553,7 @@ def build_attn_metadata(
             is_prefilling=group_is_prefilling,
             mm_req_doc_ranges=mm_req_doc_ranges,
             rswa_prefix_lens=rswa_prefix_lens,
+            contextual_block_hashes=contextual_block_hashes,
             **common_attn_metadata_extra_kwargs,
         )
 

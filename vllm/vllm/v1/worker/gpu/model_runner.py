@@ -174,6 +174,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.scheduler_config = vllm_config.scheduler_config
         self.speculative_config = vllm_config.speculative_config
         self.observability_config = vllm_config.observability_config
+        self.contextual_block_hashes: dict[str, tuple[bytes, ...]] = {}
         self.partial_reuse_plans: dict[str, PartialReusePlan] = {}
         self.resolved_partial_reuse_candidates: dict[
             str, tuple[ResolvedPartialReuseCandidate, ...]
@@ -851,6 +852,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
 
     # Remove a request and all CacheSelect state retained for it.
     def _remove_request(self, req_id: str) -> bool:
+        self.contextual_block_hashes.pop(req_id, None)
         self.partial_reuse_plans.pop(req_id, None)
         self.resolved_partial_reuse_candidates.pop(req_id, None)
         self.partial_reuse_copy_instructions.pop(req_id, None)
@@ -963,6 +965,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 num_computed_tokens=new_req_data.num_computed_tokens,
                 max_tokens=sampling_params.max_tokens if sampling_params else 1,  # type: ignore[arg-type]
             )
+            if new_req_data.contextual_block_hashes:
+                self.contextual_block_hashes[req_id] = (
+                    new_req_data.contextual_block_hashes
+                )
             if plan is not None:
                 self.partial_reuse_plans[req_id] = plan
                 assert resolved_candidates is not None
@@ -1382,6 +1388,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             cu_num_logits_np=cu_num_logits_np,
             has_structured_output_reqs=scheduler_output.has_structured_output_requests,
             prompt_lens=prompt_lens,
+            contextual_block_hashes=tuple(
+                self.contextual_block_hashes.get(req_id, ()) for req_id in req_ids
+            ),
         )
         return pcp.maybe_partition_pcp_batch(self.pcp_manager, input_batch)
 

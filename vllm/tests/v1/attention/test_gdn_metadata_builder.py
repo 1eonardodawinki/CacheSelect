@@ -240,6 +240,7 @@ def test_all_mode_exposes_block_checkpoint_metadata():
         DEVICE,
         arange_block_indices=True,
     )
+    common.contextual_block_hashes = ((b"a", b"b", b"c"), (b"d", b"e"))
 
     meta = builder.build(common_prefix_len=0, common_attn_metadata=common)
 
@@ -247,6 +248,7 @@ def test_all_mode_exposes_block_checkpoint_metadata():
     assert torch.equal(meta.checkpoint_state_indices, common.block_table_tensor)
     assert meta.num_computed_tokens is not None
     assert meta.num_computed_tokens.tolist() == [32, 20]
+    assert meta.contextual_block_hashes == common.contextual_block_hashes
     assert meta.block_idx_last_computed_token is not None
     assert meta.block_idx_last_computed_token.tolist() == [1, 1]
     assert meta.block_idx_first_scheduled_token is not None

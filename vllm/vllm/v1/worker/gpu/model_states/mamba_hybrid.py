@@ -274,6 +274,12 @@ class MambaHybridModelState(DefaultModelState):
             num_accepted_tokens=num_accepted_tokens,
             num_decode_draft_tokens_cpu=num_decode_draft_tokens_cpu,
         )
+        contextual_block_hashes = input_batch.contextual_block_hashes
+        if len(contextual_block_hashes) < num_reqs:
+            # Full CUDA graphs may add dummy request rows with no logical cache.
+            contextual_block_hashes += ((),) * (
+                num_reqs - len(contextual_block_hashes)
+            )
         return build_attn_metadata(
             attn_groups=attn_groups,
             num_reqs=num_reqs,
@@ -291,6 +297,7 @@ class MambaHybridModelState(DefaultModelState):
             model_specific_attn_metadata=mamba_attn_metadata,
             for_cudagraph_capture=for_capture,
             rswa_prefix_lens=input_batch.prompt_lens,
+            contextual_block_hashes=contextual_block_hashes,
         )
 
     def postprocess_state(
