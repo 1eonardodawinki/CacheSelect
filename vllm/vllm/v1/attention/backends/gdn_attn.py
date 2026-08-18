@@ -52,9 +52,7 @@ def plan_gdn_checkpoint_writes(
     if last_scheduled_block < first_scheduled_block:
         raise ValueError("last_scheduled_block must not precede the first block")
 
-    destination_blocks = tuple(
-        range(first_scheduled_block, last_scheduled_block)
-    )
+    destination_blocks = tuple(range(first_scheduled_block, last_scheduled_block))
     if not destination_blocks:
         return GDNCheckpointWritePlan((), ())
 
@@ -68,9 +66,7 @@ def plan_gdn_checkpoint_writes(
     if tokens_until_first_boundary % chunk_size != 0:
         raise ValueError("computed tokens do not align with a checkpoint chunk")
 
-    first_source_chunk = (
-        first_chunk_index + tokens_until_first_boundary // chunk_size
-    )
+    first_source_chunk = first_chunk_index + tokens_until_first_boundary // chunk_size
     chunks_per_block = block_size // chunk_size
     source_chunks = tuple(
         first_source_chunk + offset * chunks_per_block
@@ -140,9 +136,7 @@ def write_gdn_prefill_checkpoints(
                 state_cache.dtype
             )
 
-        final_slot = int(
-            checkpoint_state_indices[sequence_index, last_block].item()
-        )
+        final_slot = int(checkpoint_state_indices[sequence_index, last_block].item())
         if final_slot < 0:
             raise ValueError("the final checkpoint has no physical slot")
         state_cache[final_slot] = final_states[sequence_index].to(state_cache.dtype)
@@ -241,6 +235,15 @@ class GDNAttentionMetadataBuilder(AttentionMetadataBuilder[GDNAttentionMetadata]
         else:
             self.num_spec = 0
         self.use_spec_decode: bool = self.num_spec > 0
+        if (
+            self.vllm_config.cache_config.mamba_cache_mode == "all"
+            and self.use_spec_decode
+        ):
+            # Checkpoint input/output routing for draft-token branches is a
+            # separate correctness problem and must not silently use block 0.
+            raise NotImplementedError(
+                "GDN checkpointing does not yet support speculative decoding"
+            )
         self._init_reorder_batch_threshold(1, self.use_spec_decode)
 
         self.use_full_cuda_graph: bool = (

@@ -267,6 +267,16 @@ def test_align_mode_does_not_build_block_checkpoint_metadata():
     assert meta.num_computed_tokens is None
 
 
+# Reject speculative decoding until checkpoint routing covers every draft state.
+def test_all_mode_rejects_speculative_decoding():
+    """All mode must fail closed rather than reuse block zero for draft tokens."""
+    with pytest.raises(NotImplementedError, match="speculative decoding"):
+        _create_gdn_builder(
+            num_speculative_tokens=2,
+            mamba_cache_mode="all",
+        )
+
+
 # Verify the chunk-state mapping for a fresh multi-block prefill.
 def test_plans_gdn_checkpoint_writes_from_prompt_start():
     """Every complete non-final block should map to its following chunk state."""

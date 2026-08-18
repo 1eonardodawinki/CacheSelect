@@ -53,7 +53,10 @@ from vllm.third_party.flash_linear_attention.ops import (
     fused_recurrent_gated_delta_rule_packed_decode,
     fused_sigmoid_gating_delta_rule_update,
 )
-from vllm.third_party.flash_linear_attention.ops.chunk import l2norm_fwd
+from vllm.third_party.flash_linear_attention.ops.chunk import (
+    chunk_gated_delta_rule_inference_with_states,
+    l2norm_fwd,
+)
 from vllm.third_party.flash_linear_attention.ops.utils import FLA_CHUNK_SIZE
 from vllm.transformers_utils.configs.qwen3_next import Qwen3NextConfig
 from vllm.triton_utils import tl, triton
@@ -63,7 +66,10 @@ from vllm.utils.torch_utils import (
     _resolve_layer_name,
     direct_register_custom_op,
 )
-from vllm.v1.attention.backends.gdn_attn import GDNAttentionMetadata
+from vllm.v1.attention.backends.gdn_attn import (
+    GDNAttentionMetadata,
+    write_gdn_prefill_checkpoints,
+)
 
 # Optional ROCm AITER Triton kernels for the GDN decode path.
 # Availability is checked centrally via rocm_aiter_ops; the actual function
@@ -1430,26 +1436,95 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             prefill_has_initial_state = attn_metadata.prefill_has_initial_state
             assert prefill_state_indices is not None
             assert prefill_has_initial_state is not None
-            initial_state = ssm_state[prefill_state_indices]
+            is_checkpointing = self.cache_config.mamba_cache_mode == "all"
+            checkpoint_table = attn_metadata.checkpoint_state_indices
+            if is_checkpointing:
+                if self.chunk_gated_delta_rule.gdn_prefill_backend != "triton":
+                    raise NotImplementedError(
+                        "GDN checkpointing currently requires the Triton prefill "
+                        "backend"
+                    )
+                assert checkpoint_table is not None
+                assert attn_metadata.block_idx_last_computed_token is not None
+                checkpoint_rows = checkpoint_table[attn_metadata.num_decodes :]
+                initial_block_indices = attn_metadata.block_idx_last_computed_token[
+                    attn_metadata.num_decodes :
+                ]
+                initial_state_indices = checkpoint_rows.gather(
+                    1,
+                    initial_block_indices.unsqueeze(1),
+                ).squeeze(1)
+            else:
+                initial_state_indices = prefill_state_indices
+
+            initial_state = ssm_state[initial_state_indices].contiguous()
             initial_state[~prefill_has_initial_state, ...] = 0
-            (
-                core_attn_out_non_spec,
-                last_recurrent_state,
-            ) = self.chunk_gated_delta_rule(
-                q=query_non_spec,
-                k=key_non_spec,
-                v=value_non_spec,
-                g=g_non_spec,
-                beta=beta_non_spec,
-                initial_state=initial_state,
-                output_final_state=True,
-                cu_seqlens=attn_metadata.prefill_query_start_loc,
-                chunk_indices=attn_metadata.chunk_indices,
-                chunk_offsets=attn_metadata.chunk_offsets,
-                use_qk_l2norm_in_kernel=False,
-            )
-            # Init cache
-            ssm_state[prefill_state_indices] = last_recurrent_state.to(ssm_state.dtype)
+            if is_checkpointing:
+                (
+                    core_attn_out_non_spec,
+                    last_recurrent_state,
+                    intermediate_states,
+                ) = chunk_gated_delta_rule_inference_with_states(
+                    q=query_non_spec,
+                    k=key_non_spec,
+                    v=value_non_spec,
+                    g=g_non_spec,
+                    beta=beta_non_spec,
+                    initial_state=initial_state,
+                    output_final_state=True,
+                    cu_seqlens=attn_metadata.prefill_query_start_loc,
+                    chunk_indices=attn_metadata.chunk_indices,
+                    chunk_offsets=attn_metadata.chunk_offsets,
+                    use_qk_l2norm_in_kernel=False,
+                )
+                assert last_recurrent_state is not None
+                assert attn_metadata.chunk_offsets is not None
+                assert attn_metadata.num_computed_tokens is not None
+                assert attn_metadata.block_idx_first_scheduled_token is not None
+                assert attn_metadata.block_idx_last_scheduled_token is not None
+                mamba_block_size = self.cache_config.mamba_block_size
+                assert mamba_block_size is not None
+                write_gdn_prefill_checkpoints(
+                    state_cache=ssm_state,
+                    chunk_states=intermediate_states,
+                    final_states=last_recurrent_state,
+                    checkpoint_state_indices=checkpoint_rows,
+                    chunk_offsets=attn_metadata.chunk_offsets,
+                    num_computed_tokens=attn_metadata.num_computed_tokens[
+                        attn_metadata.num_decodes :
+                    ],
+                    first_scheduled_blocks=(
+                        attn_metadata.block_idx_first_scheduled_token[
+                            attn_metadata.num_decodes :
+                        ]
+                    ),
+                    last_scheduled_blocks=attn_metadata.block_idx_last_scheduled_token[
+                        attn_metadata.num_decodes :
+                    ],
+                    block_size=mamba_block_size,
+                    chunk_size=FLA_CHUNK_SIZE,
+                )
+            else:
+                (
+                    core_attn_out_non_spec,
+                    last_recurrent_state,
+                ) = self.chunk_gated_delta_rule(
+                    q=query_non_spec,
+                    k=key_non_spec,
+                    v=value_non_spec,
+                    g=g_non_spec,
+                    beta=beta_non_spec,
+                    initial_state=initial_state,
+                    output_final_state=True,
+                    cu_seqlens=attn_metadata.prefill_query_start_loc,
+                    chunk_indices=attn_metadata.chunk_indices,
+                    chunk_offsets=attn_metadata.chunk_offsets,
+                    use_qk_l2norm_in_kernel=False,
+                )
+                # The legacy modes keep only the latest state per request.
+                ssm_state[prefill_state_indices] = last_recurrent_state.to(
+                    ssm_state.dtype
+                )
 
             if split_non_spec:
                 # Stitch the peeled decode outputs in front of the prefill
