@@ -38,6 +38,7 @@ class AnalyzeHybridGDNActiveTests(unittest.TestCase):
         summary = {
             "run_id": "active-run",
             "model": "Qwen/Qwen3.5-9B",
+            "record_count": 160,
             "gdn_delta_active": {"passed": True},
             "observations": rows,
         }

@@ -200,14 +200,21 @@ def assess_gdn_delta_active_execution(
     }
 
 
-# Build long prompts whose edits occur before, within, or after cache pages.
-def build_hybrid_apc_scenarios() -> tuple[HybridAPCScenario, ...]:
+# Build prompts with edits at stable early and middle relative positions.
+def build_hybrid_apc_scenarios(
+    record_count: int = 160,
+) -> tuple[HybridAPCScenario, ...]:
+    """Return controlled prompt pairs at one configurable context length."""
+    if record_count < 20:
+        raise ValueError("record_count must be at least 20")
+    early_edit_index = record_count // 20
+    middle_edit_index = record_count // 2
     scenarios: list[HybridAPCScenario] = []
     for name in ("exact", "append_only", "early_edit", "middle_edit"):
         sentences = [
             f"Hybrid APC {name} record {index:03d} says marker A and cached state "
             "follows prompt order."
-            for index in range(160)
+            for index in range(record_count)
         ]
         source = " ".join(sentences) + "\nSummarize this principle. /no_think"
         target_sentences = list(sentences)
@@ -216,13 +223,15 @@ def build_hybrid_apc_scenarios() -> tuple[HybridAPCScenario, ...]:
                 "The appended record keeps every earlier prompt token unchanged."
             )
         elif name == "early_edit":
-            target_sentences[8] = (
-                "Hybrid APC early_edit record 008 says marker B and cached state "
+            target_sentences[early_edit_index] = (
+                f"Hybrid APC early_edit record {early_edit_index:03d} says marker B "
+                "and cached state "
                 "follows prompt order."
             )
         elif name == "middle_edit":
-            target_sentences[80] = (
-                "Hybrid APC middle_edit record 080 says marker B and cached state "
+            target_sentences[middle_edit_index] = (
+                f"Hybrid APC middle_edit record {middle_edit_index:03d} says marker B "
+                "and cached state "
                 "follows prompt order."
             )
         target = " ".join(target_sentences) + "\nSummarize this principle. /no_think"
@@ -277,10 +286,11 @@ def inspect_hybrid_token_alignment(
     base_url: str,
     model: str,
     timeout_seconds: float,
+    record_count: int = 160,
 ) -> dict[str, Any]:
     details = {}
     tokenize_url = f"{base_url.rstrip('/')}/tokenize"
-    for scenario in build_hybrid_apc_scenarios():
+    for scenario in build_hybrid_apc_scenarios(record_count):
         if scenario.name not in {"early_edit", "middle_edit"}:
             continue
         token_lists = []
@@ -390,6 +400,7 @@ def run_hybrid_apc_baseline(
     timeout_seconds: float = 120.0,
     validate_against_reference: bool = False,
     require_token_aligned_edits: bool = False,
+    record_count: int = 160,
 ) -> dict[str, Any]:
     recorder = RequestRecorder(
         run_id=run_id,
@@ -402,6 +413,7 @@ def run_hybrid_apc_baseline(
         base_url=base_url,
         model=model,
         timeout_seconds=timeout_seconds,
+        record_count=record_count,
     )
     if require_token_aligned_edits and not token_alignment["passed"]:
         # Abort before issuing any generation requests for a misaligned workload.
@@ -409,7 +421,7 @@ def run_hybrid_apc_baseline(
             f"hybrid edits are not token aligned: {token_alignment['details']}"
         )
     rows: list[dict[str, Any]] = []
-    for scenario in build_hybrid_apc_scenarios():
+    for scenario in build_hybrid_apc_scenarios(record_count):
         if validate_against_reference:
             # A separate salt guarantees that this target performs a full prefill.
             reference_salt = hashlib.sha256(
@@ -466,7 +478,7 @@ def run_hybrid_apc_baseline(
     gdn_delta_active = assess_gdn_delta_active_execution(rows)
     reference_checks: list[dict[str, Any]] = []
     if validate_against_reference:
-        for scenario in build_hybrid_apc_scenarios():
+        for scenario in build_hybrid_apc_scenarios(record_count):
             reference = next(
                 row
                 for row in rows
@@ -493,9 +505,12 @@ def run_hybrid_apc_baseline(
         "experiment": "hybrid_apc_baseline",
         "run_id": run_id,
         "model": model,
+        "record_count": record_count,
         "request_ledger": str(recorder.path),
         "ledger_complete": ledger.is_complete,
-        "scenarios": [asdict(item) for item in build_hybrid_apc_scenarios()],
+        "scenarios": [
+            asdict(item) for item in build_hybrid_apc_scenarios(record_count)
+        ],
         "token_alignment": token_alignment,
         "observations": rows,
         "checkpoint_reuse": checkpoint_reuse,
@@ -525,6 +540,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--request-log-dir", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--max-completion-tokens", type=int, default=16)
+    parser.add_argument("--record-count", type=int, default=160)
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
     parser.add_argument("--validate-against-reference", action="store_true")
     parser.add_argument("--require-edited-prefix-reuse", action="store_true")
@@ -548,6 +564,7 @@ def main() -> None:
         timeout_seconds=args.timeout_seconds,
         validate_against_reference=args.validate_against_reference,
         require_token_aligned_edits=args.require_token_aligned_edits,
+        record_count=args.record_count,
     )
     targets = [row for row in result["observations"] if row["role"] == "target"]
     for row in targets:

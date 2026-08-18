@@ -168,6 +168,17 @@ class HybridAPCBaselineTest(unittest.TestCase):
         self.assertIn("marker A", scenarios["early_edit"].source_prompt)
         self.assertIn("marker B", scenarios["early_edit"].target_prompt)
 
+    # Scale the same controlled edits to shorter evaluation contexts.
+    def test_builds_configurable_context_length(self) -> None:
+        scenarios = {item.name: item for item in build_hybrid_apc_scenarios(40)}
+
+        self.assertIn("record 002 says marker B", scenarios["early_edit"].target_prompt)
+        self.assertIn(
+            "record 020 says marker B", scenarios["middle_edit"].target_prompt
+        )
+        with self.assertRaisesRegex(ValueError, "at least 20"):
+            build_hybrid_apc_scenarios(19)
+
     # Distinguish block checkpoint reuse from the old all-or-nothing hybrid path.
     def test_accepts_progressively_longer_edited_prefix_hits(self) -> None:
         cached = {

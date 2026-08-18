@@ -35,6 +35,9 @@ def analyze_hybrid_gdn_active(summary: dict[str, Any]) -> dict[str, Any]:
     rows = summary.get("observations")
     if not isinstance(rows, list):
         raise ValueError("hybrid summary observations are missing")
+    record_count = summary.get("record_count")
+    if not isinstance(record_count, int) or record_count < 20:
+        raise ValueError("hybrid summary has an invalid record_count")
 
     comparisons = []
     for scenario in ("early_edit", "middle_edit"):
@@ -72,6 +75,7 @@ def analyze_hybrid_gdn_active(summary: dict[str, Any]) -> dict[str, Any]:
         "experiment": "hybrid_gdn_active_analysis",
         "source_run_id": summary.get("run_id"),
         "model": summary.get("model"),
+        "record_count": record_count,
         "all_outputs_exact": all(row["exact_output_match"] for row in comparisons),
         "mean_speedup": statistics.fmean(speedups),
         "minimum_speedup": min(speedups),
