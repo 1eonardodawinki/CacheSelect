@@ -62,6 +62,7 @@ GDNRecomputeSpan = Callable[
     [int, int, torch.Tensor],
     tuple[torch.Tensor, torch.Tensor],
 ]
+GDNSpanComplete = Callable[[GDNDeltaExecutionSpan, torch.Tensor], None]
 
 
 # Admit only the narrow eager single-prefill path implemented by the prototype.
@@ -201,6 +202,8 @@ def execute_gdn_delta_sequence_plan(
     initial_state: torch.Tensor,
     sidecar: GDNDeltaOperatorSidecar,
     recompute_span: GDNRecomputeSpan,
+    output_dtype: torch.dtype | None = None,
+    span_complete: GDNSpanComplete | None = None,
 ) -> GDNDeltaSequenceExecutionResult | None:
     """Return None before execution when any planned operator is unavailable."""
     reuse_hashes = tuple(
@@ -244,7 +247,13 @@ def execute_gdn_delta_sequence_plan(
         )
         if span_outputs.shape != expected_output_shape:
             raise ValueError("span execution returned incompatible recurrent outputs")
+        # Cached operators use float32 for stability; restore the model's activation
+        # dtype before joining reused and normally recomputed output spans.
+        if output_dtype is not None:
+            span_outputs = span_outputs.to(dtype=output_dtype)
         outputs.append(span_outputs)
+        if span_complete is not None:
+            span_complete(span, state)
 
     if entry_index != len(resolved_entries):
         raise RuntimeError("not every resolved GDN operator was consumed")
@@ -253,7 +262,7 @@ def execute_gdn_delta_sequence_plan(
     else:
         combined_outputs = torch.empty(
             (0, initial_state.shape[0], initial_state.shape[1]),
-            dtype=initial_state.dtype,
+            dtype=output_dtype or initial_state.dtype,
             device=initial_state.device,
         )
     expected_tokens = plan.scheduled_end_token - plan.scheduled_start_token

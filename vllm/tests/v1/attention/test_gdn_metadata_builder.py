@@ -23,6 +23,7 @@ from vllm.v1.attention.backends.gdn_attn import (
     plan_gdn_checkpoint_writes,
     prepare_gdn_decode_checkpoints,
     write_gdn_prefill_checkpoints,
+    write_gdn_reused_block_checkpoint,
 )
 from vllm.v1.kv_cache_interface import MambaSpec
 
@@ -390,6 +391,26 @@ def test_rejects_missing_gdn_checkpoint_slot():
             block_size=64,
             chunk_size=16,
         )
+
+
+# Verify that one reused logical block saves its outgoing state physically.
+def test_writes_gdn_reused_block_checkpoint():
+    """Active reuse should populate the target block's mapped cache slot."""
+    state_cache = torch.zeros((6, 2), dtype=torch.float16)
+    checkpoint_table = torch.tensor([[4, 1, 5]], dtype=torch.int32)
+
+    write_gdn_reused_block_checkpoint(
+        state_cache=state_cache,
+        checkpoint_state_indices=checkpoint_table,
+        sequence_index=0,
+        target_block_index=1,
+        final_state=torch.tensor([[7.0, 8.0]], dtype=torch.float32),
+    )
+
+    torch.testing.assert_close(
+        state_cache[1],
+        torch.tensor([7.0, 8.0], dtype=torch.float16),
+    )
 
 
 # Verify that decode copies state only according to logical-to-physical mapping.

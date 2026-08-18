@@ -142,6 +142,37 @@ def write_gdn_prefill_checkpoints(
         state_cache[final_slot] = final_states[sequence_index].to(state_cache.dtype)
 
 
+# Persist the recurrent state produced by one actively reused complete block.
+def write_gdn_reused_block_checkpoint(
+    *,
+    state_cache: torch.Tensor,
+    checkpoint_state_indices: torch.Tensor,
+    sequence_index: int,
+    target_block_index: int,
+    final_state: torch.Tensor,
+) -> None:
+    """Write one reused block's outgoing state to its physical cache slot."""
+    if checkpoint_state_indices.ndim != 2:
+        raise ValueError("checkpoint_state_indices must be a two-dimensional table")
+    if sequence_index < 0 or sequence_index >= checkpoint_state_indices.shape[0]:
+        raise ValueError("sequence_index is outside the checkpoint table")
+    if (
+        target_block_index < 0
+        or target_block_index >= checkpoint_state_indices.shape[1]
+    ):
+        raise ValueError("target_block_index is outside the checkpoint table")
+    expected_shape = (1, *state_cache.shape[1:])
+    if final_state.shape != expected_shape:
+        raise ValueError("final_state has an incompatible recurrent-state shape")
+
+    physical_slot = int(
+        checkpoint_state_indices[sequence_index, target_block_index].item()
+    )
+    if physical_slot == NULL_BLOCK_ID:
+        raise ValueError("the reused block checkpoint has no physical slot")
+    state_cache[physical_slot] = final_state[0].to(state_cache.dtype)
+
+
 # Copy decode inputs to their destination block and return destination slots.
 def prepare_gdn_decode_checkpoints(
     *,

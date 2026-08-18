@@ -117,6 +117,67 @@ class GDNDeltaExecutionPlanTests(unittest.TestCase):
         self.assertEqual(result.recomputed_tokens, 4)
         self.assertEqual(result.reused_tokens, 2)
 
+    # Convert float32 affine outputs back to the model activation dtype.
+    def test_casts_mixed_outputs_to_requested_dtype(self) -> None:
+        (plan,) = build_gdn_delta_execution_plans(
+            num_computed_tokens=(0,),
+            num_scheduled_tokens=(4,),
+            block_size=2,
+            reuse_candidates=(((1, b"tail"),),),
+        )
+
+        # Return half-precision outputs while retaining a stable float32 state.
+        def recompute(start: int, end: int, state: torch.Tensor):
+            outputs = torch.ones(end - start, 1, 1, dtype=torch.float16)
+            return state + (end - start), outputs
+
+        result = execute_gdn_delta_sequence_plan(
+            plan,
+            initial_state=torch.zeros(1, 1, 1),
+            sidecar=_sidecar(b"tail"),
+            recompute_span=recompute,
+            output_dtype=torch.float16,
+        )
+
+        assert result is not None
+        self.assertEqual(result.outputs.dtype, torch.float16)
+        self.assertEqual(result.final_state.dtype, torch.float32)
+
+    # Report each span's resulting state so the caller can persist checkpoints.
+    def test_reports_completed_span_states_in_order(self) -> None:
+        (plan,) = build_gdn_delta_execution_plans(
+            num_computed_tokens=(0,),
+            num_scheduled_tokens=(6,),
+            block_size=2,
+            reuse_candidates=(((1, b"middle"),),),
+        )
+        completed = []
+
+        # Increment the state once per normally recomputed token.
+        def recompute(start: int, end: int, state: torch.Tensor):
+            state = state + (end - start)
+            return state, state.squeeze(-1).expand(end - start, -1, -1)
+
+        result = execute_gdn_delta_sequence_plan(
+            plan,
+            initial_state=torch.zeros(1, 1, 1),
+            sidecar=_sidecar(b"middle"),
+            recompute_span=recompute,
+            span_complete=lambda span, state: completed.append(
+                (span.mode, span.end_token, float(state.item()))
+            ),
+        )
+
+        assert result is not None
+        self.assertEqual(
+            completed,
+            [
+                ("recompute", 2, 2.0),
+                ("affine_reuse", 4, 12.0),
+                ("recompute", 6, 14.0),
+            ],
+        )
+
     # Fall back before invoking normal recurrence if one operator disappeared.
     def test_missing_operator_falls_back_before_execution(self) -> None:
         (plan,) = build_gdn_delta_execution_plans(

@@ -33,6 +33,13 @@ from vllm.model_executor.layers.mamba.gdn.delta_cache import (
     compare_completed_gdn_blocks_shadow,
     store_completed_gdn_delta_operators,
 )
+from vllm.model_executor.layers.mamba.gdn.delta_execution import (
+    GDNDeltaExecutionSpan,
+    GDNDeltaSequenceExecutionResult,
+    assess_gdn_delta_active_admission,
+    build_gdn_delta_execution_plans,
+    execute_gdn_delta_sequence_plan,
+)
 from vllm.model_executor.layers.mamba.mamba_mixer2 import mamba_v2_sharded_weight_loader
 from vllm.model_executor.layers.mamba.mamba_utils import (
     MambaStateShapeCalculator,
@@ -63,6 +70,10 @@ from vllm.third_party.flash_linear_attention.ops.chunk import (
     chunk_gated_delta_rule_inference_with_states,
     l2norm_fwd,
 )
+from vllm.third_party.flash_linear_attention.ops.index import (
+    prepare_chunk_indices,
+    prepare_chunk_offsets,
+)
 from vllm.third_party.flash_linear_attention.ops.utils import FLA_CHUNK_SIZE
 from vllm.transformers_utils.configs.qwen3_next import Qwen3NextConfig
 from vllm.triton_utils import tl, triton
@@ -76,6 +87,7 @@ from vllm.v1.attention.backends.gdn_attn import (
     GDNAttentionMetadata,
     prepare_gdn_decode_checkpoints,
     write_gdn_prefill_checkpoints,
+    write_gdn_reused_block_checkpoint,
 )
 
 # Optional ROCm AITER Triton kernels for the GDN decode path.
@@ -495,9 +507,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             envs.VLLM_ENABLE_FLA_PACKED_RECURRENT_DECODE
         )
         self.gdn_delta_operator_sidecar: GDNDeltaOperatorSidecar | None = None
-        self.last_gdn_delta_shadow_results: tuple[
-            GDNDeltaBlockShadowResult, ...
-        ] = ()
+        self.last_gdn_delta_shadow_results: tuple[GDNDeltaBlockShadowResult, ...] = ()
 
         compilation_config = get_current_vllm_config().compilation_config
         if prefix in compilation_config.static_forward_context:
@@ -526,6 +536,144 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                 device=device,
             )
         return self.gdn_delta_operator_sidecar
+
+    # Execute one supported prefill as alternating normal and affine GDN spans.
+    def _execute_active_gdn_prefill(
+        self,
+        *,
+        attn_metadata: GDNAttentionMetadata,
+        sidecar: GDNDeltaOperatorSidecar,
+        state_cache: torch.Tensor,
+        checkpoint_rows: torch.Tensor,
+        initial_state: torch.Tensor,
+        queries: torch.Tensor,
+        keys: torch.Tensor,
+        values: torch.Tensor,
+        log_decays: torch.Tensor,
+        betas: torch.Tensor,
+        reuse_candidates: tuple[tuple[tuple[int, bytes], ...], ...],
+    ) -> GDNDeltaSequenceExecutionResult | None:
+        """Run active reuse only for the fail-closed single-prefill path."""
+        admission = assess_gdn_delta_active_admission(
+            execution_mode=self.cache_config.gdn_delta_execution_mode,
+            mamba_cache_mode=self.cache_config.mamba_cache_mode,
+            prefill_backend=self.chunk_gated_delta_rule.gdn_prefill_backend,
+            num_prefills=attn_metadata.num_prefills,
+            num_decodes=attn_metadata.num_decodes,
+            num_spec_decodes=attn_metadata.num_spec_decodes,
+            reuse_candidates=reuse_candidates,
+        )
+        if not admission.eligible:
+            return None
+        if initial_state.shape[0] != 1 or checkpoint_rows.shape[0] != 1:
+            raise ValueError("active GDN reuse requires one prefill state row")
+        if queries.shape[0] != 1:
+            raise ValueError("active GDN reuse requires one packed query batch")
+
+        block_size = self.cache_config.mamba_block_size
+        if block_size is None:
+            raise ValueError("active GDN reuse requires a Mamba block size")
+        if block_size % FLA_CHUNK_SIZE != 0:
+            raise ValueError("the Mamba block size must align to GDN kernel chunks")
+        if attn_metadata.num_computed_tokens_cpu is None:
+            raise ValueError("active GDN reuse requires CPU computed-token metadata")
+        if attn_metadata.prefill_query_start_loc_cpu is None:
+            raise ValueError("active GDN reuse requires CPU prefill boundaries")
+
+        computed = int(attn_metadata.num_computed_tokens_cpu[0].item())
+        query_starts = attn_metadata.prefill_query_start_loc_cpu
+        scheduled = int((query_starts[1] - query_starts[0]).item())
+        if computed % block_size != 0:
+            raise ValueError("the active GDN prefill must start on a block boundary")
+        (plan,) = build_gdn_delta_execution_plans(
+            num_computed_tokens=(computed,),
+            num_scheduled_tokens=(scheduled,),
+            block_size=block_size,
+            reuse_candidates=reuse_candidates,
+        )
+        if not plan.reused_block_indices:
+            return None
+
+        # Run the existing Triton recurrence on each changed token interval.
+        def recompute_span(
+            start_token: int,
+            end_token: int,
+            incoming_state: torch.Tensor,
+        ) -> tuple[torch.Tensor, torch.Tensor]:
+            """Recompute one absolute prompt interval and persist its states."""
+            local_start = start_token - computed
+            local_end = end_token - computed
+            token_count = local_end - local_start
+            span_starts_cpu = torch.tensor(
+                [0, token_count],
+                dtype=query_starts.dtype,
+            )
+            span_starts = span_starts_cpu.to(device=queries.device)
+            chunk_indices = prepare_chunk_indices(
+                span_starts_cpu,
+                FLA_CHUNK_SIZE,
+            ).to(device=queries.device)
+            chunk_offsets = prepare_chunk_offsets(
+                span_starts_cpu,
+                FLA_CHUNK_SIZE,
+            ).to(device=queries.device)
+            outputs, final_states, chunk_states = (
+                chunk_gated_delta_rule_inference_with_states(
+                    q=queries[:, local_start:local_end],
+                    k=keys[:, local_start:local_end],
+                    v=values[:, local_start:local_end],
+                    g=log_decays[:, local_start:local_end],
+                    beta=betas[:, local_start:local_end],
+                    initial_state=incoming_state.unsqueeze(0),
+                    output_final_state=True,
+                    cu_seqlens=span_starts,
+                    chunk_indices=chunk_indices,
+                    chunk_offsets=chunk_offsets,
+                    use_qk_l2norm_in_kernel=False,
+                )
+            )
+            assert final_states is not None
+            first_block = start_token // block_size
+            last_block = (end_token - 1) // block_size
+            write_gdn_prefill_checkpoints(
+                state_cache=state_cache,
+                chunk_states=chunk_states,
+                final_states=final_states,
+                checkpoint_state_indices=checkpoint_rows,
+                chunk_offsets=chunk_offsets,
+                num_computed_tokens=torch.tensor([start_token]),
+                first_scheduled_blocks=torch.tensor([first_block]),
+                last_scheduled_blocks=torch.tensor([last_block]),
+                block_size=block_size,
+                chunk_size=FLA_CHUNK_SIZE,
+            )
+            return final_states[0], outputs.squeeze(0)
+
+        # Save the outgoing state of an affine span like a normal completed block.
+        def span_complete(
+            span: GDNDeltaExecutionSpan,
+            outgoing_state: torch.Tensor,
+        ) -> None:
+            """Persist actively reused states in the ordinary checkpoint table."""
+            if span.mode != "affine_reuse":
+                return
+            assert span.target_block_index is not None
+            write_gdn_reused_block_checkpoint(
+                state_cache=state_cache,
+                checkpoint_state_indices=checkpoint_rows,
+                sequence_index=0,
+                target_block_index=span.target_block_index,
+                final_state=outgoing_state.unsqueeze(0),
+            )
+
+        return execute_gdn_delta_sequence_plan(
+            plan,
+            initial_state=initial_state[0],
+            sidecar=sidecar,
+            recompute_span=recompute_span,
+            output_dtype=queries.dtype,
+            span_complete=span_complete,
+        )
 
     def create_qkvz_proj(
         self,
@@ -1595,11 +1743,9 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                 sidecar = self._get_gdn_delta_operator_sidecar(key_non_spec.device)
                 first_prefill = attn_metadata.num_decodes
                 final_prefill = first_prefill + attn_metadata.num_prefills
-                prefill_reuse_candidates = (
-                    attn_metadata.gdn_delta_reuse_candidates[
-                        first_prefill:final_prefill
-                    ]
-                )
+                prefill_reuse_candidates = attn_metadata.gdn_delta_reuse_candidates[
+                    first_prefill:final_prefill
+                ]
                 if sidecar is not None and any(prefill_reuse_candidates):
                     assert attn_metadata.prefill_query_start_loc_cpu is not None
                     assert attn_metadata.num_computed_tokens_cpu is not None
