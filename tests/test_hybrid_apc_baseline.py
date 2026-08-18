@@ -6,6 +6,7 @@ from unittest.mock import patch
 
 from benchmarks.run_hybrid_apc_baseline import (
     PREFIX_HIT_METRIC,
+    assess_hybrid_checkpoint_reuse,
     build_hybrid_apc_scenarios,
     parse_prometheus_counter,
     run_hybrid_apc_baseline,
@@ -37,6 +38,38 @@ class HybridAPCBaselineTest(unittest.TestCase):
             scenarios["middle_edit"].source_prompt,
             scenarios["middle_edit"].target_prompt,
         )
+
+    # Distinguish block checkpoint reuse from the old all-or-nothing hybrid path.
+    def test_accepts_progressively_longer_edited_prefix_hits(self) -> None:
+        cached = {
+            "exact": 2112,
+            "append_only": 2112,
+            "early_edit": 128,
+            "middle_edit": 1216,
+        }
+        rows = [
+            {"scenario": scenario, "role": "target", "cached_tokens": tokens}
+            for scenario, tokens in cached.items()
+        ]
+
+        assessment = assess_hybrid_checkpoint_reuse(rows)
+
+        self.assertTrue(assessment["passed"])
+        self.assertEqual(assessment["cached_tokens"], cached)
+
+    # Reject the previous align-mode behavior that missed both edited prefixes.
+    def test_rejects_zero_edit_prefix_hits(self) -> None:
+        rows = [
+            {"scenario": scenario, "role": "target", "cached_tokens": tokens}
+            for scenario, tokens in {
+                "exact": 2112,
+                "append_only": 2112,
+                "early_edit": 0,
+                "middle_edit": 0,
+            }.items()
+        ]
+
+        self.assertFalse(assess_hybrid_checkpoint_reuse(rows)["passed"])
 
     # Confirm Prometheus label sets are parsed without matching created gauges.
     def test_parses_prometheus_counter(self) -> None:

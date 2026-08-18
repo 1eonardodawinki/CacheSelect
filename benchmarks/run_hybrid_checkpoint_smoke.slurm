@@ -134,6 +134,7 @@ python -m benchmarks.run_hybrid_apc_baseline \
   --request-log-dir "$REQUEST_LOG_DIR" \
   --output "$SUMMARY_PATH" \
   --max-completion-tokens 64 \
+  --require-edited-prefix-reuse \
   --validate-against-reference
 
 stop_server

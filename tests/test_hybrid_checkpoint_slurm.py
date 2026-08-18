@@ -33,6 +33,7 @@ class HybridCheckpointSlurmTests(TestCase):
             "--no-enable-chunked-prefill",
             "--enforce-eager",
             "python -m benchmarks.run_hybrid_apc_baseline",
+            "--require-edited-prefix-reuse",
             "--validate-against-reference",
             "--max-completion-tokens 64",
             'test -s "$SUMMARY_PATH"',

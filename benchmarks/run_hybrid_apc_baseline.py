@@ -28,6 +28,32 @@ class HybridAPCScenario:
     target_prompt: str
 
 
+# Check that block checkpoints expose progressively longer edited prefixes.
+def assess_hybrid_checkpoint_reuse(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    targets = {row["scenario"]: row for row in rows if row.get("role") == "target"}
+    expected = {"exact", "append_only", "early_edit", "middle_edit"}
+    missing = expected.difference(targets)
+    if missing:
+        raise ValueError(f"missing hybrid target observations: {sorted(missing)}")
+
+    cached = {
+        scenario: int(targets[scenario]["cached_tokens"])
+        for scenario in sorted(expected)
+    }
+    checks = {
+        "exact_reused_prefix": cached["exact"] > 0,
+        "append_reused_prefix": cached["append_only"] > 0,
+        "early_edit_reused_prefix": cached["early_edit"] > 0,
+        "middle_edit_reused_prefix": cached["middle_edit"] > 0,
+        "later_edit_reused_more": cached["middle_edit"] > cached["early_edit"],
+    }
+    return {
+        "passed": all(checks.values()),
+        "cached_tokens": cached,
+        "checks": checks,
+    }
+
+
 # Build long prompts whose edits occur before, within, or after cache pages.
 def build_hybrid_apc_scenarios() -> tuple[HybridAPCScenario, ...]:
     scenarios: list[HybridAPCScenario] = []
@@ -217,6 +243,7 @@ def run_hybrid_apc_baseline(
             )
 
     ledger = validate_ledger(recorder.path)
+    checkpoint_reuse = assess_hybrid_checkpoint_reuse(rows)
     reference_checks: list[dict[str, Any]] = []
     if validate_against_reference:
         for scenario in build_hybrid_apc_scenarios():
@@ -250,6 +277,7 @@ def run_hybrid_apc_baseline(
         "ledger_complete": ledger.is_complete,
         "scenarios": [asdict(item) for item in build_hybrid_apc_scenarios()],
         "observations": rows,
+        "checkpoint_reuse": checkpoint_reuse,
         "reference_checks": reference_checks,
         "reference_validation_passed": bool(reference_checks)
         and all(
@@ -275,6 +303,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--max-completion-tokens", type=int, default=16)
     parser.add_argument("--timeout-seconds", type=float, default=120.0)
     parser.add_argument("--validate-against-reference", action="store_true")
+    parser.add_argument("--require-edited-prefix-reuse", action="store_true")
     return parser.parse_args()
 
 
@@ -300,6 +329,8 @@ def main() -> None:
     for check in result["reference_checks"]:
         print(f"{check['scenario']}: exact_output_match={check['exact_output_match']}")
     print(f"Saved {result['request_ledger']}")
+    if args.require_edited_prefix_reuse and not result["checkpoint_reuse"]["passed"]:
+        raise SystemExit("Hybrid checkpoint edited-prefix reuse validation failed")
     if args.validate_against_reference and not result["reference_validation_passed"]:
         raise SystemExit("Hybrid checkpoint output validation failed")
 
