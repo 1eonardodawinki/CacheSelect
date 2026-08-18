@@ -21,6 +21,7 @@ from vllm.v1.attention.backends.gdn_attn import (
     GDNAttentionMetadata,
     GDNAttentionMetadataBuilder,
     plan_gdn_checkpoint_writes,
+    prepare_gdn_decode_checkpoints,
     write_gdn_prefill_checkpoints,
 )
 from vllm.v1.kv_cache_interface import MambaSpec
@@ -375,11 +376,44 @@ def test_rejects_missing_gdn_checkpoint_slot():
             state_cache=torch.zeros((4, 1)),
             chunk_states=torch.zeros((1, 4, 1)),
             final_states=torch.ones((1, 1)),
-            checkpoint_state_indices=torch.tensor([[-1]], dtype=torch.int32),
+            checkpoint_state_indices=torch.tensor([[0]], dtype=torch.int32),
             chunk_offsets=torch.tensor([0, 4], dtype=torch.int32),
             num_computed_tokens=torch.tensor([0], dtype=torch.int32),
             first_scheduled_blocks=torch.tensor([0], dtype=torch.int32),
             last_scheduled_blocks=torch.tensor([0], dtype=torch.int32),
             block_size=64,
             chunk_size=16,
+        )
+
+
+# Verify that decode copies state only according to logical-to-physical mapping.
+def test_prepares_gdn_decode_checkpoint_destination():
+    """A boundary-crossing token should start from the preceding block state."""
+    state_cache = torch.arange(12, dtype=torch.float32).view(12, 1)
+    checkpoint_table = torch.tensor(
+        [[7, 3, 10], [2, 8, 5]],
+        dtype=torch.int32,
+    )
+
+    output_slots = prepare_gdn_decode_checkpoints(
+        state_cache=state_cache,
+        checkpoint_state_indices=checkpoint_table,
+        input_block_indices=torch.tensor([1, 0], dtype=torch.int32),
+        output_block_indices=torch.tensor([2, 0], dtype=torch.int32),
+    )
+
+    assert output_slots.tolist() == [10, 2]
+    assert state_cache[10].item() == 3
+    assert state_cache[2].item() == 2
+
+
+# Reject a null state before it can be treated as Python's final tensor row.
+def test_rejects_missing_gdn_decode_checkpoint():
+    """Decode must fail closed when either checkpoint block is not resident."""
+    with pytest.raises(RuntimeError, match="no physical slot"):
+        prepare_gdn_decode_checkpoints(
+            state_cache=torch.zeros((4, 1)),
+            checkpoint_state_indices=torch.tensor([[1, 0]], dtype=torch.int32),
+            input_block_indices=torch.tensor([0], dtype=torch.int32),
+            output_block_indices=torch.tensor([1], dtype=torch.int32),
         )

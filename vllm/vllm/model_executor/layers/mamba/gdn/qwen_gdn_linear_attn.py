@@ -68,6 +68,7 @@ from vllm.utils.torch_utils import (
 )
 from vllm.v1.attention.backends.gdn_attn import (
     GDNAttentionMetadata,
+    prepare_gdn_decode_checkpoints,
     write_gdn_prefill_checkpoints,
 )
 
@@ -1240,6 +1241,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             else self_kv_cache[0].transpose(-1, -2)
         )
         ssm_state = self_kv_cache[1]
+        checkpoint_table = attn_metadata.checkpoint_state_indices
         num_actual_tokens = attn_metadata.num_actual_tokens
         num_accepted_tokens = attn_metadata.num_accepted_tokens
 
@@ -1288,7 +1290,6 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             mixed_qkv_non_spec_T = mixed_qkv_non_spec.transpose(0, 1)
             is_checkpointing = self.cache_config.mamba_cache_mode == "all"
             if is_checkpointing:
-                checkpoint_table = attn_metadata.checkpoint_state_indices
                 assert checkpoint_table is not None
                 assert attn_metadata.block_idx_first_scheduled_token is not None
                 assert attn_metadata.block_idx_last_scheduled_token is not None
@@ -1324,15 +1325,25 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             ).transpose(0, 1)
         elif attn_metadata.num_decodes > 0:
             assert mixed_qkv_non_spec is not None
+            is_checkpointing = self.cache_config.mamba_cache_mode == "all"
+            if is_checkpointing:
+                conv_state_indices = attn_metadata.checkpoint_state_indices
+                assert conv_state_indices is not None
+                assert attn_metadata.block_idx_last_scheduled_token is not None
+                assert attn_metadata.block_idx_last_computed_token is not None
+            else:
+                conv_state_indices = non_spec_state_indices_tensor
             mixed_qkv_non_spec = causal_conv1d_update(
                 mixed_qkv_non_spec,
                 conv_state,
                 conv_weights,
                 self.conv1d.bias,
                 self.activation,
-                conv_state_indices=non_spec_state_indices_tensor[  # type: ignore[index]
-                    : attn_metadata.num_actual_tokens  # type: ignore[attr-defined]
-                ],
+                conv_state_indices=conv_state_indices,
+                block_idx_last_scheduled_token=(
+                    attn_metadata.block_idx_last_scheduled_token
+                ),
+                initial_state_idx=attn_metadata.block_idx_last_computed_token,
                 validate_data=True,
             )
         else:
@@ -1430,6 +1441,21 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             query_decode, key_decode, value_decode = self.rearrange_mixed_qkv(
                 mixed_qkv_non_spec[:num_decode_tokens]  # type: ignore[index]
             )
+            decode_state_indices = non_spec_state_indices_tensor
+            if self.cache_config.mamba_cache_mode == "all":
+                assert checkpoint_table is not None
+                assert attn_metadata.block_idx_last_computed_token is not None
+                assert attn_metadata.block_idx_last_scheduled_token is not None
+                decode_state_indices = prepare_gdn_decode_checkpoints(
+                    state_cache=ssm_state,
+                    checkpoint_state_indices=checkpoint_table[:num_decode_tokens],
+                    input_block_indices=(
+                        attn_metadata.block_idx_last_computed_token[:num_decode_tokens]
+                    ),
+                    output_block_indices=(
+                        attn_metadata.block_idx_last_scheduled_token[:num_decode_tokens]
+                    ),
+                )
             core_attn_out_decode, _ = fused_sigmoid_gating_delta_rule_update(
                 A_log=self.A_log,
                 a=a[:num_decode_tokens],
@@ -1443,7 +1469,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                 cu_seqlens=non_spec_query_start_loc[  # type: ignore[index]
                     : attn_metadata.num_decodes + 1
                 ],
-                ssm_state_indices=non_spec_state_indices_tensor,
+                ssm_state_indices=decode_state_indices,
                 use_qk_l2norm_in_kernel=True,
             )
         else:
@@ -1556,6 +1582,17 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                     [core_attn_out_decode, core_attn_out_non_spec], dim=1
                 )
         elif attn_metadata.num_decodes > 0:
+            decode_state_indices = non_spec_state_indices_tensor
+            if self.cache_config.mamba_cache_mode == "all":
+                assert checkpoint_table is not None
+                assert attn_metadata.block_idx_last_computed_token is not None
+                assert attn_metadata.block_idx_last_scheduled_token is not None
+                decode_state_indices = prepare_gdn_decode_checkpoints(
+                    state_cache=ssm_state,
+                    checkpoint_state_indices=checkpoint_table,
+                    input_block_indices=attn_metadata.block_idx_last_computed_token,
+                    output_block_indices=attn_metadata.block_idx_last_scheduled_token,
+                )
             core_attn_out_non_spec, last_recurrent_state = (
                 fused_sigmoid_gating_delta_rule_update(
                     A_log=self.A_log,
@@ -1571,7 +1608,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                         : attn_metadata.num_decodes
                         + 1  # type: ignore[attr-defined]
                     ],
-                    ssm_state_indices=non_spec_state_indices_tensor,
+                    ssm_state_indices=decode_state_indices,
                     use_qk_l2norm_in_kernel=True,
                 )
             )
@@ -1689,13 +1726,39 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         conv_weights = self.conv1d.weight.view(
             self.conv1d.weight.size(0), self.conv1d.weight.size(2)
         )
+        is_checkpointing = self.cache_config.mamba_cache_mode == "all"
+        if is_checkpointing:
+            checkpoint_table = attn_metadata.checkpoint_state_indices
+            input_blocks = attn_metadata.block_idx_last_computed_token
+            output_blocks = attn_metadata.block_idx_last_scheduled_token
+            assert checkpoint_table is not None
+            assert input_blocks is not None
+            assert output_blocks is not None
+            checkpoint_table = checkpoint_table[:num_actual_tokens]
+            input_blocks = input_blocks[:num_actual_tokens]
+            output_blocks = output_blocks[:num_actual_tokens]
+            conv_state_indices = checkpoint_table
+            recurrent_state_indices = prepare_gdn_decode_checkpoints(
+                state_cache=ssm_state,
+                checkpoint_state_indices=checkpoint_table,
+                input_block_indices=input_blocks,
+                output_block_indices=output_blocks,
+            )
+        else:
+            conv_state_indices = non_spec_state_indices_tensor[:num_actual_tokens]
+            recurrent_state_indices = conv_state_indices
+
         mixed_qkv_non_spec = causal_conv1d_update(
             mixed_qkv,
             conv_state,
             conv_weights,
             self.conv1d.bias,
             self.activation,
-            conv_state_indices=non_spec_state_indices_tensor[:num_actual_tokens],  # type: ignore[index]
+            conv_state_indices=conv_state_indices,
+            block_idx_last_scheduled_token=(
+                output_blocks if is_checkpointing else None
+            ),
+            initial_state_idx=input_blocks if is_checkpointing else None,
             validate_data=False,
         )
         out_buf = core_attn_out[:num_actual_tokens].unsqueeze(1)
@@ -1708,7 +1771,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             scale=self.head_k_dim**-0.5,
             initial_state=ssm_state,
             out=out_buf,
-            ssm_state_indices=non_spec_state_indices_tensor[:num_actual_tokens],  # type: ignore[index]
+            ssm_state_indices=recurrent_state_indices,
             use_qk_l2norm_in_kernel=True,
         )
         return

@@ -130,16 +130,57 @@ def write_gdn_prefill_checkpoints(
             physical_slots = checkpoint_state_indices[
                 sequence_index, destination_blocks
             ].long()
-            if torch.any(physical_slots < 0).item():
+            if torch.any(physical_slots == NULL_BLOCK_ID).item():
                 raise ValueError("an intermediate checkpoint has no physical slot")
             state_cache[physical_slots] = chunk_states[0, source_chunks].to(
                 state_cache.dtype
             )
 
         final_slot = int(checkpoint_state_indices[sequence_index, last_block].item())
-        if final_slot < 0:
+        if final_slot == NULL_BLOCK_ID:
             raise ValueError("the final checkpoint has no physical slot")
         state_cache[final_slot] = final_states[sequence_index].to(state_cache.dtype)
+
+
+# Copy decode inputs to their destination block and return destination slots.
+def prepare_gdn_decode_checkpoints(
+    *,
+    state_cache: torch.Tensor,
+    checkpoint_state_indices: torch.Tensor,
+    input_block_indices: torch.Tensor,
+    output_block_indices: torch.Tensor,
+) -> torch.Tensor:
+    """Prepare in-place decode kernels when a token crosses a cache boundary."""
+    if checkpoint_state_indices.ndim != 2:
+        raise ValueError("checkpoint_state_indices must be a two-dimensional table")
+    batch_size = checkpoint_state_indices.shape[0]
+    if input_block_indices.shape != (batch_size,):
+        raise ValueError("input block indices must contain one value per request")
+    if output_block_indices.shape != (batch_size,):
+        raise ValueError("output block indices must contain one value per request")
+    input_slots = checkpoint_state_indices.gather(
+        1,
+        input_block_indices.long().unsqueeze(1),
+    ).squeeze(1)
+    output_slots = checkpoint_state_indices.gather(
+        1,
+        output_block_indices.long().unsqueeze(1),
+    ).squeeze(1)
+    # Keep the hot per-token path asynchronous while still failing on an
+    # unallocated slot when the device reaches this assertion.
+    torch._assert_async(
+        torch.all(input_slots != NULL_BLOCK_ID),
+        "decode input checkpoint has no physical slot",
+    )
+    torch._assert_async(
+        torch.all(output_slots != NULL_BLOCK_ID),
+        "decode output checkpoint has no physical slot",
+    )
+
+    # Copying same-slot rows is harmless; crossing rows seed the new block with
+    # the exact state that precedes the token being decoded.
+    state_cache[output_slots.long()] = state_cache[input_slots.long()]
+    return output_slots.long()
 
 
 class GDNAttentionBackend(AttentionBackend):
