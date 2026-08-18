@@ -66,6 +66,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "mamba_cache_mode=all"
   echo "gdn_prefill_backend=triton"
   echo "gdn_delta_cache_capacity=$DELTA_CACHE_CAPACITY"
+  echo "gdn_delta_execution_mode=shadow"
   echo "max_model_len=4096"
   echo "max_completion_tokens=64"
 } >"$RESULT_DIR/metadata.env"
@@ -124,6 +125,7 @@ setsid vllm serve "$MODEL" \
   --enable-prefix-caching \
   --mamba-cache-mode all \
   --gdn-delta-cache-capacity "$DELTA_CACHE_CAPACITY" \
+  --gdn-delta-execution-mode shadow \
   --gdn-prefill-backend triton \
   --no-enable-chunked-prefill \
   --enforce-eager \
@@ -148,6 +150,7 @@ additional = config["additional_config"]
 assert cache["enable_prefix_caching"] is True
 assert cache["mamba_cache_mode"] == "all"
 assert cache["gdn_delta_cache_capacity"] == int(sys.argv[2])
+assert cache["gdn_delta_execution_mode"] == "shadow"
 assert additional["gdn_prefill_backend"] == "triton"
 PY
 nvidia-smi \

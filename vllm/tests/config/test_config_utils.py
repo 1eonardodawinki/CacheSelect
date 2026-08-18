@@ -268,3 +268,9 @@ def test_gdn_delta_cache_requires_all_mode_prefix_caching():
         )
     with pytest.raises(ValueError, match="requires mamba cache mode 'all'"):
         CacheConfig(gdn_delta_cache_capacity=1)
+
+
+# Check that behavior-changing GDN execution cannot run without its sidecar.
+def test_active_gdn_delta_execution_requires_capacity():
+    with pytest.raises(ValueError, match="requires a nonzero capacity"):
+        CacheConfig(gdn_delta_execution_mode="active")

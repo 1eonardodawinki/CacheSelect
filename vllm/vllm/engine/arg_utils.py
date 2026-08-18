@@ -68,6 +68,7 @@ from vllm.config import (
 from vllm.config.cache import (
     CacheDType,
     CacheSelectRepairSelector,
+    GDNDeltaExecutionMode,
     KVOffloadingBackend,
     MambaCacheMode,
     MambaDType,
@@ -521,6 +522,9 @@ class EngineArgs:
         CacheConfig.cacheselect_execute_partial_reuse
     )
     gdn_delta_cache_capacity: int = CacheConfig.gdn_delta_cache_capacity
+    gdn_delta_execution_mode: GDNDeltaExecutionMode = (
+        CacheConfig.gdn_delta_execution_mode
+    )
     prefix_caching_hash_algo: PrefixCachingHashAlgo = (
         CacheConfig.prefix_caching_hash_algo
     )
@@ -1204,6 +1208,10 @@ class EngineArgs:
         cache_group.add_argument(
             "--gdn-delta-cache-capacity",
             **cache_kwargs["gdn_delta_cache_capacity"],
+        )
+        cache_group.add_argument(
+            "--gdn-delta-execution-mode",
+            **cache_kwargs["gdn_delta_execution_mode"],
         )
         cache_group.add_argument(
             "--prefix-caching-hash-algo", **cache_kwargs["prefix_caching_hash_algo"]
@@ -1938,6 +1946,7 @@ class EngineArgs:
             cacheselect_edit_radius=self.cacheselect_edit_radius,
             cacheselect_execute_partial_reuse=(self.cacheselect_execute_partial_reuse),
             gdn_delta_cache_capacity=self.gdn_delta_cache_capacity,
+            gdn_delta_execution_mode=self.gdn_delta_execution_mode,
             prefix_caching_hash_algo=self.prefix_caching_hash_algo,
             calculate_kv_scales=self.calculate_kv_scales,
             kv_cache_dtype_skip_layers=self.kv_cache_dtype_skip_layers,

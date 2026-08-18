@@ -39,6 +39,7 @@ MambaCacheMode = Literal["all", "align", "none"]
 PrefixCachingHashAlgo = Literal["sha256", "sha256_cbor", "xxhash", "xxhash_cbor"]
 KVOffloadingBackend = Literal["native", "lmcache"]
 CacheSelectRepairSelector = Literal["full_block", "edit_proximity"]
+GDNDeltaExecutionMode = Literal["shadow", "active"]
 
 
 @config
@@ -111,6 +112,9 @@ class CacheConfig:
     gdn_delta_cache_capacity: int = Field(default=0, ge=0)
     """Maximum number of GDN block-delta operators cached per layer. Zero
     disables the experimental bounded sidecar."""
+    gdn_delta_execution_mode: GDNDeltaExecutionMode = "shadow"
+    """Whether eligible GDN operators are only compared with full recurrence
+    or are allowed to replace selected recurrent spans."""
     prefix_caching_hash_algo: PrefixCachingHashAlgo = "sha256"
     """Set the hash algorithm for prefix caching:
 
@@ -302,6 +306,11 @@ class CacheConfig:
     # Keep the experimental operator sidecar on the checkpoint-capable path.
     @model_validator(mode="after")
     def _validate_gdn_delta_cache_mode(self) -> "CacheConfig":
+        if (
+            self.gdn_delta_execution_mode == "active"
+            and self.gdn_delta_cache_capacity == 0
+        ):
+            raise ValueError("active GDN delta execution requires a nonzero capacity")
         if self.gdn_delta_cache_capacity == 0:
             return self
         if not self.enable_prefix_caching:
