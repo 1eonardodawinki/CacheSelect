@@ -51,6 +51,7 @@ def mock_model_runner_with_req_states():
     runner.is_last_pp_rank = False
     runner.contextual_block_hashes = {}
     runner.partial_reuse_plans = {}
+    runner.gdn_delta_reuse_plans = {}
     runner.resolved_partial_reuse_candidates = {}
     runner.partial_reuse_copy_instructions = {}
     runner.partial_reuse_repair_instructions = {}
@@ -260,6 +261,7 @@ def test_partial_reuse_plan_follows_request_lifecycle(
         block_size=1,
         counterfactual_reuse_block_index=5,
     )
+    gdn_plan = SimpleNamespace(candidates=(), block_size=16)
     request_data = NewRequestData(
         req_id=req_id,
         prompt_token_ids=[1, 2, 3, 4, 5, 6],
@@ -271,12 +273,14 @@ def test_partial_reuse_plan_follows_request_lifecycle(
         num_computed_tokens=0,
         lora_request=None,
         partial_reuse_plan=plan,
+        gdn_delta_reuse_plan=gdn_plan,
         contextual_block_hashes=(b"block-0", b"block-1"),
     )
 
     runner.add_requests(_make_scheduler_output([request_data]))
     assert runner.contextual_block_hashes[req_id] == (b"block-0", b"block-1")
     assert runner.partial_reuse_plans[req_id] is plan
+    assert runner.gdn_delta_reuse_plans[req_id] is gdn_plan
     resolved = runner.resolved_partial_reuse_candidates[req_id]
     assert len(resolved) == 1
     assert resolved[0].source_block_id == 42
@@ -308,6 +312,7 @@ def test_partial_reuse_plan_follows_request_lifecycle(
     runner._remove_request(req_id)
     assert req_id not in runner.contextual_block_hashes
     assert req_id not in runner.partial_reuse_plans
+    assert req_id not in runner.gdn_delta_reuse_plans
     assert req_id not in runner.resolved_partial_reuse_candidates
     assert req_id not in runner.partial_reuse_copy_instructions
     assert req_id not in runner.partial_reuse_repair_instructions

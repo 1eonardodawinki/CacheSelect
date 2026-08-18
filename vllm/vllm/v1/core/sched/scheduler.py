@@ -278,6 +278,9 @@ class Scheduler(SchedulerInterface):
             metrics_collector=self.kv_metrics_collector,
             watermark=self.scheduler_config.watermark,
             enable_cacheselect=self.cache_config.enable_cacheselect,
+            enable_gdn_delta_reuse=(
+                self.cache_config.gdn_delta_cache_capacity > 0
+            ),
         )
         # Bind GPU block pool to the KV connector. This must happen after
         # kv_cache_manager is constructed so block_pool is available.
@@ -1149,6 +1152,7 @@ class Scheduler(SchedulerInterface):
                     partial_reuse_plan=partial_reuse_plans_for_step.get(
                         req.request_id
                     ),
+                    gdn_delta_reuse_plan=req.gdn_delta_reuse_plan,
                     contextual_block_hashes=self._get_contextual_block_hashes(req),
                 )
                 for req in scheduled_new_reqs
@@ -1161,6 +1165,7 @@ class Scheduler(SchedulerInterface):
                     partial_reuse_plan=partial_reuse_plans_for_step.get(
                         req.request_id
                     ),
+                    gdn_delta_reuse_plan=req.gdn_delta_reuse_plan,
                     contextual_block_hashes=self._get_contextual_block_hashes(req),
                 )
                 for req in scheduled_new_reqs

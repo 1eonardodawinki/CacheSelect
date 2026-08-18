@@ -156,6 +156,7 @@ from vllm.v1.worker.lora_model_runner_mixin import LoRAModelRunnerMixin
 from vllm.v1.worker.utils import KVBlockZeroer, copy_kv_cache_blocks_inplace
 
 if TYPE_CHECKING:
+    from vllm.v1.core.gdn_delta_reuse import GDNDeltaReusePlan
     from vllm.v1.core.partial_reuse import PartialReusePlan
 
 logger = init_logger(__name__)
@@ -176,6 +177,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         self.observability_config = vllm_config.observability_config
         self.contextual_block_hashes: dict[str, tuple[bytes, ...]] = {}
         self.partial_reuse_plans: dict[str, PartialReusePlan] = {}
+        self.gdn_delta_reuse_plans: dict[str, GDNDeltaReusePlan] = {}
         self.resolved_partial_reuse_candidates: dict[
             str, tuple[ResolvedPartialReuseCandidate, ...]
         ] = {}
@@ -854,6 +856,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
     def _remove_request(self, req_id: str) -> bool:
         self.contextual_block_hashes.pop(req_id, None)
         self.partial_reuse_plans.pop(req_id, None)
+        self.gdn_delta_reuse_plans.pop(req_id, None)
         self.resolved_partial_reuse_candidates.pop(req_id, None)
         self.partial_reuse_copy_instructions.pop(req_id, None)
         self.partial_reuse_repair_instructions.pop(req_id, None)
@@ -968,6 +971,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             if new_req_data.contextual_block_hashes:
                 self.contextual_block_hashes[req_id] = (
                     new_req_data.contextual_block_hashes
+                )
+            if new_req_data.gdn_delta_reuse_plan is not None:
+                self.gdn_delta_reuse_plans[req_id] = (
+                    new_req_data.gdn_delta_reuse_plan
                 )
             if plan is not None:
                 self.partial_reuse_plans[req_id] = plan

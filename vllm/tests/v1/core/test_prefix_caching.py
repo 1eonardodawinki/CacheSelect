@@ -525,6 +525,57 @@ def test_cacheselect_locates_resident_aligned_blocks_without_reusing_them():
     ).hex()
 
 
+# Check hybrid GDN plans survive after ordinary physical cache blocks are freed.
+def test_hybrid_gdn_delta_reuse_plan_survives_source_block_free():
+    block_size = 16
+    manager = make_kv_cache_manager(
+        make_kv_cache_config_hybrid_model(block_size, 21, 2),
+        max_model_len=8192,
+        enable_caching=True,
+        hash_block_size=block_size,
+        enable_gdn_delta_reuse=True,
+    )
+    source = make_request(
+        "chatcmpl-source",
+        [token for token in range(3) for _ in range(block_size)],
+        block_size,
+        sha256,
+        extra_args={"cacheselect_request_id": "source"},
+    )
+    computed_blocks, _, _ = manager.get_computed_blocks(source)
+    allocated = manager.allocate_slots(
+        source,
+        num_new_tokens=source.num_tokens,
+        new_computed_blocks=computed_blocks,
+    )
+    assert allocated is not None
+    source.status = RequestStatus.FINISHED_STOPPED
+    manager.free(source)
+
+    target = make_request(
+        "chatcmpl-target",
+        [0] * block_size
+        + [9] * block_size
+        + [1] * block_size
+        + [2] * block_size,
+        block_size,
+        sha256,
+        extra_args={
+            "cacheselect_request_id": "target",
+            "cacheselect_source_request_id": "source",
+        },
+    )
+    _, native_cached_tokens, _ = manager.get_computed_blocks(target)
+
+    assert native_cached_tokens == block_size
+    assert target.gdn_delta_reuse_plan is not None
+    assert target.gdn_delta_reuse_plan.reason == "aligned_candidates"
+    assert [
+        (candidate.source_block_index, candidate.target_block_index)
+        for candidate in target.gdn_delta_reuse_plan.candidates
+    ] == [(1, 2), (2, 3)]
+
+
 def test_prefill_hybrid_model():
     block_size = 16
     manager = make_kv_cache_manager(

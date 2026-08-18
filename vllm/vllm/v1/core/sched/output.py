@@ -16,6 +16,7 @@ if TYPE_CHECKING:
     from vllm.multimodal.inputs import MultiModalFeatureSpec
     from vllm.pooling_params import PoolingParams
     from vllm.sampling_params import SamplingParams
+    from vllm.v1.core.gdn_delta_reuse import GDNDeltaReusePlan
     from vllm.v1.core.kv_cache_utils import KVCacheBlockCopy
     from vllm.v1.core.partial_reuse import PartialReusePlan
     from vllm.v1.request import Request
@@ -27,6 +28,7 @@ else:
     MultiModalFeatureSpec = object
     PoolingParams = object
     PartialReusePlan = object
+    GDNDeltaReusePlan = object
     SamplingParams = object
     Request = object
 
@@ -50,6 +52,9 @@ class NewRequestData:
     # Shadow-only CacheSelect plan forwarded to the model runner.
     partial_reuse_plan: PartialReusePlan | None = None
 
+    # Hybrid-model source mappings forwarded for fail-closed operator lookup.
+    gdn_delta_reuse_plan: GDNDeltaReusePlan | None = None
+
     # Context-chained identities for complete logical cache blocks.
     contextual_block_hashes: tuple[bytes, ...] = ()
 
@@ -61,6 +66,7 @@ class NewRequestData:
         block_ids: tuple[list[int], ...],
         prefill_token_ids: list[int] | None = None,
         partial_reuse_plan: PartialReusePlan | None = None,
+        gdn_delta_reuse_plan: GDNDeltaReusePlan | None = None,
         contextual_block_hashes: tuple[bytes, ...] = (),
     ) -> "NewRequestData":
         return cls(
@@ -76,6 +82,7 @@ class NewRequestData:
             prompt_is_token_ids=request.prompt_is_token_ids,
             prefill_token_ids=prefill_token_ids,
             partial_reuse_plan=partial_reuse_plan,
+            gdn_delta_reuse_plan=gdn_delta_reuse_plan,
             contextual_block_hashes=contextual_block_hashes,
         )
 
@@ -279,6 +286,15 @@ class SchedulerOutput:
             request.req_id: request.partial_reuse_plan
             for request in self.scheduled_new_reqs
             if request.partial_reuse_plan is not None
+        }
+
+    @property
+    def gdn_delta_reuse_plans(self) -> dict[str, GDNDeltaReusePlan]:
+        """Return hybrid GDN reuse plans scheduled in this step."""
+        return {
+            request.req_id: request.gdn_delta_reuse_plan
+            for request in self.scheduled_new_reqs
+            if request.gdn_delta_reuse_plan is not None
         }
 
     @classmethod

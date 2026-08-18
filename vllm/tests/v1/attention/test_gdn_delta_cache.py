@@ -144,6 +144,48 @@ class GDNDeltaOperatorSidecarTests(unittest.TestCase):
         torch.testing.assert_close(entry.transition, transition)
         torch.testing.assert_close(entry.output_responses, responses)
 
+    # Resolve every requested operator together and refresh their LRU order.
+    def test_resolves_complete_operator_set_atomically(self) -> None:
+        cache = GDNDeltaOperatorSidecar(
+            capacity=2,
+            block_size=1,
+            value_heads=1,
+            key_width=2,
+            dtype=torch.float32,
+            device="cpu",
+        )
+        transition = torch.eye(2).unsqueeze(0)
+        responses = torch.ones(1, 1, 2)
+        cache.store(b"a", transition, responses)
+        cache.store(b"b", transition * 2, responses * 2)
+
+        entries = cache.lookup_many((b"b", b"a"))
+
+        self.assertIsNotNone(entries)
+        assert entries is not None
+        self.assertEqual(tuple(entry.slot for entry in entries), (1, 0))
+        self.assertEqual(cache.resident_keys(), (b"b", b"a"))
+
+    # Leave recency unchanged when any requested operator is absent.
+    def test_atomic_lookup_miss_does_not_refresh_partial_hits(self) -> None:
+        cache = GDNDeltaOperatorSidecar(
+            capacity=2,
+            block_size=1,
+            value_heads=1,
+            key_width=2,
+            dtype=torch.float32,
+            device="cpu",
+        )
+        transition = torch.eye(2).unsqueeze(0)
+        responses = torch.ones(1, 1, 2)
+        cache.store(b"a", transition, responses)
+        cache.store(b"b", transition * 2, responses * 2)
+
+        self.assertIsNone(cache.lookup_many((b"a", b"missing")))
+        self.assertEqual(cache.resident_keys(), (b"a", b"b"))
+        cache.store(b"c", transition * 3, responses * 3)
+        self.assertEqual(cache.resident_keys(), (b"b", b"c"))
+
     # Evict the least-recent entry while preserving a recently accessed hash.
     def test_uses_bounded_lru_eviction(self) -> None:
         cache = GDNDeltaOperatorSidecar(

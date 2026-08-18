@@ -9,6 +9,7 @@ from typing import Literal, overload
 from vllm.distributed.kv_events import BlockStored, KVCacheEvent
 from vllm.logger import init_logger
 from vllm.utils.math_utils import cdiv
+from vllm.v1.core.gdn_delta_reuse import GDNDeltaSourceIndex
 from vllm.v1.core.kv_cache_coordinator import get_kv_cache_coordinator
 from vllm.v1.core.kv_cache_metrics import KVCacheMetricsCollector
 from vllm.v1.core.kv_cache_utils import KVCacheBlock, KVCacheBlockCopy
@@ -131,6 +132,7 @@ class KVCacheManager:
         metrics_collector: KVCacheMetricsCollector | None = None,
         watermark: float = 0.0,
         enable_cacheselect: bool = False,
+        enable_gdn_delta_reuse: bool = False,
     ) -> None:
         self.max_model_len = max_model_len
         # When unset, fall back to `max_model_len` so the recycling-aware cap
@@ -146,6 +148,14 @@ class KVCacheManager:
         self.metrics_collector = metrics_collector
         self.kv_reuse_planner = (
             NativeAPCFallbackPlanner() if enable_cacheselect else None
+        )
+        self.gdn_delta_source_index = (
+            GDNDeltaSourceIndex(
+                block_size=scheduler_block_size,
+                hash_block_size=hash_block_size,
+            )
+            if enable_gdn_delta_reuse
+            else None
         )
         # FIXME: make prefix cache stats conditional on log_stats. We still need
         # this comment because when the log stats is enabled there are still
@@ -294,6 +304,11 @@ class KVCacheManager:
                     request,
                     num_new_computed_tokens,
                 )
+        if self.gdn_delta_source_index is not None:
+            request.gdn_delta_reuse_plan = self.gdn_delta_source_index.locate(
+                request,
+                num_new_computed_tokens,
+            )
 
         # When kv_cache_report_mode is "full", emit BlockStored events
         # for the reused prefix cache blocks so that external consumers
@@ -578,7 +593,11 @@ class KVCacheManager:
         self.coordinator.free(request.request_id)
 
     def _index_partial_reuse_source(self, request: Request) -> None:
-        if self.partial_reuse_locator is None or not request.is_finished():
+        if not request.is_finished():
+            return
+        if self.gdn_delta_source_index is not None:
+            self.gdn_delta_source_index.index(request)
+        if self.partial_reuse_locator is None:
             return
         blocks = self.coordinator.get_blocks(request.request_id)
         if blocks:
@@ -641,6 +660,8 @@ class KVCacheManager:
             self.prefix_cache_stats.reset = True
         if self.partial_reuse_locator is not None:
             self.partial_reuse_locator.clear()
+        if self.gdn_delta_source_index is not None:
+            self.gdn_delta_source_index.clear()
         return True
 
     def get_num_common_prefix_blocks(self, running_request_id: str) -> list[int]:

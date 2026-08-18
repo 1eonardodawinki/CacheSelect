@@ -194,6 +194,10 @@ class GDNDeltaOperatorSidecar:
     def resident_keys(self) -> tuple[bytes, ...]:
         return tuple(self._key_to_slot)
 
+    # Check complete residency without changing the LRU order.
+    def contains_many(self, block_hashes: tuple[bytes, ...]) -> bool:
+        return all(block_hash in self._key_to_slot for block_hash in block_hashes)
+
     # Insert or refresh one operator, evicting the least-recent key if needed.
     def store(
         self,
@@ -238,6 +242,27 @@ class GDNDeltaOperatorSidecar:
             transition=self.transitions[slot],
             output_responses=self.output_responses[slot],
         )
+
+    # Resolve a complete operator set atomically or leave the LRU untouched.
+    def lookup_many(
+        self,
+        block_hashes: tuple[bytes, ...],
+    ) -> tuple[GDNDeltaCacheEntry, ...] | None:
+        slots = tuple(self._key_to_slot.get(block_hash) for block_hash in block_hashes)
+        if any(slot is None for slot in slots):
+            return None
+        entries = []
+        for block_hash, optional_slot in zip(block_hashes, slots):
+            assert optional_slot is not None
+            self._key_to_slot.move_to_end(block_hash)
+            entries.append(
+                GDNDeltaCacheEntry(
+                    slot=optional_slot,
+                    transition=self.transitions[optional_slot],
+                    output_responses=self.output_responses[optional_slot],
+                )
+            )
+        return tuple(entries)
 
     # Remove all logical entries while retaining the allocated GPU buffers.
     def clear(self) -> None:
