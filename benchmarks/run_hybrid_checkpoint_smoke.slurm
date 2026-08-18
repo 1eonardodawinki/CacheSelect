@@ -25,6 +25,7 @@ REQUEST_LOG_DIR="$STORAGE_ROOT/cacheselect-request-logs/$RUN_ID"
 SERVER_LOG_DIR="$STORAGE_ROOT/cacheselect-server-logs/$RUN_ID"
 SERVER_LOG="$SERVER_LOG_DIR/vllm.log"
 SUMMARY_PATH="$RESULT_DIR/summary.json"
+SHADOW_ANALYSIS_PATH="$RESULT_DIR/gdn-shadow-analysis.json"
 SERVER_INFO_PATH="$RESULT_DIR/server-info.json"
 
 mkdir -p \
@@ -163,10 +164,16 @@ python -m benchmarks.run_hybrid_apc_baseline \
   --max-completion-tokens 64 \
   --require-edited-prefix-reuse \
   --require-gdn-preflight-observability \
+  --require-gdn-shadow-execution \
   --validate-against-reference
+
+python -m benchmarks.analyze_hybrid_gdn_shadow \
+  --input "$SUMMARY_PATH" \
+  --output "$SHADOW_ANALYSIS_PATH"
 
 stop_server
 test -s "$SUMMARY_PATH"
+test -s "$SHADOW_ANALYSIS_PATH"
 test -s "$SERVER_INFO_PATH"
 grep -q "GDN delta sidecar populated" "$SERVER_LOG"
 

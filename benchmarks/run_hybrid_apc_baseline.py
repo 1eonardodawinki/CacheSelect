@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import re
 import time
 import urllib.request
@@ -77,12 +78,58 @@ def assess_gdn_delta_preflight_observability(
     }
 
 
+# Verify edited requests completed every planned layer/block shadow comparison.
+def assess_gdn_delta_shadow_execution(
+    rows: list[dict[str, Any]],
+) -> dict[str, Any]:
+    edited_targets = {
+        row["scenario"]: row
+        for row in rows
+        if row.get("role") == "target"
+        and row.get("scenario") in {"early_edit", "middle_edit"}
+    }
+    details = {}
+    for scenario, row in edited_targets.items():
+        metrics = row.get("gdn_delta_reuse")
+        if not isinstance(metrics, dict):
+            details[scenario] = {"passed": False, "reason": "metrics_missing"}
+            continue
+        expected = metrics.get("shadow_expected_count")
+        compared = metrics.get("shadow_compared_count")
+        output_error = metrics.get("shadow_max_output_relative_l2")
+        state_error = metrics.get("shadow_max_final_state_relative_l2")
+        passed = (
+            metrics.get("preflight_eligible") is True
+            and isinstance(expected, int)
+            and expected > 0
+            and compared == expected
+            and metrics.get("shadow_complete") is True
+            and isinstance(output_error, (int, float))
+            and math.isfinite(output_error)
+            and isinstance(state_error, (int, float))
+            and math.isfinite(state_error)
+        )
+        details[scenario] = {
+            "passed": passed,
+            "expected_comparisons": expected,
+            "completed_comparisons": compared,
+            "max_output_relative_l2": output_error,
+            "max_final_state_relative_l2": state_error,
+        }
+    return {
+        "passed": set(details) == {"early_edit", "middle_edit"}
+        and all(detail["passed"] for detail in details.values()),
+        "details": details,
+    }
+
+
 # Build long prompts whose edits occur before, within, or after cache pages.
 def build_hybrid_apc_scenarios() -> tuple[HybridAPCScenario, ...]:
     scenarios: list[HybridAPCScenario] = []
     for name in ("exact", "append_only", "early_edit", "middle_edit"):
         sentences = [
-            f"Hybrid APC {name} record {index:03d} says cached state follows prompt order."
+            f"Hybrid APC {name} record {index:03d} says marker A and cached state "
+            "follows prompt order."
             for index in range(160)
         ]
         source = " ".join(sentences) + "\nSummarize this principle. /no_think"
@@ -93,11 +140,13 @@ def build_hybrid_apc_scenarios() -> tuple[HybridAPCScenario, ...]:
             )
         elif name == "early_edit":
             target_sentences[8] = (
-                "Hybrid APC early_edit record 008 says edited state changes promptly."
+                "Hybrid APC early_edit record 008 says marker B and cached state "
+                "follows prompt order."
             )
         elif name == "middle_edit":
             target_sentences[80] = (
-                "Hybrid APC middle_edit record 080 says edited state changes midway."
+                "Hybrid APC middle_edit record 080 says marker B and cached state "
+                "follows prompt order."
             )
         target = " ".join(target_sentences) + "\nSummarize this principle. /no_think"
         scenarios.append(HybridAPCScenario(name, source, target))
@@ -250,9 +299,7 @@ def run_hybrid_apc_baseline(
                     role="reference",
                     prompt=scenario.target_prompt,
                     cache_salt=reference_salt,
-                    cacheselect_request_id=(
-                        f"{run_id}:{scenario.name}:reference"
-                    ),
+                    cacheselect_request_id=(f"{run_id}:{scenario.name}:reference"),
                     cacheselect_source_request_id=None,
                     max_completion_tokens=max_completion_tokens,
                     timeout_seconds=timeout_seconds,
@@ -289,6 +336,7 @@ def run_hybrid_apc_baseline(
     ledger = validate_ledger(recorder.path)
     checkpoint_reuse = assess_hybrid_checkpoint_reuse(rows)
     gdn_delta_preflight = assess_gdn_delta_preflight_observability(rows)
+    gdn_delta_shadow = assess_gdn_delta_shadow_execution(rows)
     reference_checks: list[dict[str, Any]] = []
     if validate_against_reference:
         for scenario in build_hybrid_apc_scenarios():
@@ -324,6 +372,7 @@ def run_hybrid_apc_baseline(
         "observations": rows,
         "checkpoint_reuse": checkpoint_reuse,
         "gdn_delta_preflight": gdn_delta_preflight,
+        "gdn_delta_shadow": gdn_delta_shadow,
         "reference_checks": reference_checks,
         "reference_validation_passed": bool(reference_checks)
         and all(
@@ -351,6 +400,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--validate-against-reference", action="store_true")
     parser.add_argument("--require-edited-prefix-reuse", action="store_true")
     parser.add_argument("--require-gdn-preflight-observability", action="store_true")
+    parser.add_argument("--require-gdn-shadow-execution", action="store_true")
     return parser.parse_args()
 
 
@@ -383,6 +433,8 @@ def main() -> None:
         and not result["gdn_delta_preflight"]["passed"]
     ):
         raise SystemExit("Hybrid GDN delta preflight observability validation failed")
+    if args.require_gdn_shadow_execution and not result["gdn_delta_shadow"]["passed"]:
+        raise SystemExit("Hybrid GDN delta shadow execution validation failed")
     if args.validate_against_reference and not result["reference_validation_passed"]:
         raise SystemExit("Hybrid checkpoint output validation failed")
 

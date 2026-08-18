@@ -7,6 +7,7 @@ from unittest.mock import patch
 from benchmarks.run_hybrid_apc_baseline import (
     PREFIX_HIT_METRIC,
     assess_gdn_delta_preflight_observability,
+    assess_gdn_delta_shadow_execution,
     assess_hybrid_checkpoint_reuse,
     build_hybrid_apc_scenarios,
     parse_prometheus_counter,
@@ -16,6 +17,31 @@ from observability.request_recorder import validate_ledger
 
 
 class HybridAPCBaselineTest(unittest.TestCase):
+    # Require every candidate-layer pair to produce finite shadow divergence.
+    def test_assesses_complete_gdn_delta_shadow_execution(self) -> None:
+        rows = [
+            {
+                "scenario": scenario,
+                "role": "target",
+                "gdn_delta_reuse": {
+                    "preflight_eligible": True,
+                    "shadow_expected_count": 48,
+                    "shadow_compared_count": 48,
+                    "shadow_complete": True,
+                    "shadow_max_output_relative_l2": 0.08,
+                    "shadow_max_final_state_relative_l2": 0.03,
+                },
+            }
+            for scenario in ("early_edit", "middle_edit")
+        ]
+
+        assessment = assess_gdn_delta_shadow_execution(rows)
+
+        self.assertTrue(assessment["passed"])
+        self.assertEqual(
+            assessment["details"]["early_edit"]["completed_comparisons"], 48
+        )
+
     # Require both edited scenarios to expose plan and preflight evidence.
     def test_assesses_gdn_delta_preflight_observability(self) -> None:
         rows = [
@@ -57,6 +83,16 @@ class HybridAPCBaselineTest(unittest.TestCase):
             scenarios["middle_edit"].source_prompt,
             scenarios["middle_edit"].target_prompt,
         )
+        self.assertEqual(
+            len(scenarios["early_edit"].source_prompt),
+            len(scenarios["early_edit"].target_prompt),
+        )
+        self.assertEqual(
+            len(scenarios["middle_edit"].source_prompt),
+            len(scenarios["middle_edit"].target_prompt),
+        )
+        self.assertIn("marker A", scenarios["early_edit"].source_prompt)
+        self.assertIn("marker B", scenarios["early_edit"].target_prompt)
 
     # Distinguish block checkpoint reuse from the old all-or-nothing hybrid path.
     def test_accepts_progressively_longer_edited_prefix_hits(self) -> None:
