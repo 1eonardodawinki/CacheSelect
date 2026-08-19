@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import json
 from pathlib import Path
@@ -277,3 +278,53 @@ def run_hybrid_gdn_breakeven(
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
     return result
+
+
+# Parse the warm-server endpoint and controlled reuse sizes from the command line.
+def _parse_args() -> argparse.Namespace:
+    """Return command-line arguments for the break-even experiment."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--base-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--model", default="Qwen/Qwen3.5-9B")
+    parser.add_argument("--run-id", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--request-log-dir", type=Path, required=True)
+    parser.add_argument(
+        "--reused-block-counts", type=int, nargs="+", default=(1, 2, 4, 8, 16)
+    )
+    parser.add_argument("--repetitions", type=int, default=3)
+    parser.add_argument("--block-size", type=int, default=64)
+    parser.add_argument("--cache-capacity", type=int, required=True)
+    parser.add_argument("--max-completion-tokens", type=int, default=64)
+    parser.add_argument("--timeout-seconds", type=float, default=180.0)
+    return parser.parse_args()
+
+
+# Execute the matrix and print the observed first safe speedup point.
+def main() -> None:
+    """Run the experiment and report its consolidated artifact."""
+    args = _parse_args()
+    result = run_hybrid_gdn_breakeven(
+        base_url=args.base_url,
+        model=args.model,
+        run_id=args.run_id,
+        output=args.output,
+        request_log_dir=args.request_log_dir,
+        reused_block_counts=tuple(args.reused_block_counts),
+        repetitions=args.repetitions,
+        block_size=args.block_size,
+        cache_capacity=args.cache_capacity,
+        max_completion_tokens=args.max_completion_tokens,
+        timeout_seconds=args.timeout_seconds,
+    )
+    print(f"Completed {result['trial_count']} GDN break-even trials")
+    print(
+        "first_break_even_reused_block_count="
+        f"{result['first_break_even_reused_block_count']}"
+    )
+    print(f"all_outputs_exact={result['all_outputs_exact']}")
+    print(f"Saved {args.output}")
+
+
+if __name__ == "__main__":
+    main()

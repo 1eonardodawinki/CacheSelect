@@ -19,9 +19,12 @@ DELTA_CACHE_CAPACITY="${CACHESELECT_GDN_DELTA_CACHE_CAPACITY:-2}"
 DELTA_BLOCK_SIZE="${CACHESELECT_GDN_DELTA_BLOCK_SIZE:-64}"
 EXECUTION_MODE="${CACHESELECT_GDN_DELTA_EXECUTION_MODE:-shadow}"
 RUN_ACTIVE_MATRIX="${CACHESELECT_RUN_ACTIVE_MATRIX:-0}"
+RUN_BREAK_EVEN_MATRIX="${CACHESELECT_RUN_BREAK_EVEN_MATRIX:-0}"
 GPU_MEMORY_UTILIZATION="${CACHESELECT_GPU_MEMORY_UTILIZATION:-0.96}"
 MATRIX_RECORD_COUNTS="${CACHESELECT_MATRIX_RECORD_COUNTS:-64 112 160}"
 MATRIX_REPETITIONS="${CACHESELECT_MATRIX_REPETITIONS:-3}"
+BREAK_EVEN_BLOCK_COUNTS="${CACHESELECT_BREAK_EVEN_BLOCK_COUNTS:-1 2 4 8 16}"
+BREAK_EVEN_REPETITIONS="${CACHESELECT_BREAK_EVEN_REPETITIONS:-3}"
 
 if [[ "$EXECUTION_MODE" != "shadow" && "$EXECUTION_MODE" != "active" ]]; then
   echo "Unsupported GDN delta execution mode: $EXECUTION_MODE" >&2
@@ -34,6 +37,41 @@ fi
 if [[ "$RUN_ACTIVE_MATRIX" == "1" && "$EXECUTION_MODE" != "active" ]]; then
   echo "The graduated matrix requires active GDN execution mode" >&2
   exit 2
+fi
+if [[ "$RUN_BREAK_EVEN_MATRIX" != "0" && "$RUN_BREAK_EVEN_MATRIX" != "1" ]]; then
+  echo "CACHESELECT_RUN_BREAK_EVEN_MATRIX must be 0 or 1" >&2
+  exit 2
+fi
+if [[ "$RUN_BREAK_EVEN_MATRIX" == "1" && "$EXECUTION_MODE" != "active" ]]; then
+  echo "The break-even matrix requires active GDN execution mode" >&2
+  exit 2
+fi
+
+# Fail before loading the model if the sidecar cannot retain the largest case.
+if [[ "$RUN_BREAK_EVEN_MATRIX" == "1" ]]; then
+  read -r -a BREAK_EVEN_BLOCK_COUNT_ARGS <<<"$BREAK_EVEN_BLOCK_COUNTS"
+  if ((${#BREAK_EVEN_BLOCK_COUNT_ARGS[@]} == 0)); then
+    echo "At least one break-even block count is required" >&2
+    exit 2
+  fi
+  if [[ ! "$DELTA_CACHE_CAPACITY" =~ ^[1-9][0-9]*$ ]]; then
+    echo "GDN delta cache capacity must be a positive integer" >&2
+    exit 2
+  fi
+  MAX_BREAK_EVEN_BLOCK_COUNT=0
+  for block_count in "${BREAK_EVEN_BLOCK_COUNT_ARGS[@]}"; do
+    if [[ ! "$block_count" =~ ^[1-9][0-9]*$ ]]; then
+      echo "Break-even block counts must be positive integers" >&2
+      exit 2
+    fi
+    if ((block_count > MAX_BREAK_EVEN_BLOCK_COUNT)); then
+      MAX_BREAK_EVEN_BLOCK_COUNT=$block_count
+    fi
+  done
+  if ((DELTA_CACHE_CAPACITY < MAX_BREAK_EVEN_BLOCK_COUNT)); then
+    echo "GDN delta cache capacity must cover every break-even case" >&2
+    exit 2
+  fi
 fi
 
 EXPERIMENT_ID="${SLURM_JOB_ID:?Run this file with sbatch}"
@@ -93,9 +131,12 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "model_runner=v2"
   echo "attention_reuse_policy=native_apc_only"
   echo "run_active_matrix=$RUN_ACTIVE_MATRIX"
+  echo "run_break_even_matrix=$RUN_BREAK_EVEN_MATRIX"
   echo "gpu_memory_utilization=$GPU_MEMORY_UTILIZATION"
   echo "matrix_record_counts=$MATRIX_RECORD_COUNTS"
   echo "matrix_repetitions=$MATRIX_REPETITIONS"
+  echo "break_even_block_counts=$BREAK_EVEN_BLOCK_COUNTS"
+  echo "break_even_repetitions=$BREAK_EVEN_REPETITIONS"
   echo "max_model_len=4096"
   echo "max_completion_tokens=64"
 } >"$RESULT_DIR/metadata.env"
@@ -237,6 +278,22 @@ if [[ "$RUN_ACTIVE_MATRIX" == "1" ]]; then
     --repetitions "$MATRIX_REPETITIONS" \
     --max-completion-tokens 64
   test -s "$RESULT_DIR/matrix/matrix-summary.json"
+fi
+
+# Measure the smallest reused fraction that beats full GDN recomputation.
+if [[ "$RUN_BREAK_EVEN_MATRIX" == "1" ]]; then
+  python -m benchmarks.run_hybrid_gdn_breakeven \
+    --base-url "http://127.0.0.1:$PORT" \
+    --model "$MODEL" \
+    --run-id "$RUN_ID-break-even" \
+    --output "$RESULT_DIR/break-even/break-even-summary.json" \
+    --request-log-dir "$REQUEST_LOG_DIR/break-even" \
+    --reused-block-counts "${BREAK_EVEN_BLOCK_COUNT_ARGS[@]}" \
+    --repetitions "$BREAK_EVEN_REPETITIONS" \
+    --block-size "$DELTA_BLOCK_SIZE" \
+    --cache-capacity "$DELTA_CACHE_CAPACITY" \
+    --max-completion-tokens 64
+  test -s "$RESULT_DIR/break-even/break-even-summary.json"
 fi
 
 stop_server
