@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import statistics
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass
+from typing import Any
 
 
 TokenizePrompt = Callable[[str], Sequence[int]]
@@ -156,3 +158,81 @@ def calibrate_hybrid_gdn_breakeven_prompt(
         shared_suffix_tokens=shared_suffix,
         filler_repetitions=low,
     )
+
+
+# Aggregate repeated timings and identify the first consistently faster reuse size.
+def summarize_hybrid_gdn_breakeven(
+    trials: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """Report correctness and latency break-even points by reused block count."""
+    if not trials:
+        raise ValueError("trials must not be empty")
+    grouped: dict[int, list[dict[str, Any]]] = {}
+    for trial in trials:
+        block_count = trial.get("reused_block_count")
+        speedup = trial.get("speedup")
+        ttft_speedup = trial.get("ttft_speedup")
+        reuse_fraction = trial.get("reuse_fraction")
+        if not isinstance(block_count, int) or block_count < 1:
+            raise ValueError("trial has an invalid reused_block_count")
+        if not isinstance(speedup, (int, float)) or speedup <= 0:
+            raise ValueError("trial has an invalid speedup")
+        if not isinstance(ttft_speedup, (int, float)) or ttft_speedup <= 0:
+            raise ValueError("trial has an invalid TTFT speedup")
+        if not isinstance(reuse_fraction, (int, float)) or not 0 < reuse_fraction < 1:
+            raise ValueError("trial has an invalid reuse_fraction")
+        grouped.setdefault(block_count, []).append(trial)
+
+    cells = []
+    for block_count, rows in sorted(grouped.items()):
+        speedups = [float(row["speedup"]) for row in rows]
+        ttft_speedups = [float(row["ttft_speedup"]) for row in rows]
+        all_exact = all(row.get("exact_output_match") is True for row in rows)
+        median_speedup = statistics.median(speedups)
+        median_ttft_speedup = statistics.median(ttft_speedups)
+        cells.append(
+            {
+                "reused_block_count": block_count,
+                "repetitions": len(rows),
+                "all_outputs_exact": all_exact,
+                "prompt_token_count": rows[0]["prompt_token_count"],
+                "reused_prompt_tokens": rows[0]["reused_prompt_tokens"],
+                "mean_reuse_fraction": statistics.fmean(
+                    float(row["reuse_fraction"]) for row in rows
+                ),
+                "mean_speedup": statistics.fmean(speedups),
+                "median_speedup": median_speedup,
+                "minimum_speedup": min(speedups),
+                "maximum_speedup": max(speedups),
+                "mean_ttft_speedup": statistics.fmean(ttft_speedups),
+                "median_ttft_speedup": median_ttft_speedup,
+                "minimum_ttft_speedup": min(ttft_speedups),
+                "maximum_ttft_speedup": max(ttft_speedups),
+                "wall_break_even_met": all_exact and median_speedup > 1.0,
+                "ttft_break_even_met": all_exact and median_ttft_speedup > 1.0,
+                "break_even_met": (
+                    all_exact
+                    and median_speedup > 1.0
+                    and median_ttft_speedup > 1.0
+                ),
+            }
+        )
+
+    first_break_even = next(
+        (
+            cell["reused_block_count"]
+            for cell in cells
+            if cell["break_even_met"]
+        ),
+        None,
+    )
+    return {
+        "schema_version": 1,
+        "experiment": "hybrid_gdn_reuse_breakeven",
+        "trial_count": len(trials),
+        "all_outputs_exact": all(
+            trial.get("exact_output_match") is True for trial in trials
+        ),
+        "first_break_even_reused_block_count": first_break_even,
+        "cells": cells,
+    }

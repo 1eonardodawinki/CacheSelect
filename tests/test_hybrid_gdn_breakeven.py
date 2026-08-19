@@ -3,6 +3,7 @@ import unittest
 from benchmarks.hybrid_gdn_breakeven import (
     build_hybrid_gdn_breakeven_conditions,
     calibrate_hybrid_gdn_breakeven_prompt,
+    summarize_hybrid_gdn_breakeven,
 )
 
 
@@ -37,6 +38,46 @@ class HybridGDNBreakEvenTests(unittest.TestCase):
         self.assertGreaterEqual(pair.shared_suffix_tokens, 16)
         self.assertLess(pair.shared_prefix_tokens, 4)
         self.assertNotEqual(pair.source_prompt, pair.target_prompt)
+
+    # Select the first size where both wall time and TTFT improve safely.
+    def test_summarizes_first_break_even(self) -> None:
+        trials = [
+            {
+                "reused_block_count": 1,
+                "prompt_token_count": 128,
+                "reused_prompt_tokens": 64,
+                "reuse_fraction": 0.5,
+                "speedup": 0.9,
+                "ttft_speedup": 0.8,
+                "exact_output_match": True,
+            },
+            {
+                "reused_block_count": 4,
+                "prompt_token_count": 320,
+                "reused_prompt_tokens": 256,
+                "reuse_fraction": 0.8,
+                "speedup": 1.2,
+                "ttft_speedup": 1.3,
+                "exact_output_match": True,
+            },
+            {
+                "reused_block_count": 4,
+                "prompt_token_count": 320,
+                "reused_prompt_tokens": 256,
+                "reuse_fraction": 0.8,
+                "speedup": 1.4,
+                "ttft_speedup": 1.5,
+                "exact_output_match": True,
+            },
+        ]
+
+        summary = summarize_hybrid_gdn_breakeven(trials)
+
+        self.assertTrue(summary["all_outputs_exact"])
+        self.assertEqual(summary["first_break_even_reused_block_count"], 4)
+        self.assertFalse(summary["cells"][0]["break_even_met"])
+        self.assertTrue(summary["cells"][1]["break_even_met"])
+        self.assertAlmostEqual(summary["cells"][1]["median_speedup"], 1.3)
 
     # Reject duplicate sizes because they make repetition accounting ambiguous.
     def test_rejects_duplicate_reused_block_counts(self) -> None:
