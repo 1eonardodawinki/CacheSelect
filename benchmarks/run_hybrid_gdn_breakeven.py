@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
+from pathlib import Path
 from typing import Any
 
-from benchmarks.hybrid_gdn_breakeven import HybridGDNBreakEvenPromptPair
-from benchmarks.run_hybrid_apc_baseline import _post_json
+from benchmarks.hybrid_gdn_breakeven import (
+    HybridGDNBreakEvenPromptPair,
+    build_hybrid_gdn_breakeven_conditions,
+    calibrate_hybrid_gdn_breakeven_prompt,
+    summarize_hybrid_gdn_breakeven,
+)
+from benchmarks.run_hybrid_apc_baseline import _post_json, _run_recorded_request
+from observability.request_recorder import RequestRecorder, validate_ledger
 
 
 # Tokenize one prompt with the exact template used by the running model server.
@@ -127,3 +136,144 @@ def _validate_active_trial(
         "active_recomputed_layer_tokens": recomputed_layer_tokens,
         "active_layer_reuse_fraction": reused_layer_tokens / total_layer_tokens,
     }
+
+
+# Run all calibrated conditions sequentially against one already-warm vLLM server.
+def run_hybrid_gdn_breakeven(
+    *,
+    base_url: str,
+    model: str,
+    run_id: str,
+    output: Path,
+    request_log_dir: Path,
+    reused_block_counts: tuple[int, ...],
+    repetitions: int,
+    block_size: int,
+    cache_capacity: int,
+    max_completion_tokens: int = 64,
+    timeout_seconds: float = 180.0,
+) -> dict[str, Any]:
+    """Execute full-reference and active-reuse requests for every condition."""
+    conditions = build_hybrid_gdn_breakeven_conditions(
+        reused_block_counts,
+        repetitions,
+    )
+    if cache_capacity < max(reused_block_counts):
+        raise ValueError("cache_capacity must cover the largest reuse condition")
+    recorder = RequestRecorder(
+        run_id=run_id,
+        model=model,
+        backend="vllm-hybrid-gdn-breakeven",
+        log_dir=request_log_dir,
+        invocation_metadata={"experiment": "hybrid_gdn_reuse_breakeven"},
+    )
+
+    # Calibration happens once per reuse size and uses no generation requests.
+    pairs = {
+        count: calibrate_hybrid_gdn_breakeven_prompt(
+            reused_block_count=count,
+            block_size=block_size,
+            tokenize_prompt=lambda prompt: _tokenize_prompt(
+                base_url=base_url,
+                model=model,
+                prompt=prompt,
+                timeout_seconds=timeout_seconds,
+            ),
+        )
+        for count in reused_block_counts
+    }
+    chat_url = f"{base_url.rstrip('/')}/v1/chat/completions"
+    metrics_url = f"{base_url.rstrip('/')}/metrics"
+    trials = []
+    for condition in conditions:
+        pair = pairs[condition.reused_block_count]
+        scenario = (
+            f"reuse-{condition.reused_block_count:02d}"
+            f"-rep-{condition.repetition:02d}"
+        )
+        reference_salt = hashlib.sha256(
+            f"{recorder.invocation_id}:{scenario}:reference".encode()
+        ).hexdigest()
+        pair_salt = hashlib.sha256(
+            f"{recorder.invocation_id}:{scenario}:pair".encode()
+        ).hexdigest()
+        source_request_id = f"{run_id}:{scenario}:source"
+
+        # Separate salts make the reference uncached while source/target share state.
+        reference = _run_recorded_request(
+            recorder=recorder,
+            chat_url=chat_url,
+            metrics_url=metrics_url,
+            model=model,
+            scenario=scenario,
+            role="reference",
+            prompt=pair.target_prompt,
+            cache_salt=reference_salt,
+            cacheselect_request_id=f"{run_id}:{scenario}:reference",
+            cacheselect_source_request_id=None,
+            max_completion_tokens=max_completion_tokens,
+            timeout_seconds=timeout_seconds,
+        )
+        source = _run_recorded_request(
+            recorder=recorder,
+            chat_url=chat_url,
+            metrics_url=metrics_url,
+            model=model,
+            scenario=scenario,
+            role="source",
+            prompt=pair.source_prompt,
+            cache_salt=pair_salt,
+            cacheselect_request_id=source_request_id,
+            cacheselect_source_request_id=None,
+            max_completion_tokens=max_completion_tokens,
+            timeout_seconds=timeout_seconds,
+        )
+        target = _run_recorded_request(
+            recorder=recorder,
+            chat_url=chat_url,
+            metrics_url=metrics_url,
+            model=model,
+            scenario=scenario,
+            role="target",
+            prompt=pair.target_prompt,
+            cache_salt=pair_salt,
+            cacheselect_request_id=f"{run_id}:{scenario}:target",
+            cacheselect_source_request_id=source_request_id,
+            max_completion_tokens=max_completion_tokens,
+            timeout_seconds=timeout_seconds,
+        )
+        trial = _validate_active_trial(
+            pair=pair,
+            block_size=block_size,
+            reference=reference,
+            source=source,
+            target=target,
+        )
+        trial.update(
+            {
+                "condition_id": scenario,
+                "repetition": condition.repetition,
+                "filler_repetitions": pair.filler_repetitions,
+            }
+        )
+        trials.append(trial)
+
+    ledger = validate_ledger(recorder.path)
+    if not ledger.is_complete or ledger.failed:
+        raise RuntimeError("request ledger is incomplete or contains failures")
+    result = summarize_hybrid_gdn_breakeven(trials)
+    result.update(
+        {
+            "run_id": run_id,
+            "model": model,
+            "block_size": block_size,
+            "cache_capacity": cache_capacity,
+            "reused_block_counts": list(reused_block_counts),
+            "repetitions": repetitions,
+            "request_ledger": str(recorder.path),
+            "trials": trials,
+        }
+    )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")
+    return result
