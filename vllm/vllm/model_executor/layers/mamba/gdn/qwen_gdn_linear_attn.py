@@ -86,6 +86,7 @@ from vllm.utils.torch_utils import (
 )
 from vllm.v1.attention.backends.gdn_attn import (
     GDNAttentionMetadata,
+    checkpoint_block_index_for_token_end,
     prepare_gdn_decode_checkpoints,
     write_gdn_prefill_checkpoints,
     write_gdn_reused_block_checkpoint,
@@ -525,9 +526,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         if capacity == 0:
             return None
         if self.gdn_delta_operator_sidecar is None:
-            block_size = self.cache_config.mamba_block_size
-            if block_size is None:
-                raise ValueError("GDN delta caching requires a Mamba block size")
+            block_size = self.cache_config.gdn_delta_block_size
             self.gdn_delta_operator_sidecar = GDNDeltaOperatorSidecar(
                 capacity=capacity,
                 block_size=block_size,
@@ -572,10 +571,17 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         if queries.shape[0] != 1:
             raise ValueError("active GDN reuse requires one packed query batch")
 
-        block_size = self.cache_config.mamba_block_size
-        if block_size is None:
+        checkpoint_block_size = self.cache_config.mamba_block_size
+        if checkpoint_block_size is None:
             raise ValueError("active GDN reuse requires a Mamba block size")
-        if block_size % FLA_CHUNK_SIZE != 0:
+        logical_block_size = sidecar.block_size
+        if logical_block_size % FLA_CHUNK_SIZE != 0:
+            raise ValueError("the GDN delta block must align to kernel chunks")
+        if checkpoint_block_size % logical_block_size != 0:
+            raise ValueError(
+                "the Mamba checkpoint page must contain whole GDN delta blocks"
+            )
+        if checkpoint_block_size % FLA_CHUNK_SIZE != 0:
             raise ValueError("the Mamba block size must align to GDN kernel chunks")
         if attn_metadata.num_computed_tokens_cpu is None:
             raise ValueError("active GDN reuse requires CPU computed-token metadata")
@@ -585,12 +591,14 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
         computed = int(attn_metadata.num_computed_tokens_cpu[0].item())
         query_starts = attn_metadata.prefill_query_start_loc_cpu
         scheduled = int((query_starts[1] - query_starts[0]).item())
-        if computed % block_size != 0:
-            raise ValueError("the active GDN prefill must start on a block boundary")
+        if computed % logical_block_size != 0:
+            raise ValueError(
+                "the active GDN prefill must start on a logical block boundary"
+            )
         (plan,) = build_gdn_delta_execution_plans(
             num_computed_tokens=(computed,),
             num_scheduled_tokens=(scheduled,),
-            block_size=block_size,
+            block_size=logical_block_size,
             reuse_candidates=reuse_candidates,
         )
         if not plan.reused_block_indices:
@@ -635,8 +643,11 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                 )
             )
             assert final_states is not None
-            first_block = start_token // block_size
-            last_block = (end_token - 1) // block_size
+            first_block = start_token // checkpoint_block_size
+            last_block = checkpoint_block_index_for_token_end(
+                end_token,
+                checkpoint_block_size,
+            )
             write_gdn_prefill_checkpoints(
                 state_cache=state_cache,
                 chunk_states=chunk_states,
@@ -646,7 +657,7 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
                 num_computed_tokens=torch.tensor([start_token]),
                 first_scheduled_blocks=torch.tensor([first_block]),
                 last_scheduled_blocks=torch.tensor([last_block]),
-                block_size=block_size,
+                block_size=checkpoint_block_size,
                 chunk_size=FLA_CHUNK_SIZE,
             )
             return final_states[0], outputs.squeeze(0)
@@ -659,12 +670,15 @@ class QwenGatedDeltaNetAttention(GatedDeltaNetAttention):
             """Persist actively reused states in the ordinary checkpoint table."""
             if span.mode != "affine_reuse":
                 return
-            assert span.target_block_index is not None
+            physical_block_index = checkpoint_block_index_for_token_end(
+                span.end_token,
+                checkpoint_block_size,
+            )
             write_gdn_reused_block_checkpoint(
                 state_cache=state_cache,
                 checkpoint_state_indices=checkpoint_rows,
                 sequence_index=0,
-                target_block_index=span.target_block_index,
+                target_block_index=physical_block_index,
                 final_state=outgoing_state.unsqueeze(0),
             )
 

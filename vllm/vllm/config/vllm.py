@@ -1453,6 +1453,14 @@ class VllmConfig:
             )
         current_platform.check_and_update_config(self)
 
+        if (
+            self.cache_config.gdn_delta_cache_capacity > 0
+            and not self.use_v2_model_runner
+        ):
+            raise ValueError(
+                "GDN delta reuse requires Model Runner V2; set "
+                "VLLM_USE_V2_MODEL_RUNNER=1"
+            )
         if self.use_v2_model_runner:
             self._validate_v2_model_runner()
 

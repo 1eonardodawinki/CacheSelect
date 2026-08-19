@@ -522,6 +522,7 @@ class EngineArgs:
         CacheConfig.cacheselect_execute_partial_reuse
     )
     gdn_delta_cache_capacity: int = CacheConfig.gdn_delta_cache_capacity
+    gdn_delta_block_size: int = CacheConfig.gdn_delta_block_size
     gdn_delta_execution_mode: GDNDeltaExecutionMode = (
         CacheConfig.gdn_delta_execution_mode
     )
@@ -1208,6 +1209,10 @@ class EngineArgs:
         cache_group.add_argument(
             "--gdn-delta-cache-capacity",
             **cache_kwargs["gdn_delta_cache_capacity"],
+        )
+        cache_group.add_argument(
+            "--gdn-delta-block-size",
+            **cache_kwargs["gdn_delta_block_size"],
         )
         cache_group.add_argument(
             "--gdn-delta-execution-mode",
@@ -1946,6 +1951,7 @@ class EngineArgs:
             cacheselect_edit_radius=self.cacheselect_edit_radius,
             cacheselect_execute_partial_reuse=(self.cacheselect_execute_partial_reuse),
             gdn_delta_cache_capacity=self.gdn_delta_cache_capacity,
+            gdn_delta_block_size=self.gdn_delta_block_size,
             gdn_delta_execution_mode=self.gdn_delta_execution_mode,
             prefix_caching_hash_algo=self.prefix_caching_hash_algo,
             calculate_kv_scales=self.calculate_kv_scales,

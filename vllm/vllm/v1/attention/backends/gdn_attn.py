@@ -32,6 +32,19 @@ class GDNCheckpointWritePlan:
     source_chunk_indices: tuple[int, ...]
 
 
+# Map a token interval's outgoing state to its enclosing physical checkpoint.
+def checkpoint_block_index_for_token_end(
+    end_token: int,
+    checkpoint_block_size: int,
+) -> int:
+    """Return the physical block whose state should hold this token boundary."""
+    if end_token <= 0:
+        raise ValueError("end_token must be positive")
+    if checkpoint_block_size <= 0:
+        raise ValueError("checkpoint_block_size must be positive")
+    return (end_token - 1) // checkpoint_block_size
+
+
 # Map completed GDN blocks to the chunk-start states representing their ends.
 def plan_gdn_checkpoint_writes(
     *,

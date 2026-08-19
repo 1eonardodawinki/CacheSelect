@@ -16,6 +16,7 @@ CUDA_SETUP="${CACHESELECT_CUDA_SETUP:-/vol/cuda/13.0.0/setup.sh}"
 MODEL="${CACHESELECT_HYBRID_MODEL:-Qwen/Qwen3.5-9B}"
 START_TIMEOUT="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
 DELTA_CACHE_CAPACITY="${CACHESELECT_GDN_DELTA_CACHE_CAPACITY:-2}"
+DELTA_BLOCK_SIZE="${CACHESELECT_GDN_DELTA_BLOCK_SIZE:-64}"
 EXECUTION_MODE="${CACHESELECT_GDN_DELTA_EXECUTION_MODE:-shadow}"
 RUN_ACTIVE_MATRIX="${CACHESELECT_RUN_ACTIVE_MATRIX:-0}"
 GPU_MEMORY_UTILIZATION="${CACHESELECT_GPU_MEMORY_UTILIZATION:-0.96}"
@@ -65,6 +66,8 @@ export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
 export PYTHONUNBUFFERED=1
 # The server-info endpoint is bound to localhost inside this isolated job.
 export VLLM_SERVER_DEV_MODE=1
+# Hybrid models default to V1, while GDN operator transport is implemented in V2.
+export VLLM_USE_V2_MODEL_RUNNER=1
 
 command -v curl >/dev/null
 command -v nvidia-smi >/dev/null
@@ -85,7 +88,9 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "mamba_cache_mode=all"
   echo "gdn_prefill_backend=triton"
   echo "gdn_delta_cache_capacity=$DELTA_CACHE_CAPACITY"
+  echo "gdn_delta_block_size=$DELTA_BLOCK_SIZE"
   echo "gdn_delta_execution_mode=$EXECUTION_MODE"
+  echo "model_runner=v2"
   echo "attention_reuse_policy=native_apc_only"
   echo "run_active_matrix=$RUN_ACTIVE_MATRIX"
   echo "gpu_memory_utilization=$GPU_MEMORY_UTILIZATION"
@@ -149,6 +154,7 @@ setsid vllm serve "$MODEL" \
   --enable-prefix-caching \
   --mamba-cache-mode all \
   --gdn-delta-cache-capacity "$DELTA_CACHE_CAPACITY" \
+  --gdn-delta-block-size "$DELTA_BLOCK_SIZE" \
   --gdn-delta-execution-mode "$EXECUTION_MODE" \
   --gdn-prefill-backend triton \
   --no-enable-chunked-prefill \
@@ -159,12 +165,16 @@ SERVER_PID=$!
 
 wait_for_server
 echo "vLLM is healthy pid=$SERVER_PID"
+grep -q "Using V2 Model Runner" "$SERVER_LOG" || {
+  echo "vLLM did not start the required V2 model runner" >&2
+  exit 1
+}
 
 # Record and validate the effective configuration after vLLM fallback handling.
 curl --fail --silent \
   "http://127.0.0.1:$PORT/server_info?config_format=json" \
   --output "$SERVER_INFO_PATH"
-python - "$SERVER_INFO_PATH" "$DELTA_CACHE_CAPACITY" "$EXECUTION_MODE" <<'PY'
+python - "$SERVER_INFO_PATH" "$DELTA_CACHE_CAPACITY" "$DELTA_BLOCK_SIZE" "$EXECUTION_MODE" <<'PY'
 import json
 import sys
 
@@ -176,7 +186,8 @@ assert cache["enable_cacheselect"] is False
 assert cache["cacheselect_execute_partial_reuse"] is False
 assert cache["mamba_cache_mode"] == "all"
 assert cache["gdn_delta_cache_capacity"] == int(sys.argv[2])
-assert cache["gdn_delta_execution_mode"] == sys.argv[3]
+assert cache["gdn_delta_block_size"] == int(sys.argv[3])
+assert cache["gdn_delta_execution_mode"] == sys.argv[4]
 assert additional["gdn_prefill_backend"] == "triton"
 PY
 nvidia-smi \

@@ -4,17 +4,53 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections import OrderedDict
+from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from typing import TYPE_CHECKING, Any
 
 from vllm.logger import init_logger
-from vllm.v1.core.kv_cache_utils import resolve_block_hashes
 
 if TYPE_CHECKING:
     from vllm.v1.request import Request
 
 logger = init_logger(__name__)
+GDN_CONTEXT_HASH_DOMAIN = b"vllm-cacheselect-gdn-v1"
+
+
+# Build fine contextual identities without changing ordinary APC hash geometry.
+def build_gdn_contextual_block_hashes(
+    token_ids: Sequence[int],
+    *,
+    block_size: int,
+    cache_salt: str | None,
+    lora_adapter_id: int | None,
+) -> tuple[bytes, ...]:
+    """Hash every complete logical GDN block into one chained context."""
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
+    namespace = hashlib.sha256()
+    namespace.update(GDN_CONTEXT_HASH_DOMAIN)
+    namespace.update((cache_salt or "").encode("utf-8"))
+    namespace.update(b"\x00" if lora_adapter_id is None else b"\x01")
+    if lora_adapter_id is not None:
+        if lora_adapter_id < 0:
+            raise ValueError("LoRA adapter ID must be nonnegative")
+        namespace.update(lora_adapter_id.to_bytes(8, "big", signed=False))
+    parent = namespace.digest()
+    hashes = []
+    for start in range(0, len(token_ids) - block_size + 1, block_size):
+        block_hasher = hashlib.sha256(parent)
+        for token_id in token_ids[start : start + block_size]:
+            if isinstance(token_id, bool) or not isinstance(token_id, int):
+                raise TypeError("token IDs must be integers")
+            if token_id < 0:
+                raise ValueError("token IDs must be nonnegative")
+            block_hasher.update(token_id.to_bytes(8, "big", signed=False))
+        parent = block_hasher.digest()
+        hashes.append(parent)
+    return tuple(hashes)
 
 
 @dataclass(frozen=True)
@@ -82,28 +118,23 @@ class GDNDeltaSourceIndex:
         self,
         *,
         block_size: int,
-        hash_block_size: int,
         max_source_requests: int = 1024,
         max_candidate_blocks: int | None = None,
     ) -> None:
-        if block_size < 1 or hash_block_size < 1:
-            raise ValueError("block sizes must be positive")
-        if block_size % hash_block_size != 0:
-            raise ValueError("block_size must be divisible by hash_block_size")
+        if block_size < 1:
+            raise ValueError("block_size must be positive")
         if max_source_requests < 1:
             raise ValueError("max_source_requests must be positive")
         if max_candidate_blocks is not None and max_candidate_blocks < 1:
             raise ValueError("max_candidate_blocks must be positive")
         self.block_size = block_size
-        self.hash_block_size = hash_block_size
         self.max_source_requests = max_source_requests
         self.max_candidate_blocks = max_candidate_blocks
         self._sources: OrderedDict[str, GDNDeltaSourceRequest] = OrderedDict()
         logger.info(
             "GDN delta diagnostic: source index enabled block_size=%d "
-            "hash_block_size=%d max_candidate_blocks=%s",
+            "max_candidate_blocks=%s",
             block_size,
-            hash_block_size,
             max_candidate_blocks,
         )
 
@@ -119,10 +150,12 @@ class GDNDeltaSourceIndex:
         prompt_token_ids = request.prompt_token_ids
         if prompt_token_ids is None:
             return
-        hashes = resolve_block_hashes(
-            request.block_hashes,
-            self.hash_block_size,
-            self.block_size,
+        lora_adapter_id = self._lora_adapter_id(request)
+        hashes = build_gdn_contextual_block_hashes(
+            prompt_token_ids,
+            block_size=self.block_size,
+            cache_salt=request.cache_salt,
+            lora_adapter_id=lora_adapter_id,
         )
         num_full_blocks = min(
             len(prompt_token_ids) // self.block_size,
@@ -145,7 +178,7 @@ class GDNDeltaSourceIndex:
         self._sources[request_id] = GDNDeltaSourceRequest(
             request_id=request_id,
             cache_salt=request.cache_salt,
-            lora_adapter_id=self._lora_adapter_id(request),
+            lora_adapter_id=lora_adapter_id,
             blocks=blocks,
         )
         self._sources.move_to_end(request_id)

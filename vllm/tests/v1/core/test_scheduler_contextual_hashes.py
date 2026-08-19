@@ -3,6 +3,7 @@
 
 from types import SimpleNamespace
 
+from vllm.v1.core.gdn_delta_reuse import build_gdn_contextual_block_hashes
 from vllm.v1.core.sched.scheduler import Scheduler
 
 
@@ -13,7 +14,8 @@ def _scheduler(*, has_mamba_layers: bool, mode: str) -> Scheduler:
     scheduler.cache_config = SimpleNamespace(
         mamba_cache_mode=mode,
         gdn_delta_cache_capacity=2,
-        mamba_block_size=4,
+        mamba_block_size=8,
+        gdn_delta_block_size=4,
     )
     scheduler.hash_block_size = 2
     # Real hybrid models can pad the common scheduler page far beyond GDN's
@@ -25,18 +27,39 @@ def _scheduler(*, has_mamba_layers: bool, mode: str) -> Scheduler:
 # Verify logical GDN checkpoints do not inherit the padded scheduler page size.
 def test_resolves_contextual_hashes_at_gdn_block_size() -> None:
     scheduler = _scheduler(has_mamba_layers=True, mode="all")
-    request = SimpleNamespace(block_hashes=[b"h0", b"h1", b"h2", b"h3"])
+    request = SimpleNamespace(
+        prompt_token_ids=list(range(8)),
+        cache_salt="experiment",
+        lora_request=None,
+    )
 
-    assert scheduler._get_contextual_block_hashes(request) == (b"h1", b"h3")
+    assert scheduler._get_contextual_block_hashes(
+        request
+    ) == build_gdn_contextual_block_hashes(
+        range(8),
+        block_size=4,
+        cache_salt="experiment",
+        lora_adapter_id=None,
+    )
 
 
 # Verify ordinary and single-state requests do not pay the metadata cost.
 def test_omits_contextual_hashes_outside_all_state_mamba() -> None:
-    request = SimpleNamespace(block_hashes=[b"h0", b"h1"])
+    request = SimpleNamespace(
+        prompt_token_ids=list(range(8)),
+        cache_salt="experiment",
+        lora_request=None,
+    )
 
-    assert _scheduler(
-        has_mamba_layers=False, mode="all"
-    )._get_contextual_block_hashes(request) == ()
-    assert _scheduler(
-        has_mamba_layers=True, mode="align"
-    )._get_contextual_block_hashes(request) == ()
+    assert (
+        _scheduler(has_mamba_layers=False, mode="all")._get_contextual_block_hashes(
+            request
+        )
+        == ()
+    )
+    assert (
+        _scheduler(has_mamba_layers=True, mode="align")._get_contextual_block_hashes(
+            request
+        )
+        == ()
+    )

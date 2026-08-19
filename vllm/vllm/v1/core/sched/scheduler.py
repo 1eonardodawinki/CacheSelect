@@ -35,10 +35,11 @@ from vllm.v1.core.encoder_cache_manager import (
     EncoderCacheManager,
     EncoderDecoderCacheManager,
 )
+from vllm.v1.core.gdn_delta_reuse import build_gdn_contextual_block_hashes
 from vllm.v1.core.kv_cache_coordinator import HybridKVCacheCoordinator
 from vllm.v1.core.kv_cache_manager import KVCacheBlocks, KVCacheManager
 from vllm.v1.core.kv_cache_metrics import KVCacheMetricsCollector
-from vllm.v1.core.kv_cache_utils import KVCacheBlock, resolve_block_hashes
+from vllm.v1.core.kv_cache_utils import KVCacheBlock
 from vllm.v1.core.partial_reuse import PartialReusePlan
 from vllm.v1.core.sched.interface import PauseState, SchedulerInterface
 from vllm.v1.core.sched.output import (
@@ -279,17 +280,19 @@ class Scheduler(SchedulerInterface):
             watermark=self.scheduler_config.watermark,
             enable_cacheselect=self.cache_config.enable_cacheselect,
             gdn_delta_cache_capacity=self.cache_config.gdn_delta_cache_capacity,
-            gdn_delta_block_size=self.cache_config.mamba_block_size,
+            gdn_delta_block_size=self.cache_config.gdn_delta_block_size,
         )
         if self.cache_config.gdn_delta_cache_capacity > 0:
             logger.info(
                 "GDN delta diagnostic: scheduler initialized has_mamba=%s "
                 "scheduler_block_size=%d hash_block_size=%d "
-                "mamba_block_size=%s source_index_enabled=%s",
+                "mamba_block_size=%s gdn_delta_block_size=%d "
+                "source_index_enabled=%s",
                 kv_cache_config.has_mamba_layers,
                 self.block_size,
                 self.hash_block_size,
                 self.cache_config.mamba_block_size,
+                self.cache_config.gdn_delta_block_size,
                 self.kv_cache_manager.gdn_delta_source_index is not None,
             )
         # Bind GPU block pool to the KV connector. This must happen after
@@ -371,15 +374,18 @@ class Scheduler(SchedulerInterface):
             and self.cache_config.gdn_delta_cache_capacity > 0
         ):
             return ()
-        gdn_block_size = self.cache_config.mamba_block_size
-        if gdn_block_size is None:
-            return ()
-        hashes = resolve_block_hashes(
-            request.block_hashes,
-            self.hash_block_size,
-            gdn_block_size,
+        gdn_block_size = self.cache_config.gdn_delta_block_size
+        lora_adapter_id = (
+            request.lora_request.adapter_id
+            if request.lora_request is not None
+            else None
         )
-        return tuple(hashes)
+        return build_gdn_contextual_block_hashes(
+            request.prompt_token_ids or (),
+            block_size=gdn_block_size,
+            cache_salt=request.cache_salt,
+            lora_adapter_id=lora_adapter_id,
+        )
 
     def _mamba_block_aligned_split(
         self,

@@ -270,6 +270,23 @@ def test_gdn_delta_cache_requires_all_mode_prefix_caching():
         CacheConfig(gdn_delta_cache_capacity=1)
 
 
+# Keep logical GDN operators aligned to kernels and independent fine hashes.
+def test_gdn_delta_cache_configures_logical_block_hashing():
+    config = CacheConfig(
+        mamba_cache_mode="all",
+        gdn_delta_cache_capacity=1,
+    )
+    assert config.gdn_delta_block_size == 64
+    assert config.prefix_match_unit is None
+
+    with pytest.raises(ValueError, match="64-token GDN kernel chunk"):
+        CacheConfig(
+            mamba_cache_mode="all",
+            gdn_delta_cache_capacity=1,
+            gdn_delta_block_size=32,
+        )
+
+
 # Check that behavior-changing GDN execution cannot run without its sidecar.
 def test_active_gdn_delta_execution_requires_capacity():
     with pytest.raises(ValueError, match="requires a nonzero capacity"):

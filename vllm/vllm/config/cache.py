@@ -112,6 +112,9 @@ class CacheConfig:
     gdn_delta_cache_capacity: int = Field(default=0, ge=0)
     """Maximum number of GDN block-delta operators cached per layer. Zero
     disables the experimental bounded sidecar."""
+    gdn_delta_block_size: int = Field(default=64, gt=0)
+    """Logical token width of one cached GDN affine operator. This remains
+    independent of the larger physical Mamba checkpoint page."""
     gdn_delta_execution_mode: GDNDeltaExecutionMode = "shadow"
     """Whether eligible GDN operators are only compared with full recurrence
     or are allowed to replace selected recurrent spans."""
@@ -236,6 +239,7 @@ class CacheConfig:
             "cacheselect_edit_radius",
             "cacheselect_execute_partial_reuse",
             "gdn_delta_cache_capacity",
+            "gdn_delta_block_size",
             "prefix_caching_hash_algo",
             # Prefix-caching implementation detail (doesn't affect compiled graph).
             "prefix_match_unit",
@@ -317,6 +321,11 @@ class CacheConfig:
             raise ValueError("GDN delta caching requires prefix caching")
         if self.mamba_cache_mode != "all":
             raise ValueError("GDN delta caching requires mamba cache mode 'all'")
+        if self.gdn_delta_block_size % 64 != 0:
+            raise ValueError(
+                "GDN delta block size must be a multiple of the 64-token "
+                "GDN kernel chunk"
+            )
         return self
 
     @field_validator("calculate_kv_scales", mode="after")

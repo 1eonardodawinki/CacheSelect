@@ -3,24 +3,26 @@
 
 from types import SimpleNamespace
 
-from vllm.v1.core.gdn_delta_reuse import GDNDeltaSourceIndex
+from vllm.v1.core.gdn_delta_reuse import (
+    GDNDeltaSourceIndex,
+    build_gdn_contextual_block_hashes,
+)
 
 
-# Build one minimal request carrying fine-grained chained prompt hashes.
+# Build one minimal request carrying prompt identity and token content.
 def _request(request_id: str, token_offset: int = 0):
     return SimpleNamespace(
         request_id=request_id,
         cacheselect_request_id=request_id,
         prompt_token_ids=list(range(token_offset, token_offset + 12)),
-        block_hashes=[f"{request_id}-{index}".encode() for index in range(6)],
         cache_salt="experiment",
         lora_request=None,
     )
 
 
-# Resolve fine hashes to full GDN blocks and preserve their exact token content.
+# Build independent fine hashes and preserve each block's exact token content.
 def test_indexes_contextual_hashes_at_gdn_block_size() -> None:
-    index = GDNDeltaSourceIndex(block_size=4, hash_block_size=2)
+    index = GDNDeltaSourceIndex(block_size=4)
 
     index.index(_request("source"))
 
@@ -32,19 +34,38 @@ def test_indexes_contextual_hashes_at_gdn_block_size() -> None:
         (4, 5, 6, 7),
         (8, 9, 10, 11),
     ]
-    # Each coarse block uses the last chained hash inside that block.
-    assert [block.contextual_hash for block in source.blocks] == [
-        b"source-1",
-        b"source-3",
-        b"source-5",
-    ]
+    assert [block.contextual_hash for block in source.blocks] == list(
+        build_gdn_contextual_block_hashes(
+            range(12),
+            block_size=4,
+            cache_salt="experiment",
+            lora_adapter_id=None,
+        )
+    )
+
+
+# Keep identical tokens isolated across cache-salt namespaces.
+def test_contextual_hashes_include_cache_salt() -> None:
+    first = build_gdn_contextual_block_hashes(
+        range(8),
+        block_size=4,
+        cache_salt="first",
+        lora_adapter_id=None,
+    )
+    second = build_gdn_contextual_block_hashes(
+        range(8),
+        block_size=4,
+        cache_salt="second",
+        lora_adapter_id=None,
+    )
+
+    assert first != second
 
 
 # Keep the source metadata bounded using deterministic least-recent eviction.
 def test_evicts_least_recent_source_request() -> None:
     index = GDNDeltaSourceIndex(
         block_size=4,
-        hash_block_size=4,
         max_source_requests=2,
     )
     index.index(_request("first"))
@@ -60,7 +81,7 @@ def test_evicts_least_recent_source_request() -> None:
 
 # Map an unchanged suffix back to the old contextual hashes after an insertion.
 def test_locates_aligned_suffix_blocks_after_edit() -> None:
-    index = GDNDeltaSourceIndex(block_size=4, hash_block_size=2)
+    index = GDNDeltaSourceIndex(block_size=4)
     source = _request("source")
     index.index(source)
     target = SimpleNamespace(
@@ -80,9 +101,15 @@ def test_locates_aligned_suffix_blocks_after_edit() -> None:
         (candidate.source_block_index, candidate.target_block_index)
         for candidate in plan.candidates
     ] == [(1, 2), (2, 3)]
+    source_hashes = build_gdn_contextual_block_hashes(
+        range(12),
+        block_size=4,
+        cache_salt="experiment",
+        lora_adapter_id=None,
+    )
     assert [candidate.source_contextual_hash for candidate in plan.candidates] == [
-        b"source-3",
-        b"source-5",
+        source_hashes[1],
+        source_hashes[2],
     ]
     assert plan.to_dict()["candidate_block_count"] == 2
 
@@ -91,7 +118,6 @@ def test_locates_aligned_suffix_blocks_after_edit() -> None:
 def test_limits_candidates_to_expected_sidecar_residency() -> None:
     index = GDNDeltaSourceIndex(
         block_size=4,
-        hash_block_size=2,
         max_candidate_blocks=1,
     )
     index.index(_request("source"))
@@ -115,7 +141,7 @@ def test_limits_candidates_to_expected_sidecar_residency() -> None:
 
 # Reject a cross-namespace source rather than looking up another tenant's operator.
 def test_rejects_cache_salt_mismatch() -> None:
-    index = GDNDeltaSourceIndex(block_size=4, hash_block_size=2)
+    index = GDNDeltaSourceIndex(block_size=4)
     index.index(_request("source"))
     target = SimpleNamespace(
         request_id="target",

@@ -20,6 +20,7 @@ from vllm.config.compilation import CUDAGraphMode
 from vllm.v1.attention.backends.gdn_attn import (
     GDNAttentionMetadata,
     GDNAttentionMetadataBuilder,
+    checkpoint_block_index_for_token_end,
     plan_gdn_checkpoint_writes,
     prepare_gdn_decode_checkpoints,
     write_gdn_prefill_checkpoints,
@@ -29,6 +30,16 @@ from vllm.v1.kv_cache_interface import MambaSpec
 
 BLOCK_SIZE = 16
 DEVICE = torch.device("cpu")
+
+
+# Map fine logical spans into the larger physical checkpoint page table.
+def test_maps_logical_span_end_to_physical_checkpoint() -> None:
+    assert checkpoint_block_index_for_token_end(64, 2048) == 0
+    assert checkpoint_block_index_for_token_end(2048, 2048) == 0
+    assert checkpoint_block_index_for_token_end(2112, 2048) == 1
+
+    with pytest.raises(ValueError, match="end_token must be positive"):
+        checkpoint_block_index_for_token_end(0, 2048)
 
 
 @dataclass

@@ -155,7 +155,6 @@ class KVCacheManager:
                 # Hybrid page padding can make the shared scheduler block much
                 # larger than the logical GDN checkpoint interval.
                 block_size=gdn_delta_block_size or scheduler_block_size,
-                hash_block_size=hash_block_size,
                 max_candidate_blocks=gdn_delta_cache_capacity,
             )
             if gdn_delta_cache_capacity > 0
@@ -356,9 +355,7 @@ class KVCacheManager:
         )
 
     # Roll back source pins when the target request cannot be scheduled.
-    def release_partial_reuse_sources(
-        self, blocks: Sequence[KVCacheBlock]
-    ) -> None:
+    def release_partial_reuse_sources(self, blocks: Sequence[KVCacheBlock]) -> None:
         if self.partial_reuse_locator is not None:
             self.partial_reuse_locator.release_sources(blocks)
 
