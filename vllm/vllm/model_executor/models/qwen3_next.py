@@ -54,6 +54,7 @@ from vllm.platforms import current_platform
 from vllm.sequence import IntermediateTensors
 from vllm.transformers_utils.configs.qwen3_next import Qwen3NextConfig
 from vllm.v1.attention.backend import AttentionType
+from vllm.v1.utils import record_function_or_nullcontext
 
 from .interfaces import (
     EagleModelMixin,
@@ -514,12 +515,18 @@ class Qwen3NextDecoderLayer(nn.Module):
             hidden_states = hidden_states[:full_num_tokens]
 
         if self.layer_type == "linear_attention":
-            hidden_states = self.linear_attn(hidden_states=hidden_states)
+            with record_function_or_nullcontext(
+                "cacheselect_hybrid:gdn_attention"
+            ):
+                hidden_states = self.linear_attn(hidden_states=hidden_states)
         elif self.layer_type == "full_attention":
-            hidden_states = self.self_attn(
-                hidden_states=hidden_states,
-                positions=positions,
-            )
+            with record_function_or_nullcontext(
+                "cacheselect_hybrid:full_attention"
+            ):
+                hidden_states = self.self_attn(
+                    hidden_states=hidden_states,
+                    positions=positions,
+                )
         else:
             raise ValueError("Invalid layer_type")
 
@@ -545,13 +552,14 @@ class Qwen3NextDecoderLayer(nn.Module):
 
         # Fully Connected
         hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
-        if self.use_attn_reduce_scatter_for_moe:
-            hidden_states = self.mlp(
-                hidden_states,
-                already_sequence_parallel=True,
-            )
-        else:
-            hidden_states = self.mlp(hidden_states)
+        with record_function_or_nullcontext("cacheselect_hybrid:mlp"):
+            if self.use_attn_reduce_scatter_for_moe:
+                hidden_states = self.mlp(
+                    hidden_states,
+                    already_sequence_parallel=True,
+                )
+            else:
+                hidden_states = self.mlp(hidden_states)
 
         if self.layer_scale:
             if len(hidden_states.shape) == 2:
