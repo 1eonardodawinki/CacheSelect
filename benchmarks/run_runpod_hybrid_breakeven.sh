@@ -62,6 +62,8 @@ GPU_MEMORY_MIB="$(
   exit 2
 }
 
+# Put the nested source package before the repository's namespace directory.
+export PYTHONPATH="$PROJECT_ROOT/vllm${PYTHONPATH:+:$PYTHONPATH}"
 source "$VENV_ROOT/bin/activate"
 VLLM_SOURCE="$(python -c 'import vllm; print(vllm.__file__)')"
 [[ "$VLLM_SOURCE" == "$PROJECT_ROOT"/vllm/* ]] || {

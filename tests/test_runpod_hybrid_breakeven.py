@@ -28,6 +28,7 @@ class RunPodHybridBreakEvenTests(unittest.TestCase):
             "CACHESELECT_MINIMUM_GPU_MEMORY_MIB:-45000",
             "git diff --quiet",
             "git rev-parse origin/main",
+            'export PYTHONPATH="$PROJECT_ROOT/vllm',
             "import vllm; print(vllm.__file__)",
             "CACHESELECT_GDN_DELTA_EXECUTION_MODE=active",
             "CACHESELECT_GDN_DELTA_CACHE_CAPACITY:-16",
