@@ -7,6 +7,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MODEL_PATH = (
     PROJECT_ROOT / "vllm" / "vllm" / "model_executor" / "models" / "qwen3_next.py"
 )
+PROFILER_PATH = PROJECT_ROOT / "vllm" / "vllm" / "profiler" / "wrapper.py"
 
 
 class HybridProfileScopeTests(unittest.TestCase):
@@ -23,6 +24,15 @@ class HybridProfileScopeTests(unittest.TestCase):
         ):
             with self.subTest(label=label):
                 self.assertEqual(source.count(label), 1)
+
+    # Keep a compact structured artifact alongside the much larger Torch trace.
+    def test_profiler_writes_hybrid_scope_summary(self) -> None:
+        source = PROFILER_PATH.read_text(encoding="utf-8")
+
+        ast.parse(source)
+        self.assertIn("cacheselect_scope_summary_", source)
+        self.assertIn('event.key.startswith("cacheselect_hybrid:")', source)
+        self.assertIn('"device_time_total_us"', source)
 
 
 if __name__ == "__main__":

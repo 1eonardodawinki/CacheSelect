@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 # SPDX-FileCopyrightText: Copyright contributors to the vLLM project
 
+import json
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from contextlib import nullcontext
@@ -258,6 +259,29 @@ class TorchProfilerWrapper(WorkerProfiler):
             with open(profiler_out_file, "w") as f:
                 print(table, file=f)
 
+    # Persist only CacheSelect's stable regions in an easy-to-compare format.
+    def _write_cacheselect_scope_summary(self, rank: int) -> None:
+        """Write inclusive CPU and device time for each hybrid model region."""
+        scopes = [
+            {
+                "name": event.key,
+                "call_count": event.count,
+                "self_cpu_time_total_us": event.self_cpu_time_total,
+                "cpu_time_total_us": event.cpu_time_total,
+                "self_device_time_total_us": event.self_device_time_total,
+                "device_time_total_us": event.device_time_total,
+            }
+            for event in self.profiler.key_averages()
+            if event.key.startswith("cacheselect_hybrid:")
+        ]
+        profiler_dir = self.profiler_config.torch_profiler_dir
+        if not scopes or _is_uri_path(profiler_dir):
+            return
+        path = f"{profiler_dir}/cacheselect_scope_summary_{rank}.json"
+        with open(path, "w", encoding="utf-8") as output:
+            json.dump({"schema_version": 1, "scopes": scopes}, output, indent=2)
+            output.write("\n")
+
     @override
     def _start(self) -> None:
         self.profiler.start()
@@ -268,6 +292,7 @@ class TorchProfilerWrapper(WorkerProfiler):
 
         profiler_config = self.profiler_config
         rank = self.local_rank
+        self._write_cacheselect_scope_summary(rank)
         if profiler_config.torch_profiler_dump_cuda_time_total:
             table = self._build_profiler_table(sort_key="self_cuda_time_total")
             self._write_profiler_table(rank, table)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import shutil
 from pathlib import Path
 from typing import Any
 
@@ -16,6 +17,17 @@ from benchmarks.run_hybrid_gdn_breakeven import (
     _validate_active_trial,
 )
 from observability.request_recorder import RequestRecorder, validate_ledger
+
+
+# Preserve the single-GPU scope totals before the next profile overwrites them.
+def _copy_scope_summary(profile_dir: Path, output: Path) -> Path:
+    """Copy the current worker summary to one role-specific artifact."""
+    source = profile_dir / "cacheselect_scope_summary_0.json"
+    if not source.is_file():
+        raise RuntimeError("Torch profiler omitted the CacheSelect scope summary")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(source, output)
+    return output
 
 
 # Compare one full prefill with one proven active-reuse prefill on a warm server.
@@ -83,6 +95,10 @@ def run_hybrid_gdn_component_profile(
             timeout_seconds=timeout_seconds,
         ),
     )
+    reference_scopes = _copy_scope_summary(
+        profile_dir,
+        profile_dir.parent / "full-reference-scopes.json",
+    )
     source = _run_recorded_request(
         recorder=recorder,
         chat_url=chat_url,
@@ -118,6 +134,10 @@ def run_hybrid_gdn_component_profile(
             timeout_seconds=timeout_seconds,
         ),
     )
+    active_scopes = _copy_scope_summary(
+        profile_dir,
+        profile_dir.parent / "active-reuse-scopes.json",
+    )
     execution = _validate_active_trial(
         pair=pair,
         block_size=block_size,
@@ -142,6 +162,10 @@ def run_hybrid_gdn_component_profile(
         "profile_traces": {
             "full_reference": str(reference_trace),
             "active_reuse": str(active_trace),
+        },
+        "profile_scope_summaries": {
+            "full_reference": str(reference_scopes),
+            "active_reuse": str(active_scopes),
         },
         "request_ledger": str(recorder.path),
     }

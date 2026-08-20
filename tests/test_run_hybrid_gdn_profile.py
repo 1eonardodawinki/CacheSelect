@@ -55,6 +55,10 @@ class RunHybridGDNProfileTests(unittest.TestCase):
         def fake_capture(**kwargs):
             row = kwargs["run_request"]()
             profiled_roles.append(row["role"])
+            scope_summary = (
+                kwargs["profile_dir"] / "cacheselect_scope_summary_0.json"
+            )
+            scope_summary.write_text("{}\n", encoding="utf-8")
             return row, kwargs["profile_dir"] / f"{row['role']}.pt.trace.json.gz"
 
         with tempfile.TemporaryDirectory() as directory:
@@ -102,6 +106,10 @@ class RunHybridGDNProfileTests(unittest.TestCase):
             },
         )
         self.assertTrue(result["all_outputs_exact"])
+        self.assertEqual(
+            set(result["profile_scope_summaries"]),
+            {"full_reference", "active_reuse"},
+        )
         self.assertTrue(summary_exists)
         self.assertNotEqual(calls[0]["cache_salt"], calls[1]["cache_salt"])
         self.assertEqual(calls[1]["cache_salt"], calls[2]["cache_salt"])

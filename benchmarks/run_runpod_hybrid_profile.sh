@@ -113,8 +113,10 @@ import sys
 summary = json.load(open(sys.argv[1], encoding="utf-8"))
 assert summary["all_outputs_exact"] is True
 assert set(summary["profile_traces"]) == {"full_reference", "active_reuse"}
-for trace in summary["profile_traces"].values():
-    assert pathlib.Path(trace).is_file()
+assert set(summary["profile_scope_summaries"]) == {"full_reference", "active_reuse"}
+for artifacts in (summary["profile_traces"], summary["profile_scope_summaries"]):
+    for artifact in artifacts.values():
+        assert pathlib.Path(artifact).is_file()
 PY
 
 echo "RunPod hybrid component profile completed"

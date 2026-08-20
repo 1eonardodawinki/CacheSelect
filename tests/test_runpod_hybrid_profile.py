@@ -39,7 +39,8 @@ class RunPodHybridProfileTests(unittest.TestCase):
             'grep -Fx "project_commit=$PROJECT_COMMIT"',
             'grep -Fx "run_component_profile=1"',
             '"full_reference", "active_reuse"',
-            'pathlib.Path(trace).is_file()',
+            'summary["profile_scope_summaries"]',
+            'pathlib.Path(artifact).is_file()',
         )
         for token in required_tokens:
             with self.subTest(token=token):
