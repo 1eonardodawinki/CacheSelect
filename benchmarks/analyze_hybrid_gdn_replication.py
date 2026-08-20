@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import argparse
+import json
 import random
 import statistics
 from collections.abc import Sequence
+from pathlib import Path
 from typing import Any
 
 from benchmarks.analyze_hybrid_gdn_breakeven import (
@@ -180,3 +183,77 @@ def analyze_hybrid_gdn_replication(
         "replicated_speedup_block_counts": replicated_counts,
         "cells": cells,
     }
+
+
+# Render pooled uncertainty and replication status for direct report use.
+def render_hybrid_gdn_replication_markdown(analysis: dict[str, Any]) -> str:
+    """Return a compact human-readable replication report."""
+    lines = [
+        "# Hybrid GDN break-even replication analysis",
+        "",
+        f"Decision: **{analysis['decision']}**",
+        "",
+        "All outputs exact: "
+        f"**{'yes' if analysis['all_outputs_exact'] else 'no'}**",
+        "",
+        "Intervals are deterministic 95% percentile-bootstrap intervals for "
+        "the pooled median. A speedup is called replicated only when at least "
+        "two source runs contribute and both interval lower bounds exceed 1.0.",
+        "",
+        "| Blocks | Trials | Runs | Wall median [95% interval] | "
+        "TTFT median [95% interval] | Wall wins | Evidence |",
+        "|---:|---:|---:|---:|---:|---:|:---|",
+    ]
+    for cell in analysis["cells"]:
+        wall_interval = cell["wall_speedup_95pct_interval"]
+        ttft_interval = cell["ttft_speedup_95pct_interval"]
+        lines.append(
+            f"| {cell['reused_block_count']} | {cell['trial_count']} | "
+            f"{cell['source_run_count']} | {cell['median_wall_speedup']:.3f}x "
+            f"[{wall_interval[0]:.3f}, {wall_interval[1]:.3f}] | "
+            f"{cell['median_ttft_speedup']:.3f}x "
+            f"[{ttft_interval[0]:.3f}, {ttft_interval[1]:.3f}] | "
+            f"{cell['wall_faster_trial_count']}/{cell['trial_count']} | "
+            f"{cell['evidence']} |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+# Parse multiple immutable source artifacts and two derived output paths.
+def _parse_args() -> argparse.Namespace:
+    """Return command-line arguments for replication analysis."""
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", type=Path, nargs="+", required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--markdown-output", type=Path, required=True)
+    parser.add_argument("--bootstrap-samples", type=int, default=20_000)
+    parser.add_argument("--seed", type=int, default=0)
+    return parser.parse_args()
+
+
+# Analyze saved runs and write machine-readable and report-ready evidence.
+def main() -> None:
+    """Run replication analysis without changing its source artifacts."""
+    args = _parse_args()
+    summaries = [
+        json.loads(path.read_text(encoding="utf-8")) for path in args.input
+    ]
+    analysis = analyze_hybrid_gdn_replication(
+        summaries,
+        bootstrap_samples=args.bootstrap_samples,
+        seed=args.seed,
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    args.markdown_output.parent.mkdir(parents=True, exist_ok=True)
+    args.output.write_text(json.dumps(analysis, indent=2) + "\n", encoding="utf-8")
+    args.markdown_output.write_text(
+        render_hybrid_gdn_replication_markdown(analysis),
+        encoding="utf-8",
+    )
+    print(f"decision={analysis['decision']}")
+    print(f"Saved {args.output}")
+    print(f"Saved {args.markdown_output}")
+
+
+if __name__ == "__main__":
+    main()

@@ -2,6 +2,7 @@ import unittest
 
 from benchmarks.analyze_hybrid_gdn_replication import (
     analyze_hybrid_gdn_replication,
+    render_hybrid_gdn_replication_markdown,
 )
 from benchmarks.hybrid_gdn_breakeven import summarize_hybrid_gdn_breakeven
 
@@ -60,6 +61,9 @@ class AnalyzeHybridGDNReplicationTests(unittest.TestCase):
         self.assertLess(sixteen["wall_speedup_95pct_interval"][0], 1.0)
         self.assertGreater(sixteen["wall_speedup_95pct_interval"][1], 1.0)
         self.assertEqual(sixteen["evidence"], "INCONCLUSIVE")
+        markdown = render_hybrid_gdn_replication_markdown(analysis)
+        self.assertIn("Decision: **NO_RELIABLE_SPEEDUP**", markdown)
+        self.assertIn("| 16 | 8 | 2 |", markdown)
 
     # Accept a speedup only when independent runs both support it after pooling.
     def test_identifies_a_replicated_speedup(self) -> None:
