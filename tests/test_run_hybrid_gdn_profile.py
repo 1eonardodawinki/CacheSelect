@@ -27,7 +27,7 @@ class RunHybridGDNProfileTests(unittest.TestCase):
             prompt_tokens = len(_fake_tokenize(prompt=kwargs["prompt"]))
             row = {
                 "role": role,
-                "finish_reason": "stop",
+                "finish_reason": "length",
                 "cached_tokens": 0,
                 "prompt_tokens": prompt_tokens,
                 "output_text": "GDN break-even complete.",
@@ -113,6 +113,8 @@ class RunHybridGDNProfileTests(unittest.TestCase):
         self.assertTrue(summary_exists)
         self.assertNotEqual(calls[0]["cache_salt"], calls[1]["cache_salt"])
         self.assertEqual(calls[1]["cache_salt"], calls[2]["cache_salt"])
+        self.assertTrue(all(call["max_completion_tokens"] == 1 for call in calls))
+        self.assertTrue(all(call["timeout_seconds"] == 900.0 for call in calls))
 
 
 if __name__ == "__main__":

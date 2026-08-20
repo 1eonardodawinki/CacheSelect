@@ -34,7 +34,7 @@ class RunPodHybridProfileTests(unittest.TestCase):
             "CACHESELECT_RUN_ACTIVE_MATRIX=0",
             "CACHESELECT_RUN_BREAK_EVEN_MATRIX=0",
             "CACHESELECT_RUN_COMPONENT_PROFILE=1",
-            "CACHESELECT_PROFILE_REUSED_BLOCK_COUNT:-32",
+            "CACHESELECT_PROFILE_REUSED_BLOCK_COUNT:-16",
             "bash benchmarks/run_hybrid_checkpoint_smoke.slurm",
             'grep -Fx "project_commit=$PROJECT_COMMIT"',
             'grep -Fx "run_component_profile=1"',

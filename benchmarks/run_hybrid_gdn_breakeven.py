@@ -52,10 +52,11 @@ def _validate_active_trial(
     reference: dict[str, Any],
     source: dict[str, Any],
     target: dict[str, Any],
+    allowed_finish_reasons: tuple[str, ...] = ("stop",),
 ) -> dict[str, Any]:
     """Return one timing row only after all causal execution checks pass."""
     for role, row in (("reference", reference), ("source", source), ("target", target)):
-        if row.get("finish_reason") != "stop":
+        if row.get("finish_reason") not in allowed_finish_reasons:
             raise RuntimeError(f"{role} request did not finish normally")
         if row.get("cached_tokens") != 0:
             raise RuntimeError(f"{role} request unexpectedly used native APC")

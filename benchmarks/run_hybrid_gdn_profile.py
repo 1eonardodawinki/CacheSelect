@@ -41,8 +41,8 @@ def run_hybrid_gdn_component_profile(
     profile_dir: Path,
     reused_block_count: int,
     block_size: int,
-    max_completion_tokens: int = 64,
-    timeout_seconds: float = 180.0,
+    max_completion_tokens: int = 1,
+    timeout_seconds: float = 900.0,
 ) -> dict[str, Any]:
     """Run and save an isolated full-versus-active component profile."""
     if reused_block_count < 1:
@@ -144,6 +144,7 @@ def run_hybrid_gdn_component_profile(
         reference=reference,
         source=source,
         target=target,
+        allowed_finish_reasons=("stop", "length"),
     )
     ledger = validate_ledger(recorder.path)
     if not ledger.is_complete or ledger.failed:
@@ -184,10 +185,10 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--request-log-dir", type=Path, required=True)
     parser.add_argument("--profile-dir", type=Path, required=True)
-    parser.add_argument("--reused-block-count", type=int, default=32)
+    parser.add_argument("--reused-block-count", type=int, default=16)
     parser.add_argument("--block-size", type=int, default=64)
-    parser.add_argument("--max-completion-tokens", type=int, default=64)
-    parser.add_argument("--timeout-seconds", type=float, default=180.0)
+    parser.add_argument("--max-completion-tokens", type=int, default=1)
+    parser.add_argument("--timeout-seconds", type=float, default=900.0)
     return parser.parse_args()
 
 
