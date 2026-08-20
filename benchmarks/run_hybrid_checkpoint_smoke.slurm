@@ -20,11 +20,13 @@ DELTA_BLOCK_SIZE="${CACHESELECT_GDN_DELTA_BLOCK_SIZE:-64}"
 EXECUTION_MODE="${CACHESELECT_GDN_DELTA_EXECUTION_MODE:-shadow}"
 RUN_ACTIVE_MATRIX="${CACHESELECT_RUN_ACTIVE_MATRIX:-0}"
 RUN_BREAK_EVEN_MATRIX="${CACHESELECT_RUN_BREAK_EVEN_MATRIX:-0}"
+RUN_COMPONENT_PROFILE="${CACHESELECT_RUN_COMPONENT_PROFILE:-0}"
 GPU_MEMORY_UTILIZATION="${CACHESELECT_GPU_MEMORY_UTILIZATION:-0.96}"
 MATRIX_RECORD_COUNTS="${CACHESELECT_MATRIX_RECORD_COUNTS:-64 112 160}"
 MATRIX_REPETITIONS="${CACHESELECT_MATRIX_REPETITIONS:-3}"
 BREAK_EVEN_BLOCK_COUNTS="${CACHESELECT_BREAK_EVEN_BLOCK_COUNTS:-1 2 4 8 16}"
 BREAK_EVEN_REPETITIONS="${CACHESELECT_BREAK_EVEN_REPETITIONS:-3}"
+PROFILE_REUSED_BLOCK_COUNT="${CACHESELECT_PROFILE_REUSED_BLOCK_COUNT:-32}"
 
 if [[ "$EXECUTION_MODE" != "shadow" && "$EXECUTION_MODE" != "active" ]]; then
   echo "Unsupported GDN delta execution mode: $EXECUTION_MODE" >&2
@@ -45,6 +47,28 @@ fi
 if [[ "$RUN_BREAK_EVEN_MATRIX" == "1" && "$EXECUTION_MODE" != "active" ]]; then
   echo "The break-even matrix requires active GDN execution mode" >&2
   exit 2
+fi
+if [[ "$RUN_COMPONENT_PROFILE" != "0" && "$RUN_COMPONENT_PROFILE" != "1" ]]; then
+  echo "CACHESELECT_RUN_COMPONENT_PROFILE must be 0 or 1" >&2
+  exit 2
+fi
+if [[ "$RUN_COMPONENT_PROFILE" == "1" ]]; then
+  if [[ "$EXECUTION_MODE" != "active" ]]; then
+    echo "Component profiling requires active GDN execution mode" >&2
+    exit 2
+  fi
+  if [[ ! "$PROFILE_REUSED_BLOCK_COUNT" =~ ^[1-9][0-9]*$ ]]; then
+    echo "Profile reused block count must be a positive integer" >&2
+    exit 2
+  fi
+  if [[ ! "$DELTA_CACHE_CAPACITY" =~ ^[1-9][0-9]*$ ]]; then
+    echo "GDN delta cache capacity must be a positive integer" >&2
+    exit 2
+  fi
+  if ((DELTA_CACHE_CAPACITY < PROFILE_REUSED_BLOCK_COUNT)); then
+    echo "GDN delta cache capacity must cover the profile case" >&2
+    exit 2
+  fi
 fi
 
 # Fail before loading the model if the sidecar cannot retain the largest case.
@@ -85,6 +109,9 @@ SUMMARY_PATH="$RESULT_DIR/summary.json"
 SHADOW_ANALYSIS_PATH="$RESULT_DIR/gdn-shadow-analysis.json"
 ACTIVE_ANALYSIS_PATH="$RESULT_DIR/gdn-active-analysis.json"
 SERVER_INFO_PATH="$RESULT_DIR/server-info.json"
+COMPONENT_PROFILE_DIR="$RESULT_DIR/component-profile"
+COMPONENT_PROFILE_PATH="$COMPONENT_PROFILE_DIR/component-profile.json"
+TORCH_PROFILE_DIR="$COMPONENT_PROFILE_DIR/torch-traces"
 
 mkdir -p \
   "$RESULT_DIR" \
@@ -132,11 +159,13 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "attention_reuse_policy=native_apc_only"
   echo "run_active_matrix=$RUN_ACTIVE_MATRIX"
   echo "run_break_even_matrix=$RUN_BREAK_EVEN_MATRIX"
+  echo "run_component_profile=$RUN_COMPONENT_PROFILE"
   echo "gpu_memory_utilization=$GPU_MEMORY_UTILIZATION"
   echo "matrix_record_counts=$MATRIX_RECORD_COUNTS"
   echo "matrix_repetitions=$MATRIX_REPETITIONS"
   echo "break_even_block_counts=$BREAK_EVEN_BLOCK_COUNTS"
   echo "break_even_repetitions=$BREAK_EVEN_REPETITIONS"
+  echo "profile_reused_block_count=$PROFILE_REUSED_BLOCK_COUNT"
   echo "max_model_len=4096"
   echo "max_completion_tokens=64"
 } >"$RESULT_DIR/metadata.env"
@@ -162,6 +191,19 @@ stop_server() {
   fi
   SERVER_PID=""
 }
+
+# Enable Torch profiling only for the explicit component experiment.
+PROFILER_ARGS=()
+if [[ "$RUN_COMPONENT_PROFILE" == "1" ]]; then
+  export VLLM_CUSTOM_SCOPES_FOR_PROFILING=1
+  mkdir -p "$TORCH_PROFILE_DIR"
+  PROFILER_ARGS=(
+    "--profiler-config.profiler=torch"
+    "--profiler-config.torch_profiler_dir=$TORCH_PROFILE_DIR"
+    "--profiler-config.torch_profiler_with_stack=false"
+    "--profiler-config.ignore_frontend=true"
+  )
+fi
 
 trap stop_server EXIT INT TERM
 
@@ -201,6 +243,7 @@ setsid vllm serve "$MODEL" \
   --no-enable-chunked-prefill \
   --enforce-eager \
   --enable-per-request-metrics \
+  "${PROFILER_ARGS[@]}" \
   >"$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
 
@@ -294,6 +337,21 @@ if [[ "$RUN_BREAK_EVEN_MATRIX" == "1" ]]; then
     --cache-capacity "$DELTA_CACHE_CAPACITY" \
     --max-completion-tokens 64
   test -s "$RESULT_DIR/break-even/break-even-summary.json"
+fi
+
+# Attribute one full and one actively reused prefill to model components.
+if [[ "$RUN_COMPONENT_PROFILE" == "1" ]]; then
+  python -m benchmarks.run_hybrid_gdn_profile \
+    --base-url "http://127.0.0.1:$PORT" \
+    --model "$MODEL" \
+    --run-id "$RUN_ID-component-profile" \
+    --output "$COMPONENT_PROFILE_PATH" \
+    --request-log-dir "$REQUEST_LOG_DIR/component-profile" \
+    --profile-dir "$TORCH_PROFILE_DIR" \
+    --reused-block-count "$PROFILE_REUSED_BLOCK_COUNT" \
+    --block-size "$DELTA_BLOCK_SIZE" \
+    --max-completion-tokens 64
+  test -s "$COMPONENT_PROFILE_PATH"
 fi
 
 stop_server
