@@ -1,0 +1,125 @@
+{
+  "schema_version": 1,
+  "selection": "mtrag-reference-quality-calibration",
+  "source_prompt_template_version": 1,
+  "source_model": "Qwen/Qwen3-14B",
+  "source_tokenizer_class": "Qwen2Tokenizer",
+  "split_seed": "cacheselect-mtrag-v1",
+  "split": "validation",
+  "requested_task_count": 15,
+  "max_prompt_tokens": 7000,
+  "max_testable_blocks": 64,
+  "task_count": 15,
+  "collection_count": 4,
+  "collection_task_counts": {
+    "mt-rag-clapnq-elser-512-100-20240503": 2,
+    "mt-rag-fiqa-beir-elser-512-100-20240501": 0,
+    "mt-rag-govt-elser-512-100-20240611": 0,
+    "mt-rag-ibmcloud-elser-512-100-20240502": 13
+  },
+  "selected_conversation_count": 6,
+  "previously_unused_conversation_count": 0,
+  "tasks": [
+    {
+      "task_id": "dd6b6ffd177f2b311abe676261279d2f<::>2",
+      "conversation_id": "dd6b6ffd177f2b311abe676261279d2f",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "validation"
+    },
+    {
+      "task_id": "c01c8cf11437e6bb3bc93efac26528c2<::>2",
+      "conversation_id": "c01c8cf11437e6bb3bc93efac26528c2",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "cfbcfa3e382f12aed450b10f87a72aeb<::>3",
+      "conversation_id": "cfbcfa3e382f12aed450b10f87a72aeb",
+      "collection": "mt-rag-clapnq-elser-512-100-20240503",
+      "split": "validation"
+    },
+    {
+      "task_id": "47b2471404382af6e973013ab1cf96b9<::>7",
+      "conversation_id": "47b2471404382af6e973013ab1cf96b9",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "f5a8ca2f2bc12180940167fb920bb018<::>9",
+      "conversation_id": "f5a8ca2f2bc12180940167fb920bb018",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "47b2471404382af6e973013ab1cf96b9<::>4",
+      "conversation_id": "47b2471404382af6e973013ab1cf96b9",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "c6c3b02ca32795af64c903dd76700517<::>5",
+      "conversation_id": "c6c3b02ca32795af64c903dd76700517",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "c01c8cf11437e6bb3bc93efac26528c2<::>5",
+      "conversation_id": "c01c8cf11437e6bb3bc93efac26528c2",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "f5a8ca2f2bc12180940167fb920bb018<::>4",
+      "conversation_id": "f5a8ca2f2bc12180940167fb920bb018",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "47b2471404382af6e973013ab1cf96b9<::>2",
+      "conversation_id": "47b2471404382af6e973013ab1cf96b9",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "c01c8cf11437e6bb3bc93efac26528c2<::>7",
+      "conversation_id": "c01c8cf11437e6bb3bc93efac26528c2",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "f5a8ca2f2bc12180940167fb920bb018<::>6",
+      "conversation_id": "f5a8ca2f2bc12180940167fb920bb018",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "c01c8cf11437e6bb3bc93efac26528c2<::>6",
+      "conversation_id": "c01c8cf11437e6bb3bc93efac26528c2",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "f5a8ca2f2bc12180940167fb920bb018<::>8",
+      "conversation_id": "f5a8ca2f2bc12180940167fb920bb018",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    },
+    {
+      "task_id": "f5a8ca2f2bc12180940167fb920bb018<::>7",
+      "conversation_id": "f5a8ca2f2bc12180940167fb920bb018",
+      "collection": "mt-rag-ibmcloud-elser-512-100-20240502",
+      "split": "validation"
+    }
+  ],
+  "source": "IBM/mt-rag-benchmark/mtrag-human/generation_tasks/RAG.jsonl",
+  "source_revision": "cc5b1d481b391181b89f7ced860308482e785463",
+  "source_sha256": "5d5201da9fabd072fd8f6b8d051bfaafa7ef031e76722a4920c66e94cede1873",
+  "source_coverage_sha256": "07bb13e7ee1ece33c8db3b927d936fb6dd6de6bb9378ab8b2170340e048f1872",
+  "excluded_manifest_sha256": {
+    "results/mtrag-natural-splits-v1/train-manifest.json": "60d7b9363a38d228d256920f96e5fcbcb021f4558b0228e62dd179baf4bc2fc5",
+    "results/mtrag-natural-splits-v1/validation-manifest.json": "8d531b80e99fb72d45164c22f48825d83d28c8e77d53c743abb983d5340d3eb8",
+    "results/runpod-qwen3-14b-mtrag-1787309818/cacheselect-results/mtrag-reference-1787309818/manifests/train-manifest.json": "393f3e8b7b1589c4ff0d28edd0bfc5923382ff40fa0fd0cc2cb21aa57c55a1c6",
+    "results/runpod-qwen3-14b-mtrag-1787309818/cacheselect-results/mtrag-reference-1787309818/manifests/validation-manifest.json": "9f8ce8fa76394f221b8712597acf849b32f4a8eee1a95f664cfc51fc79e94d01"
+  },
+  "excluded_task_count": 102
+}

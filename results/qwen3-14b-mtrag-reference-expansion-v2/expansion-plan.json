@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "analysis": "mtrag-reference-expansion-plan",
+  "selection_model": "Qwen/Qwen3-14B",
+  "existing_reference_tasks": 102,
+  "new_train_tasks": 21,
+  "new_validation_tasks": 15,
+  "new_reference_tasks": 36,
+  "final_reference_tasks": 138,
+  "final_train_fraction": 0.7391304347826086,
+  "final_validation_fraction": 0.2608695652173913,
+  "test_status": "sealed_unopened",
+  "manifests": {
+    "train": "results/qwen3-14b-mtrag-reference-expansion-v2/train-manifest.json",
+    "validation": "results/qwen3-14b-mtrag-reference-expansion-v2/validation-manifest.json"
+  }
+}
