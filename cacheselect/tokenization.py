@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -40,12 +41,15 @@ def _single_token_ids(encoded: Any) -> list[int]:
 def rendered_chat_token_ids(
     tokenizer: Any,
     messages: list[dict[str, Any]],
+    *,
+    template_kwargs: Mapping[str, Any] | None = None,
 ) -> list[int]:
     """Render a chat request exactly as the model tokenizer sees it."""
     encoded = tokenizer.apply_chat_template(
         messages,
         tokenize=True,
         add_generation_prompt=True,
+        **dict(template_kwargs or {}),
     )
     return _single_token_ids(encoded)
 
@@ -54,11 +58,14 @@ def rendered_chat_token_ids(
 def rendered_chat_tokenization(
     tokenizer: Any,
     messages: list[dict[str, Any]],
+    *,
+    template_kwargs: Mapping[str, Any] | None = None,
 ) -> RenderedChatTokenization:
     text = tokenizer.apply_chat_template(
         messages,
         tokenize=False,
         add_generation_prompt=True,
+        **dict(template_kwargs or {}),
     )
     if not isinstance(text, str) or not text:
         raise TypeError("tokenizer returned an invalid rendered prompt string")
@@ -68,7 +75,11 @@ def rendered_chat_tokenization(
         return_offsets_mapping=True,
     )
     token_ids = _single_token_ids(encoded)
-    expected_ids = rendered_chat_token_ids(tokenizer, messages)
+    expected_ids = rendered_chat_token_ids(
+        tokenizer,
+        messages,
+        template_kwargs=template_kwargs,
+    )
     if token_ids != expected_ids:
         raise ValueError("text offsets do not match chat-template token IDs")
 

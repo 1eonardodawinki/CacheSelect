@@ -84,6 +84,10 @@ class MtragCoverageTests(TestCase):
                     return_value=(object(),),
                 ),
                 patch(
+                    "benchmarks.analyze_mtrag_coverage.mtrag_source_sha256",
+                    return_value="source-sha256",
+                ),
+                patch(
                     "benchmarks.analyze_mtrag_coverage.analyze_mtrag_coverage",
                     return_value=result,
                 ),
@@ -97,5 +101,6 @@ class MtragCoverageTests(TestCase):
             local_files_only=False,
         )
         self.assertEqual(artifact["input"], "rag.jsonl")
+        self.assertEqual(artifact["source_sha256"], "source-sha256")
         self.assertEqual(artifact["model"], "test-model")
         self.assertEqual(artifact["transition_count"], 3)

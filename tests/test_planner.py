@@ -1,5 +1,6 @@
 import json
 from unittest import TestCase
+from unittest.mock import MagicMock
 
 from cacheselect.planner import (
     DecisionReason,
@@ -106,6 +107,24 @@ class TokenizationTests(TestCase):
         self.assertEqual(
             rendered_chat_token_ids(self.FakeTokenizer([[1, 2, 3]]), messages),
             [1, 2, 3],
+        )
+
+    # Keep offline token geometry aligned with model-specific request options.
+    def test_forwards_chat_template_options(self):
+        tokenizer = self.FakeTokenizer([1, 2, 3])
+        tokenizer.apply_chat_template = MagicMock(return_value=[1, 2, 3])
+
+        rendered_chat_token_ids(
+            tokenizer,
+            [],
+            template_kwargs={"enable_thinking": False},
+        )
+
+        tokenizer.apply_chat_template.assert_called_once_with(
+            [],
+            tokenize=True,
+            add_generation_prompt=True,
+            enable_thinking=False,
         )
 
     def test_rejects_multiple_rendered_prompts(self):

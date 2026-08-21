@@ -16,6 +16,9 @@ from cacheselect.reuse_opportunity import analyze_reuse_opportunity
 from cacheselect.tokenization import rendered_chat_token_ids
 
 
+MTRAG_CHAT_TEMPLATE_KWARGS = {"enable_thinking": False}
+
+
 # Return document identities retained across one natural adjacent-turn edit.
 def _shared_document_ids(previous: MtragTask, current: MtragTask) -> tuple[str, ...]:
     previous_ids = {context.document_id for context in previous.contexts}
@@ -36,10 +39,12 @@ def _analyze_transition(
     previous_tokens = rendered_chat_token_ids(
         tokenizer,
         render_mtrag_messages(previous),
+        template_kwargs=MTRAG_CHAT_TEMPLATE_KWARGS,
     )
     current_tokens = rendered_chat_token_ids(
         tokenizer,
         render_mtrag_messages(current),
+        template_kwargs=MTRAG_CHAT_TEMPLATE_KWARGS,
     )
     changed_region = locate_changed_token_region(previous_tokens, current_tokens)
     # This is a CPU estimate: real APC may lose resident blocks under load.

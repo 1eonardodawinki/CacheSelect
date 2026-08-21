@@ -8,7 +8,7 @@ from pathlib import Path
 
 from transformers import AutoTokenizer
 
-from benchmarks.mtrag import load_mtrag_tasks
+from benchmarks.mtrag import load_mtrag_tasks, mtrag_source_sha256
 from benchmarks.mtrag_coverage import analyze_mtrag_coverage
 
 
@@ -50,6 +50,7 @@ def main() -> None:
     artifact = {
         **result,
         "input": str(args.input),
+        "source_sha256": mtrag_source_sha256(args.input),
         "model": args.model,
         "tokenizer_class": type(tokenizer).__name__,
     }
