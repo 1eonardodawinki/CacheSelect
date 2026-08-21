@@ -93,6 +93,10 @@ class MtragTraceTests(TestCase):
         self.assertEqual(request.messages, render_mtrag_messages(task))
         self.assertEqual(request.request_id, task.task_id)
         self.assertEqual(request.sequence_index, 2)
+        self.assertEqual(
+            request.extra_body,
+            {"chat_template_kwargs": {"enable_thinking": False}},
+        )
 
     # Preserve stable history/document identities as evaluation-only segments.
     def test_builds_ordered_audit_segments(self):

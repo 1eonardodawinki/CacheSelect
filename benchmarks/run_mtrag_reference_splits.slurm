@@ -13,6 +13,8 @@ VENV_ROOT="${CACHESELECT_VENV_ROOT:-/vol/bitbucket/$USER/cacheselect-env}"
 STORAGE_ROOT="${CACHESELECT_STORAGE_ROOT:-/vol/bitbucket/$USER}"
 CUDA_SETUP="${CACHESELECT_CUDA_SETUP:-/vol/cuda/13.0.0/setup.sh}"
 MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
+MANIFEST_MODEL="${CACHESELECT_MTRAG_MANIFEST_MODEL:-$MODEL}"
+MODEL_DTYPE="${CACHESELECT_MODEL_DTYPE:-auto}"
 MTRAG_INPUT="${CACHESELECT_MTRAG_INPUT:-$STORAGE_ROOT/cacheselect-data/mtrag/RAG.jsonl}"
 SPLIT_ROOT="${CACHESELECT_MTRAG_SPLIT_ROOT:-results/mtrag-natural-splits-v1}"
 START_TIMEOUT="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
@@ -68,6 +70,8 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "experiment_id=$EXPERIMENT_ID"
   echo "project_commit=$PROJECT_COMMIT"
   echo "model=$MODEL"
+  echo "manifest_selection_model=$MANIFEST_MODEL"
+  echo "model_dtype=$MODEL_DTYPE"
   echo "vllm_version=$VLLM_VERSION"
   echo "gpu=$GPU_DESCRIPTION"
   echo "mtrag_input=$MTRAG_INPUT"
@@ -124,6 +128,7 @@ wait_for_server() {
 setsid vllm serve "$MODEL" \
   --host 127.0.0.1 \
   --port "$PORT" \
+  --dtype "$MODEL_DTYPE" \
   --max-model-len 8192 \
   --gpu-memory-utilization 0.90 \
   --enable-prefix-caching \
@@ -146,6 +151,7 @@ for SPLIT in "${SPLITS[@]}"; do
     --input "$MTRAG_INPUT" \
     --manifest "$SPLIT_ROOT/$SPLIT-manifest.json" \
     --model "$MODEL" \
+    --manifest-model "$MANIFEST_MODEL" \
     --base-url "http://127.0.0.1:$PORT" \
     --max-completion-tokens 384 \
     --run-id "mtrag-reference-$EXPERIMENT_ID-$SPLIT" \

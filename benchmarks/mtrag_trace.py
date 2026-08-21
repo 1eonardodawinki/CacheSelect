@@ -81,7 +81,9 @@ def build_mtrag_request_spec(
             notes=(f"IBM MTRAG task {task.task_id} from collection {task.collection}."),
             reference_similarity_gate=quality_gate,
         ),
-)
+        # Keep the completion budget for the answer rather than Qwen3 reasoning.
+        extra_body={"chat_template_kwargs": {"enable_thinking": False}},
+    )
 
 
 @dataclass(frozen=True)

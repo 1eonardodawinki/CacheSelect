@@ -31,8 +31,10 @@ class RunMtragCalibrationCommandTests(TestCase):
             "SPLITS=(train validation)",
             "vllm serve",
             "--max-model-len 8192",
+            '--dtype "$MODEL_DTYPE"',
             "--enable-cacheselect",
             "python -m benchmarks.run_mtrag_calibration",
+            '--manifest-model "$MANIFEST_MODEL"',
             "train-reference-calibration.json",
             "validation-reference-calibration.json",
         ):
