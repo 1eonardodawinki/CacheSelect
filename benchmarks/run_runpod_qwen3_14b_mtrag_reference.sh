@@ -9,6 +9,7 @@ STORAGE_ROOT="${CACHESELECT_STORAGE_ROOT:-/workspace}"
 MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
 MANIFEST_MODEL="${CACHESELECT_MTRAG_MANIFEST_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 EXPAND_REFERENCES="${CACHESELECT_MTRAG_EXPAND_REFERENCES:-0}"
+REMAINING_REFERENCES="${CACHESELECT_MTRAG_REMAINING_REFERENCES:-0}"
 EXPECTED_GPU="${CACHESELECT_EXPECTED_GPU_NAME:-NVIDIA A40}"
 MINIMUM_GPU_MEMORY_MIB="${CACHESELECT_MINIMUM_GPU_MEMORY_MIB:-45000}"
 EXPERIMENT_ID="${CACHESELECT_EXPERIMENT_ID:-$(date -u +%s)}"
@@ -27,6 +28,14 @@ EXPECTED_VALIDATION_COUNT=6
   echo "CACHESELECT_MTRAG_EXPAND_REFERENCES must be 0 or 1" >&2
   exit 2
 }
+[[ "$REMAINING_REFERENCES" == 0 || "$REMAINING_REFERENCES" == 1 ]] || {
+  echo "CACHESELECT_MTRAG_REMAINING_REFERENCES must be 0 or 1" >&2
+  exit 2
+}
+((EXPAND_REFERENCES + REMAINING_REFERENCES <= 1)) || {
+  echo "Choose only one MTRAG reference expansion mode" >&2
+  exit 2
+}
 
 # Stop before paid work when the persistent environment is incomplete.
 require_command() {
@@ -36,7 +45,7 @@ require_command() {
   }
 }
 
-for command in curl git nvidia-smi sha256sum tee; do
+for command in curl git nvidia-smi sha256sum tar tee; do
   require_command "$command"
 done
 [[ -d "$PROJECT_ROOT/.git" ]] || {
@@ -81,6 +90,14 @@ if [[ ! -s "$MTRAG_INPUT" ]]; then
     --output "$MTRAG_INPUT.download" \
     "$MTRAG_URL"
   mv "$MTRAG_INPUT.download" "$MTRAG_INPUT"
+fi
+
+# Use the frozen final 36 tasks without recomputing their selection.
+if [[ "$REMAINING_REFERENCES" == 1 ]]; then
+  SPLIT_ROOT="results/qwen3-14b-mtrag-reference-expansion-v2"
+  EXPECTED_TRAIN_COUNT=21
+  EXPECTED_VALIDATION_COUNT=15
+  MANIFEST_MODEL="$MODEL"
 fi
 ACTUAL_MTRAG_SHA256="$(sha256sum "$MTRAG_INPUT" | cut -d ' ' -f 1)"
 [[ "$ACTUAL_MTRAG_SHA256" == "$MTRAG_SHA256" ]] || {
@@ -170,8 +187,17 @@ python -m benchmarks.prepare_mtrag_reference_review \
   --review-output "$RESULT_DIR/blinded-reference-review.json" \
   --key-output "$RESULT_DIR/blinded-reference-key.json"
 
+ARCHIVE="$STORAGE_ROOT/$RUN_ID-artifacts.tar.gz"
+tar -czf "$ARCHIVE" -C "$STORAGE_ROOT" \
+  "cacheselect-results/$RUN_ID" \
+  "cacheselect-request-logs/$RUN_ID" \
+  "cacheselect-server-logs/$RUN_ID" \
+  "cacheselect-server-logs/runpod-$RUN_ID.out"
+
 echo "RunPod Qwen3-14B MTRAG references completed successfully"
 echo "commit=$PROJECT_COMMIT"
 echo "gpu=$GPU_NAME"
 echo "results=$RESULT_DIR"
 echo "log=$WRAPPER_LOG"
+echo "archive=$ARCHIVE"
+echo "archive_sha256=$(sha256sum "$ARCHIVE" | cut -d ' ' -f 1)"

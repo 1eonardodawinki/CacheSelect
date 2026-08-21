@@ -38,10 +38,12 @@ class RunPodQwen3MtragReferenceTests(unittest.TestCase):
             "CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS=768",
             "CACHESELECT_HF_OFFLINE",
             "CACHESELECT_MTRAG_EXPAND_REFERENCES",
+            "CACHESELECT_MTRAG_REMAINING_REFERENCES",
             "benchmarks.analyze_mtrag_coverage",
             "benchmarks.freeze_mtrag_reference_expansion",
             "EXPECTED_TRAIN_COUNT=60",
             "EXPECTED_VALIDATION_COUNT=15",
+            "results/qwen3-14b-mtrag-reference-expansion-v2",
             "--local-files-only",
             "bash benchmarks/run_mtrag_reference_splits.slurm",
             "train-reference-calibration.json",
@@ -50,6 +52,7 @@ class RunPodQwen3MtragReferenceTests(unittest.TestCase):
             'row["finish_reason"] == "stop"',
             "benchmarks.prepare_mtrag_reference_review",
             "blinded-reference-review.json",
+            "artifacts.tar.gz",
         )
         for token in required_tokens:
             with self.subTest(token=token):
