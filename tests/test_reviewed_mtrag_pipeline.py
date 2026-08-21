@@ -253,7 +253,8 @@ class ReviewedMtragPipelineTests(TestCase):
         for token in (
             "Qwen/Qwen3-14B",
             '== *"A40"*',
-            "(57, 57, 90, 16)",
+            'plan["total_target_blocks"] == plan["total_testable_blocks"]',
+            'row["target_block_indices"] == row["testable_block_indices"]',
             "--enable-cacheselect",
             "--cacheselect-repair-selector full_block",
             "--cacheselect-execute-partial-reuse",

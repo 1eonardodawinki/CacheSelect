@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run the frozen 90-trial Qwen3-14B MTRAG experiment on a RunPod A40.
+# Run an exhaustive reviewed Qwen3-14B MTRAG experiment on a RunPod A40.
 
 set -Eeuo pipefail
 
@@ -59,7 +59,7 @@ export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
 printf 'project_commit=%s\nmodel=%s\ngpu=%s\n' "$COMMIT" "$MODEL" "$GPU" \
   >"$RESULT/metadata.env"
 
-# Bind the exact reviewed answers to the exact 57-task, 90-block plan.
+# Bind the exact reviewed answers to a plan containing every testable block.
 python - "$PLAN" "$REFERENCES" "$MODEL" "$MTRAG_SHA" <<'PY'
 import hashlib, json, sys
 
@@ -67,7 +67,10 @@ plan, refs = (json.load(open(path, encoding="utf-8")) for path in sys.argv[1:3])
 assert plan["source_model"] == refs["model"] == sys.argv[3]
 assert plan["source_dataset_sha256"] == refs["source_dataset_sha256"] == sys.argv[4]
 assert plan["source_reference_manifest_sha256"] == hashlib.sha256(open(sys.argv[2], "rb").read()).hexdigest()
-assert (refs["accepted_task_count"], plan["transition_count"], plan["total_target_blocks"], plan["block_size"]) == (57, 57, 90, 16)
+assert refs["accepted_task_count"] == plan["transition_count"] == len(plan["transitions"])
+assert plan["block_size"] == 16
+assert plan["total_target_blocks"] == plan["total_testable_blocks"] > 0
+assert all(row["target_block_indices"] == row["testable_block_indices"] for row in plan["transitions"])
 PY
 
 SERVER_PID=""
@@ -113,10 +116,13 @@ python -m benchmarks.run_mtrag_counterfactual_pilot \
   --run-id "$RUN_ID" --request-log-dir "$RESULT/request-logs" \
   --output-dir "$RESULT" --summary-output "$RESULT/summary.json"
 
-python - "$RESULT/summary.json" <<'PY'
+python - "$RESULT/summary.json" "$PLAN" <<'PY'
 import json, sys
 summary = json.load(open(sys.argv[1], encoding="utf-8"))
-assert (summary["case_count"], summary["trial_count"], summary["invalid_trials"]) == (57, 90, 0)
+plan = json.load(open(sys.argv[2], encoding="utf-8"))
+assert summary["case_count"] == plan["transition_count"]
+assert summary["trial_count"] == plan["total_target_blocks"]
+assert summary["invalid_trials"] == 0
 PY
 python -m benchmarks.prepare_mtrag_counterfactual_review --result-dir "$RESULT"
 
