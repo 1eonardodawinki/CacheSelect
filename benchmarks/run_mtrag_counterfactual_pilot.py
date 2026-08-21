@@ -11,6 +11,10 @@ from benchmarks.mtrag import load_mtrag_tasks, mtrag_source_sha256
 from benchmarks.mtrag_counterfactual import run_mtrag_counterfactual_cases
 from benchmarks.mtrag_quality import load_mtrag_manual_quality_audit
 from benchmarks.mtrag_trace import build_mtrag_counterfactual_cases
+from benchmarks.reviewed_mtrag_counterfactual import (
+    build_reviewed_mtrag_counterfactual_cases,
+    load_reviewed_mtrag_reference_set,
+)
 from observability.request_recorder import RequestRecorder, validate_ledger
 
 
@@ -19,8 +23,10 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
-    parser.add_argument("--audit", type=Path, required=True)
-    parser.add_argument("--reference-artifact", type=Path, required=True)
+    approval = parser.add_mutually_exclusive_group(required=True)
+    approval.add_argument("--audit", type=Path)
+    approval.add_argument("--references", type=Path)
+    parser.add_argument("--reference-artifact", type=Path)
     parser.add_argument("--model", required=True)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--api-key", default=None)
@@ -33,6 +39,8 @@ def _parse_args() -> argparse.Namespace:
     args = parser.parse_args()
     if args.max_completion_tokens < 1 or args.timeout_seconds <= 0:
         parser.error("completion tokens and timeout must be positive")
+    if args.audit and not args.reference_artifact:
+        parser.error("--audit requires --reference-artifact")
     return args
 
 
@@ -40,25 +48,50 @@ def _parse_args() -> argparse.Namespace:
 def main() -> None:
     args = _parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
-    audit = load_mtrag_manual_quality_audit(
-        args.audit,
-        reference_artifact_path=args.reference_artifact,
-        expected_model=args.model,
-    )
     source_sha256 = mtrag_source_sha256(args.input)
-    if (
-        manifest.get("source_sha256") != source_sha256
-        or audit.source_dataset_sha256 != source_sha256
-        or manifest.get("source_revision") != audit.source_dataset_revision
-    ):
-        raise ValueError("MTRAG source, pilot and audit provenance do not match")
-    cases = build_mtrag_counterfactual_cases(
-        load_mtrag_tasks(args.input),
-        manifest,
-        quality_gate=audit.quality_gate,
-        approved_task_ids=audit.approved_task_ids,
-        expected_model=args.model,
-    )
+    if args.references:
+        references = load_reviewed_mtrag_reference_set(
+            args.references, expected_model=args.model
+        )
+        if references.source_dataset_sha256 != source_sha256:
+            raise ValueError("MTRAG source and reviewed references do not match")
+        cases = build_reviewed_mtrag_counterfactual_cases(
+            load_mtrag_tasks(args.input),
+            manifest,
+            references,
+            expected_model=args.model,
+        )
+        outputs = references.reference_outputs
+        require_exact_reference = True
+        experiment = "qwen3-reviewed-mtrag-counterfactual"
+        approval_metadata = {
+            "references": str(args.references),
+            "reference_manifest_sha256": references.manifest_sha256,
+            "review_status": references.status,
+        }
+    else:
+        audit = load_mtrag_manual_quality_audit(
+            args.audit,
+            reference_artifact_path=args.reference_artifact,
+            expected_model=args.model,
+        )
+        if (
+            manifest.get("source_sha256") != source_sha256
+            or audit.source_dataset_sha256 != source_sha256
+            or manifest.get("source_revision") != audit.source_dataset_revision
+        ):
+            raise ValueError("MTRAG source, pilot and audit provenance do not match")
+        cases = build_mtrag_counterfactual_cases(
+            load_mtrag_tasks(args.input),
+            manifest,
+            quality_gate=audit.quality_gate,
+            approved_task_ids=audit.approved_task_ids,
+            expected_model=args.model,
+        )
+        outputs = audit.approved_reference_outputs
+        require_exact_reference = False
+        experiment = "mtrag-counterfactual-pilot"
+        approval_metadata = {"manual_audit": str(args.audit)}
     endpoint = args.base_url.rstrip("/") + "/v1/chat/completions"
     run_id = args.run_id or (
         "mtrag-counterfactual-"
@@ -68,12 +101,12 @@ def main() -> None:
     recorder = RequestRecorder(
         run_id=run_id,
         model=args.model,
-        backend="vllm-openai-compatible-server",
+        backend="vllm-mtrag-counterfactual",
         log_dir=args.request_log_dir,
         invocation_metadata={
-            "experiment": "mtrag-counterfactual-pilot",
+            "experiment": experiment,
             "manifest": str(args.manifest),
-            "audit": str(args.audit),
+            **approval_metadata,
             "source_sha256": source_sha256,
             "output_dir": str(args.output_dir),
             "endpoint": endpoint,
@@ -81,7 +114,7 @@ def main() -> None:
     )
     result = run_mtrag_counterfactual_cases(
         cases,
-        audit=audit,
+        reference_outputs=outputs,
         output_dir=args.output_dir,
         url=endpoint,
         model=args.model,
@@ -89,18 +122,20 @@ def main() -> None:
         api_key=args.api_key,
         timeout_seconds=args.timeout_seconds,
         recorder=recorder,
+        require_reference_output_match=require_exact_reference,
     )
     ledger = validate_ledger(recorder.path)
     if not ledger.is_complete or ledger.failed:
         raise RuntimeError("MTRAG counterfactual request ledger is incomplete")
     summary = {
         **result,
+        "experiment": experiment,
         "run_id": run_id,
         "model": args.model,
         "endpoint": endpoint,
         "source_sha256": source_sha256,
         "manifest": str(args.manifest),
-        "manual_audit": str(args.audit),
+        **approval_metadata,
         "request_ledger": str(ledger.path),
         "recorded_requests": ledger.started,
     }
