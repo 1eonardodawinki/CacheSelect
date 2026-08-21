@@ -96,6 +96,7 @@ class MtragCalibrationTests(TestCase):
             "runtime_policy": {"policy": "FULL_RECOMPUTE"},
             "server_metrics": {"cacheselect_compacted_batch_executed": False},
             "prompt_token_count": 128,
+            "finish_reason": "stop",
             "output_text": "The answer is London.",
             "quality": {
                 "mode": "reference_similarity",
@@ -121,6 +122,8 @@ class MtragCalibrationTests(TestCase):
 
         self.assertEqual(result["request_count"], 1)
         self.assertEqual(result["gate_status"], "unfrozen")
+        self.assertEqual(result["rows"][0]["cached_tokens"], 0)
+        self.assertEqual(result["rows"][0]["finish_reason"], "stop")
         self.assertEqual(result["rows"][0]["quality"]["metrics"]["token_recall"], 0.8)
         call = observe.call_args
         self.assertIs(call.kwargs["recorder"], recorder)

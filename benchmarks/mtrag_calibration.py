@@ -260,6 +260,8 @@ def run_mtrag_reference_calibration(
                 "split": case.split.value,
                 "collection": case.collection,
                 "prompt_token_count": observation.get("prompt_token_count"),
+                "cached_tokens": observation.get("cached_tokens"),
+                "finish_reason": observation.get("finish_reason"),
                 "output_text": observation.get("output_text"),
                 "expected_answer": original.ground_truth.expected_answer,
                 "quality": quality,
