@@ -194,10 +194,14 @@ class ReviewedMtragPipelineTests(TestCase):
             )
 
         self.assertEqual(references["accepted_task_count"], 2)
-        self.assertEqual(plan["total_target_blocks"], 4)
+        self.assertIsNone(plan["max_target_blocks"])
+        self.assertEqual(plan["total_target_blocks"], 8)
         self.assertEqual(len(cases), 2)
         self.assertTrue(
             all(case.expected_candidate_block_indices == (1, 2, 3, 4) for case in cases)
+        )
+        self.assertTrue(
+            all(case.target_block_indices == (1, 2, 3, 4) for case in cases)
         )
 
     def test_reviewed_runner_requires_the_approved_output(self):

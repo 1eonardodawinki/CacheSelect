@@ -241,13 +241,15 @@ def build_mtrag_counterfactual_cases(
         if testable != [index for index in aligned if index != excluded]:
             raise ValueError("testable blocks do not match aligned candidates")
         max_targets = manifest.get("max_target_blocks")
-        if (
-            isinstance(max_targets, bool)
-            or not isinstance(max_targets, int)
-            or not set(targets).issubset(testable)
-            or len(targets) > max_targets
-        ):
-            raise ValueError("pilot targets are not a bounded testable subset")
+        exhaustive = max_targets is None and targets == testable
+        bounded = (
+            not isinstance(max_targets, bool)
+            and isinstance(max_targets, int)
+            and set(targets).issubset(testable)
+            and len(targets) <= max_targets
+        )
+        if not (exhaustive or bounded):
+            raise ValueError("pilot targets do not match the requested testable set")
 
         cases.append(
             MtragCounterfactualCase(

@@ -151,14 +151,21 @@ def prepare_reviewed_mtrag_counterfactual(
     coverage_path: Path,
     *,
     model: str = MODEL,
-    max_target_blocks: int = 2,
+    max_target_blocks: int | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     if (
         not review_dirs
-        or isinstance(max_target_blocks, bool)
-        or max_target_blocks < 1
+        or (
+            max_target_blocks is not None
+            and (
+                isinstance(max_target_blocks, bool)
+                or max_target_blocks < 1
+            )
+        )
     ):
-        raise ValueError("review directories and target count are required")
+        raise ValueError(
+            "review directories and a valid target count are required"
+        )
     tasks, sources, reviewed, source_hash = [], [], 0, None
     for directory in review_dirs:
         current_hash, current_count, current_tasks, provenance = _accepted_review(
@@ -228,8 +235,11 @@ def prepare_reviewed_mtrag_counterfactual(
         )
         if not testable:
             raise ValueError("reviewed reference has no testable block")
-        ranked = sorted(testable, key=lambda block: _rank(task_id, block))
-        targets = sorted(ranked[:max_target_blocks])
+        if max_target_blocks is None:
+            targets = list(testable)
+        else:
+            ranked = sorted(testable, key=lambda block: _rank(task_id, block))
+            targets = sorted(ranked[:max_target_blocks])
         selected.append(
             {
                 "split": reference["split"],
@@ -280,7 +290,7 @@ def main() -> None:
     parser.add_argument("--review-dir", type=Path, action="append", required=True)
     parser.add_argument("--coverage", type=Path, required=True)
     parser.add_argument("--model", default=MODEL)
-    parser.add_argument("--max-target-blocks", type=int, default=2)
+    parser.add_argument("--max-target-blocks", type=int)
     parser.add_argument("--references-output", type=Path, required=True)
     parser.add_argument("--plan-output", type=Path, required=True)
     args = parser.parse_args()
