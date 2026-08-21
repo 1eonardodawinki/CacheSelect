@@ -27,11 +27,16 @@ def assess_full_attention_configuration(
     model = config.get("model_config") or {}
     cache = config.get("cache_config") or {}
     architectures = hf_config.get("architectures") or []
+    layer_types = hf_config.get("layer_types")
+    all_layers_full_attention = not layer_types or (
+        len(layer_types) == hf_config.get("num_hidden_layers")
+        and all(layer in {"attention", "full_attention"} for layer in layer_types)
+    )
     checks = {
         "qwen3_architecture": "Qwen3ForCausalLM" in architectures,
         "qwen3_model_type": hf_config.get("model_type") == "qwen3",
         "forty_attention_layers": hf_config.get("num_hidden_layers") == 40,
-        "no_hybrid_layer_types": not hf_config.get("layer_types"),
+        "all_layers_full_attention": all_layers_full_attention,
         "no_sliding_window": not hf_config.get("sliding_window"),
         "bfloat16_runtime": model.get("dtype") == "torch.bfloat16",
         "unquantized_runtime": model.get("quantization") is None,

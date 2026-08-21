@@ -31,6 +31,7 @@ def _hf_config():
         "architectures": ["Qwen3ForCausalLM"],
         "model_type": "qwen3",
         "num_hidden_layers": 40,
+        "layer_types": ["full_attention"] * 40,
     }
 
 
@@ -52,7 +53,7 @@ class FullAttentionConfigurationTests(TestCase):
         assessment = assess_full_attention_configuration(_server_info(), hf_config)
 
         self.assertFalse(assessment["passed"])
-        self.assertFalse(assessment["checks"]["no_hybrid_layer_types"])
+        self.assertFalse(assessment["checks"]["all_layers_full_attention"])
 
     # Catch an accidental quantized or non-BF16 server launch.
     def test_rejects_wrong_runtime_precision(self):
