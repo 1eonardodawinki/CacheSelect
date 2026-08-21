@@ -32,6 +32,8 @@ class RunMtragCalibrationCommandTests(TestCase):
             "vllm serve",
             "--max-model-len 8192",
             '--dtype "$MODEL_DTYPE"',
+            'CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS:-384',
+            '--max-completion-tokens "$MAX_COMPLETION_TOKENS"',
             "--enable-cacheselect",
             "python -m benchmarks.run_mtrag_calibration",
             '--manifest-model "$MANIFEST_MODEL"',

@@ -35,6 +35,7 @@ class RunPodQwen3MtragReferenceTests(unittest.TestCase):
             'export PYTHONPATH="$PROJECT_ROOT/vllm',
             "import vllm; print(vllm.__file__)",
             "CACHESELECT_MODEL_DTYPE=bfloat16",
+            "CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS=768",
             "CACHESELECT_HF_OFFLINE",
             "bash benchmarks/run_mtrag_reference_splits.slurm",
             "train-reference-calibration.json",

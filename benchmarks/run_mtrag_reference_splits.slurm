@@ -18,10 +18,15 @@ MODEL_DTYPE="${CACHESELECT_MODEL_DTYPE:-auto}"
 MTRAG_INPUT="${CACHESELECT_MTRAG_INPUT:-$STORAGE_ROOT/cacheselect-data/mtrag/RAG.jsonl}"
 SPLIT_ROOT="${CACHESELECT_MTRAG_SPLIT_ROOT:-results/mtrag-natural-splits-v1}"
 START_TIMEOUT="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
+MAX_COMPLETION_TOKENS="${CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS:-384}"
 SPLITS=(train validation)
 
 if ! [[ "$START_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
   echo "CACHESELECT_SERVER_START_TIMEOUT_SECONDS must be positive" >&2
+  exit 1
+fi
+if ! [[ "$MAX_COMPLETION_TOKENS" =~ ^[1-9][0-9]*$ ]]; then
+  echo "CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS must be positive" >&2
   exit 1
 fi
 
@@ -78,7 +83,7 @@ GPU_DESCRIPTION="$(nvidia-smi --query-gpu=name,uuid,memory.total,driver_version 
   echo "split_root=$SPLIT_ROOT"
   echo "executed_splits=${SPLITS[*]}"
   echo "max_model_len=8192"
-  echo "max_completion_tokens=384"
+  echo "max_completion_tokens=$MAX_COMPLETION_TOKENS"
 } >"$RESULT_DIR/metadata.env"
 
 SERVER_PID=""
@@ -153,7 +158,7 @@ for SPLIT in "${SPLITS[@]}"; do
     --model "$MODEL" \
     --manifest-model "$MANIFEST_MODEL" \
     --base-url "http://127.0.0.1:$PORT" \
-    --max-completion-tokens 384 \
+    --max-completion-tokens "$MAX_COMPLETION_TOKENS" \
     --run-id "mtrag-reference-$EXPERIMENT_ID-$SPLIT" \
     --request-log-dir "$REQUEST_LOG_DIR" \
     --output "$RESULT_DIR/$SPLIT-reference-calibration.json"
