@@ -4,12 +4,11 @@ from __future__ import annotations
 
 import json
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any
 
 from benchmarks.counterfactual_workflow import run_counterfactual_dataset_workflow
-from benchmarks.mtrag_quality import MtragManualQualityAudit
 from benchmarks.mtrag_trace import MtragCounterfactualCase
 from benchmarks.schema import save_trace
 from observability.request_recorder import RequestRecorder
@@ -19,7 +18,7 @@ from observability.request_recorder import RequestRecorder
 def run_mtrag_counterfactual_cases(
     cases: Sequence[MtragCounterfactualCase],
     *,
-    audit: MtragManualQualityAudit,
+    reference_outputs: Mapping[str, str],
     output_dir: Path,
     url: str,
     model: str,
@@ -27,6 +26,7 @@ def run_mtrag_counterfactual_cases(
     api_key: str | None,
     timeout_seconds: float,
     recorder: RequestRecorder,
+    require_reference_output_match: bool = False,
 ) -> dict[str, Any]:
     if not cases:
         raise ValueError("MTRAG pilot contains no cases")
@@ -37,9 +37,7 @@ def run_mtrag_counterfactual_cases(
             raise ValueError("each MTRAG case must contain exactly one transition")
         transition = case.trace.transitions[0]
         try:
-            approved_output = audit.approved_reference_outputs[
-                transition.current_request_id
-            ]
+            approved_output = reference_outputs[transition.current_request_id]
         except KeyError as error:
             raise ValueError("MTRAG case has no approved reference output") from error
 
@@ -65,7 +63,7 @@ def run_mtrag_counterfactual_cases(
             expected_testable_block_indices=case.expected_testable_block_indices,
             selected_block_indices=case.target_block_indices,
             required_reference_output=approved_output,
-            require_reference_output_match=False,
+            require_reference_output_match=require_reference_output_match,
             require_exact_output_match=True,
         )
         summary = {

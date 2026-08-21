@@ -34,9 +34,7 @@ class MtragCounterfactualTests(TestCase):
     # Run cases in order while forwarding their frozen plans and audited outputs.
     def test_runs_frozen_cases_through_existing_workflow(self):
         cases = (_case(1), _case(2))
-        audit = SimpleNamespace(
-            approved_reference_outputs={"task-1": "answer 1", "task-2": "answer 2"}
-        )
+        reference_outputs = {"task-1": "answer 1", "task-2": "answer 2"}
         recorder = SimpleNamespace(path=Path("requests.jsonl"))
         workflow_results = [
             {
@@ -72,7 +70,7 @@ class MtragCounterfactualTests(TestCase):
             ):
                 result = run_mtrag_counterfactual_cases(
                     cases,
-                    audit=audit,
+                    reference_outputs=reference_outputs,
                     output_dir=output_dir,
                     url="http://server/v1/chat/completions",
                     model="test-model",
@@ -107,7 +105,7 @@ class MtragCounterfactualTests(TestCase):
             with self.assertRaisesRegex(ValueError, "approved reference"):
                 run_mtrag_counterfactual_cases(
                     (_case(1),),
-                    audit=SimpleNamespace(approved_reference_outputs={}),
+                    reference_outputs={},
                     output_dir=Path(directory),
                     url="http://server/v1/chat/completions",
                     model="test-model",
