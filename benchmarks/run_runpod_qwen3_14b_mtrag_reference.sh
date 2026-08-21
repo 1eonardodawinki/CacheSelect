@@ -8,6 +8,7 @@ VENV_ROOT="${CACHESELECT_VENV_ROOT:-/workspace/cacheselect-env-cu130}"
 STORAGE_ROOT="${CACHESELECT_STORAGE_ROOT:-/workspace}"
 MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
 MANIFEST_MODEL="${CACHESELECT_MTRAG_MANIFEST_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
+EXPAND_REFERENCES="${CACHESELECT_MTRAG_EXPAND_REFERENCES:-0}"
 EXPECTED_GPU="${CACHESELECT_EXPECTED_GPU_NAME:-NVIDIA A40}"
 MINIMUM_GPU_MEMORY_MIB="${CACHESELECT_MINIMUM_GPU_MEMORY_MIB:-45000}"
 EXPERIMENT_ID="${CACHESELECT_EXPERIMENT_ID:-$(date -u +%s)}"
@@ -18,6 +19,14 @@ RUN_ID="mtrag-reference-$EXPERIMENT_ID"
 RESULT_DIR="$STORAGE_ROOT/cacheselect-results/$RUN_ID"
 SERVER_LOG_ROOT="$STORAGE_ROOT/cacheselect-server-logs"
 WRAPPER_LOG="$SERVER_LOG_ROOT/runpod-$RUN_ID.out"
+SPLIT_ROOT="results/mtrag-natural-splits-v1"
+EXPECTED_TRAIN_COUNT=21
+EXPECTED_VALIDATION_COUNT=6
+
+[[ "$EXPAND_REFERENCES" == 0 || "$EXPAND_REFERENCES" == 1 ]] || {
+  echo "CACHESELECT_MTRAG_EXPAND_REFERENCES must be 0 or 1" >&2
+  exit 2
+}
 
 # Stop before paid work when the persistent environment is incomplete.
 require_command() {
@@ -88,6 +97,33 @@ VLLM_SOURCE="$(python -c 'import vllm; print(vllm.__file__)')"
   exit 2
 }
 
+# Freeze 75 unseen tasks from exact Qwen3 prompt geometry before inference.
+if [[ "$EXPAND_REFERENCES" == 1 ]]; then
+  COVERAGE="$RESULT_DIR/qwen3-mtrag-coverage.json"
+  SPLIT_ROOT="$RESULT_DIR/manifests"
+  EXPECTED_TRAIN_COUNT=60
+  EXPECTED_VALIDATION_COUNT=15
+  MANIFEST_MODEL="$MODEL"
+  mkdir -p "$RESULT_DIR"
+  export HF_HOME="$STORAGE_ROOT/hf-cache"
+  export HF_HUB_OFFLINE=1
+  export TRANSFORMERS_OFFLINE=1
+  python -m benchmarks.analyze_mtrag_coverage \
+    --input "$MTRAG_INPUT" \
+    --output "$COVERAGE" \
+    --model "$MODEL" \
+    --block-size 16 \
+    --local-files-only
+  python -m benchmarks.freeze_mtrag_reference_expansion \
+    --coverage "$COVERAGE" \
+    --source-dataset "$MTRAG_INPUT" \
+    --existing-manifest results/mtrag-natural-splits-v1/train-manifest.json \
+    --existing-manifest results/mtrag-natural-splits-v1/validation-manifest.json \
+    --output-dir "$SPLIT_ROOT" \
+    --train-count "$EXPECTED_TRAIN_COUNT" \
+    --validation-count "$EXPECTED_VALIDATION_COUNT"
+fi
+
 export SLURM_JOB_ID="$EXPERIMENT_ID"
 export CACHESELECT_PROJECT_ROOT="$PROJECT_ROOT"
 export CACHESELECT_VENV_ROOT="$VENV_ROOT"
@@ -99,7 +135,7 @@ export CACHESELECT_MTRAG_MANIFEST_MODEL="$MANIFEST_MODEL"
 export CACHESELECT_MODEL_DTYPE=bfloat16
 export CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS=768
 export CACHESELECT_MTRAG_INPUT="$MTRAG_INPUT"
-export CACHESELECT_MTRAG_SPLIT_ROOT="results/mtrag-natural-splits-v1"
+export CACHESELECT_MTRAG_SPLIT_ROOT="$SPLIT_ROOT"
 
 set -o pipefail
 bash benchmarks/run_mtrag_reference_splits.slurm 2>&1 | tee "$WRAPPER_LOG"
@@ -110,11 +146,13 @@ test -s "$TRAIN"
 test -s "$VALIDATION"
 
 # Reject missing, cached, truncated, or provenance-mismatched answers.
-python - "$TRAIN" "$VALIDATION" "$MODEL" "$MANIFEST_MODEL" <<'PY'
+python - \
+  "$TRAIN" "$VALIDATION" "$MODEL" "$MANIFEST_MODEL" \
+  "$EXPECTED_TRAIN_COUNT" "$EXPECTED_VALIDATION_COUNT" <<'PY'
 import json
 import sys
 
-expected_counts = {"train": 21, "validation": 6}
+expected_counts = {"train": int(sys.argv[5]), "validation": int(sys.argv[6])}
 for path, split in zip(sys.argv[1:3], expected_counts):
     artifact = json.load(open(path, encoding="utf-8"))
     assert artifact["model"] == sys.argv[3]
