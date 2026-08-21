@@ -64,6 +64,8 @@ class RunMtragCalibrationCommandTests(TestCase):
                 str(manifest),
                 "--model",
                 "test-model",
+                "--manifest-model",
+                "selection-model",
                 "--output",
                 str(output),
             ]
@@ -77,7 +79,7 @@ class RunMtragCalibrationCommandTests(TestCase):
                     "benchmarks.run_mtrag_calibration."
                     "build_mtrag_reference_calibration_cases",
                     return_value=cases,
-                ),
+                ) as build_cases,
                 patch(
                     "benchmarks.run_mtrag_calibration.RequestRecorder",
                     return_value=recorder,
@@ -102,5 +104,7 @@ class RunMtragCalibrationCommandTests(TestCase):
 
         self.assertEqual(artifact["request_count"], 2)
         self.assertEqual(artifact["model"], "test-model")
+        self.assertEqual(artifact["manifest_selection_model"], "selection-model")
         self.assertEqual(artifact["request_ledger"], str(recorder.path))
+        self.assertEqual(build_cases.call_args.kwargs["expected_model"], "selection-model")
         self.assertIs(run_calibration.call_args.kwargs["recorder"], recorder)

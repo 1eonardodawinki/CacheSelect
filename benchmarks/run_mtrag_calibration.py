@@ -23,6 +23,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--model", required=True)
+    parser.add_argument(
+        "--manifest-model",
+        default=None,
+        help="Model that originally selected the frozen task manifest.",
+    )
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
     parser.add_argument("--api-key", default=None)
     parser.add_argument("--max-completion-tokens", type=int, default=384)
@@ -49,11 +54,12 @@ def main() -> None:
         1.0,
         MTRAG_UNCALIBRATED_GATE_ID,
     )
+    manifest_model = args.manifest_model or args.model
     cases = build_mtrag_reference_calibration_cases(
         load_mtrag_tasks(args.input),
         manifest,
         quality_gate=gate,
-        expected_model=args.model,
+        expected_model=manifest_model,
     )
     endpoint = args.base_url.rstrip("/") + "/v1/chat/completions"
     run_id = args.run_id or (
@@ -68,6 +74,7 @@ def main() -> None:
         invocation_metadata={
             "experiment": "mtrag-reference-quality-calibration",
             "manifest": str(args.manifest),
+            "manifest_selection_model": manifest_model,
             "source_sha256": source_sha256,
             "output": str(args.output),
             "endpoint": endpoint,
@@ -89,6 +96,7 @@ def main() -> None:
         **result,
         "run_id": run_id,
         "model": args.model,
+        "manifest_selection_model": manifest_model,
         "manifest": str(args.manifest),
         "source_sha256": source_sha256,
         "endpoint": endpoint,
