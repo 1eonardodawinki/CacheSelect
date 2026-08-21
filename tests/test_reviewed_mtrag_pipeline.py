@@ -243,7 +243,7 @@ class ReviewedMtragPipelineTests(TestCase):
                 run_main()
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
-        self.assertTrue(run.call_args.kwargs["require_reference_output_match"])
+        self.assertFalse(run.call_args.kwargs["require_reference_output_match"])
         self.assertEqual(summary["recorded_requests"], 8)
 
     def test_runpod_launcher_contract(self):
@@ -255,6 +255,7 @@ class ReviewedMtragPipelineTests(TestCase):
             '== *"A40"*',
             'plan["total_target_blocks"] == plan["total_testable_blocks"]',
             'row["target_block_indices"] == row["testable_block_indices"]',
+            "RunPod checkout must be clean",
             "--enable-cacheselect",
             "--cacheselect-repair-selector full_block",
             "--cacheselect-execute-partial-reuse",

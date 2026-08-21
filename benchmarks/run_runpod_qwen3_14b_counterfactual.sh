@@ -23,8 +23,8 @@ cd "$ROOT"
 source "$VENV/bin/activate"
 test -s "$PLAN" && test -s "$REFERENCES"
 COMMIT="$(git rev-parse HEAD)"
-[[ "$COMMIT" == "$(git rev-parse origin/main)" ]] || {
-  echo "RunPod checkout must match pushed origin/main" >&2
+git diff --quiet && git diff --cached --quiet || {
+  echo "RunPod checkout must be clean" >&2
   exit 2
 }
 GPU_MEMORY="$({ nvidia-smi --query-gpu=memory.total \

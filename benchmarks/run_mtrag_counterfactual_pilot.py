@@ -62,7 +62,9 @@ def main() -> None:
             expected_model=args.model,
         )
         outputs = references.reference_outputs
-        require_exact_reference = True
+        # BF16 generation can vary slightly across otherwise identical requests.
+        # Record that drift; labels still require an exact live reference match.
+        require_exact_reference = False
         experiment = "qwen3-reviewed-mtrag-counterfactual"
         approval_metadata = {
             "references": str(args.references),
