@@ -46,9 +46,36 @@ class PrepareMtragCounterfactualReviewTests(TestCase):
             root = Path(directory)
             log_dir = root / "request-logs"
             log_dir.mkdir()
+            shared = _trial_events(
+                "abstained-trial", "reference", "changed\u2028answer", 7
+            )
+            shared[0]["metadata"] = {
+                "benchmark_request_id": "shared-reference",
+                "counterfactual_role": "discovery_edit",
+            }
+            shared[2]["metadata"][
+                "counterfactual_reference_request_id"
+            ] = "shared-reference"
+            shared.extend(
+                [
+                    {
+                        "event": "request_started",
+                        "request_id": "stability-reference",
+                        "metadata": {
+                            "counterfactual_role": "stability_reference",
+                            "counterfactual_reference_request_id": "shared-reference",
+                        },
+                    },
+                    {
+                        "event": "request_completed",
+                        "request_id": "stability-reference",
+                        "output": {"text": "independent normal wording"},
+                    },
+                ]
+            )
             events = [
                 *_trial_events("exact-trial", "same", "same", 2),
-                *_trial_events("abstained-trial", "reference", "changed\u2028answer", 7),
+                *shared,
             ]
             (log_dir / "requests.jsonl").write_text(
                 "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n",
@@ -72,5 +99,9 @@ class PrepareMtragCounterfactualReviewTests(TestCase):
             {"reference", "changed\u2028answer"},
         )
         self.assertEqual(review["rows"][0]["verdict"], "")
+        self.assertEqual(
+            review["rows"][0]["independent_normal_answer"],
+            "independent normal wording",
+        )
         self.assertEqual(key["rows"][0]["trial_id"], "abstained-trial")
         self.assertEqual(key["rows"][0]["block_index"], 7)

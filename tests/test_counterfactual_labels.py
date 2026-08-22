@@ -27,7 +27,6 @@ from benchmarks.counterfactual_labels import (
 from benchmarks.counterfactual_trial import (
     CounterfactualCandidateDiscovery,
     CounterfactualDiscoveryRunResult,
-    CounterfactualReferenceQualityError,
     CounterfactualTrialBatchResult,
     CounterfactualTrialResult,
     build_discovered_counterfactual_interventions,
@@ -229,7 +228,7 @@ class CounterfactualLabelTests(TestCase):
 
         with TemporaryDirectory() as temporary_directory:
             empty_output = Path(temporary_directory) / "abstained-blocks.csv"
-            empty_batch = replace(batch, trials=(replace(trial, label=None),))
+            empty_batch = replace(batch, reference_stable=False)
             empty_count = save_counterfactual_training_dataset(
                 empty_batch,
                 split=DatasetSplit.TRAIN,
@@ -523,6 +522,7 @@ class CounterfactualLabelTests(TestCase):
         )
         answer = edited.ground_truth.expected_answer
         fresh = {
+            "request_id": "shared-reference",
             "output_text": answer,
             "finish_reason": "stop",
             "quality": {"mode": "requirements", "passed": True},
@@ -566,6 +566,12 @@ class CounterfactualLabelTests(TestCase):
                 ":stability_reference"
             )
         )
+        self.assertEqual(
+            observe.call_args_list[1].kwargs["policy_metadata"][
+                "counterfactual_reference_request_id"
+            ],
+            "shared-reference",
+        )
 
         drifted = {**fresh, "output_text": "different answer"}
         with (
@@ -580,23 +586,22 @@ class CounterfactualLabelTests(TestCase):
                 ),
             ),
         ):
-            with self.assertRaisesRegex(
-                CounterfactualReferenceQualityError, "unstable"
-            ):
-                run_discovered_counterfactual_trials(
-                    discovery=discovery,
-                    source_request=source,
-                    edited_request=edited,
-                    url="http://vllm.test/v1/chat/completions",
-                    model="test-model",
-                    max_completion_tokens=8,
-                    api_key=None,
-                    timeout_seconds=2.0,
-                    recorder=object(),
-                    selected_block_indices=(1,),
-                    reference_observation=fresh,
-                    required_reference_output=answer,
-                )
+            unstable = run_discovered_counterfactual_trials(
+                discovery=discovery,
+                source_request=source,
+                edited_request=edited,
+                url="http://vllm.test/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=8,
+                api_key=None,
+                timeout_seconds=2.0,
+                recorder=object(),
+                selected_block_indices=(1,),
+                reference_observation=fresh,
+                required_reference_output=answer,
+            )
+
+        self.assertFalse(unstable.reference_stable)
 
     # Stop after the reference when it differs from the manually audited text.
     def test_rejects_changed_approved_reference(self):

@@ -29,6 +29,7 @@ class CounterfactualWorkflowTests(TestCase):
             approved_output_exact_match=False,
         )
         batch = SimpleNamespace(
+            reference_stable=True,
             trials=(
                 SimpleNamespace(
                     label=SimpleNamespace(decision=RepairDecision.REUSE),

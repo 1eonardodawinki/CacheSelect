@@ -72,6 +72,7 @@ class CounterfactualTrialBatchResult:
     discovery: CounterfactualCandidateDiscovery
     trials: tuple[CounterfactualTrialResult, ...]
     target_block_indices: tuple[int, ...]
+    reference_stable: bool = True
 
 
 # Create one isolated trial instruction for each safe discovered target block.
@@ -371,6 +372,7 @@ def run_single_block_counterfactual_trial(
         role: str,
         cache_salt: str,
         vllm_xargs: dict[str, str],
+        reference_request_id: str | None = None,
     ) -> dict[str, Any]:
         return _observe_request(
             request,
@@ -384,6 +386,11 @@ def run_single_block_counterfactual_trial(
                 "counterfactual_trial_id": trial_id,
                 "counterfactual_role": role,
                 "counterfactual_reuse_block_index": intervention.reused_block_index,
+                **(
+                    {"counterfactual_reference_request_id": reference_request_id}
+                    if reference_request_id is not None
+                    else {}
+                ),
             },
             require_cacheselect_metrics=True,
             vllm_xargs=vllm_xargs,
@@ -424,7 +431,13 @@ def run_single_block_counterfactual_trial(
         "cacheselect_transition_id": intervention.transition_id,
         **intervention.to_vllm_xargs(),
     }
-    active = observe(active_request, "intervention", trial_salt, active_xargs)
+    active = observe(
+        active_request,
+        "intervention",
+        trial_salt,
+        active_xargs,
+        reference.get("request_id"),
+    )
     if (
         required_reference_output is not None
         and active.get("finish_reason") != "stop"
@@ -507,6 +520,7 @@ def run_discovered_counterfactual_trials(
                 require_exact_output_match=require_exact_output_match,
             )
         )
+    reference_stable = True
     if reference_observation is not None:
         check_id = uuid4().hex
         check_request = replace(
@@ -524,23 +538,23 @@ def run_discovered_counterfactual_trials(
             policy_metadata={
                 "counterfactual_reference_check_id": check_id,
                 "counterfactual_role": "stability_reference",
+                "counterfactual_reference_request_id": reference_observation.get(
+                    "request_id"
+                ),
             },
             require_cacheselect_metrics=True,
             vllm_xargs={"cacheselect_request_id": check_request.request_id},
             cache_salt=f"{check_id}:stability_reference",
         )
         _require_fresh_full_recompute(final_reference, "stability reference")
-        if final_reference.get("finish_reason") != "stop":
-            raise CounterfactualReferenceQualityError(
-                "final full-compute reference was truncated"
-            )
-        if final_reference.get("output_text") != reference_observation.get(
-            "output_text"
-        ):
-            raise CounterfactualReferenceQualityError(
-                "full-compute reference was unstable"
-            )
+        reference_stable = (
+            final_reference.get("finish_reason") == "stop"
+            and final_reference.get("output_text")
+            == reference_observation.get("output_text")
+        )
     targets = tuple(
         intervention.reused_block_index for intervention in interventions
     )
-    return CounterfactualTrialBatchResult(discovery, tuple(trials), targets)
+    return CounterfactualTrialBatchResult(
+        discovery, tuple(trials), targets, reference_stable
+    )

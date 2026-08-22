@@ -131,7 +131,9 @@ def run_counterfactual_dataset_workflow(
     if not ledger.is_complete or ledger.failed:
         raise RuntimeError("counterfactual request ledger is incomplete or failed")
     decisions = Counter(
-        trial.label.decision.value for trial in batch.trials if trial.label is not None
+        trial.label.decision.value
+        for trial in batch.trials
+        if batch.reference_stable and trial.label is not None
     )
     return {
         "trace_id": trace.trace_id,
@@ -146,6 +148,7 @@ def run_counterfactual_dataset_workflow(
         "planned_blocks": len(selected),
         "excluded_output_block_index": discovery.excluded_output_block_index,
         "trial_count": len(batch.trials),
+        "reference_stable": batch.reference_stable,
         "valid_training_rows": training_rows,
         "invalid_trials": sum(
             not trial.label_result.valid_reference
@@ -155,7 +158,7 @@ def run_counterfactual_dataset_workflow(
         "abstained_trials": sum(
             trial.label_result.valid_reference
             and trial.label_result.valid_execution
-            and trial.label_result.decision is None
+            and (not batch.reference_stable or trial.label_result.decision is None)
             for trial in batch.trials
         ),
         "reference_drift_trials": sum(

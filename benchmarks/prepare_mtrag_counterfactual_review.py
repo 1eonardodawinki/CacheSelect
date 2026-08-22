@@ -46,6 +46,10 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
     ledger_path = ledger_paths[0]
     ledger_sha256 = hashlib.sha256(ledger_path.read_bytes()).hexdigest()
     started, completed = _load_ledger(ledger_path)
+    by_benchmark_id = {
+        event.get("metadata", {}).get("benchmark_request_id"): event
+        for event in started.values()
+    }
     trials: dict[str, dict[str, dict]] = {}
     for event in started.values():
         metadata = event.get("metadata") or {}
@@ -56,8 +60,23 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
         if not isinstance(trial_id, str) or role in trials.setdefault(trial_id, {}):
             raise ValueError("MTRAG ledger has duplicate or invalid trial roles")
         trials[trial_id][role] = event
+    for roles in trials.values():
+        if "reference" not in roles and "intervention" in roles:
+            reference_id = roles["intervention"].get("metadata", {}).get(
+                "counterfactual_reference_request_id"
+            )
+            reference = by_benchmark_id.get(reference_id)
+            if isinstance(reference, dict):
+                roles["reference"] = reference
     if len(trials) != trial_count or any(len(roles) != 2 for roles in trials.values()):
         raise ValueError("MTRAG ledger does not contain every planned trial")
+
+    stability_checks = {
+        event.get("metadata", {}).get("counterfactual_reference_request_id"): event
+        for event in started.values()
+        if event.get("metadata", {}).get("counterfactual_role")
+        == "stability_reference"
+    }
 
     abstained = []
     for trial_id, roles in trials.items():
@@ -67,7 +86,38 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
         intervention_done = completed[intervention_start["request_id"]]
         reference_text = (reference_done.get("output") or {}).get("text")
         intervention_text = (intervention_done.get("output") or {}).get("text")
-        if reference_text == intervention_text:
+        reference_id = reference_start.get("metadata", {}).get(
+            "benchmark_request_id"
+        )
+        stability_start = stability_checks.get(reference_id)
+        stability_done = (
+            completed.get(stability_start["request_id"])
+            if isinstance(stability_start, dict)
+            else None
+        )
+        stability_text = (
+            (stability_done.get("output") or {}).get("text")
+            if isinstance(stability_done, dict)
+            else None
+        )
+        stability_choices = (
+            ((stability_done.get("output") or {}).get("raw_response") or {}).get(
+                "choices"
+            )
+            if isinstance(stability_done, dict)
+            else None
+        )
+        stability_finish = (
+            stability_choices[0].get("finish_reason") if stability_choices else None
+        )
+        unstable_reference = (
+            stability_text is not None
+            and (
+                stability_text != reference_text
+                or stability_finish not in {None, "stop"}
+            )
+        )
+        if reference_text == intervention_text and not unstable_reference:
             continue
         evaluation = intervention_start.get("evaluation") or {}
         queries = [
@@ -97,6 +147,7 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
                 expected,
                 reference_text,
                 intervention_text,
+                stability_text if unstable_reference else None,
             )
         )
     if len(abstained) != abstained_count:
@@ -108,7 +159,15 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
         sorted(abstained, key=lambda item: hashlib.sha256(item[0].encode()).digest()),
         start=1,
     ):
-        trial_id, block_index, question, expected, reference, intervention = row
+        (
+            trial_id,
+            block_index,
+            question,
+            expected,
+            reference,
+            intervention,
+            stability,
+        ) = row
         review_id = f"review-{index:03d}"
         reference_is_a = hashlib.sha256(
             f"{ledger_sha256}:{trial_id}".encode()
@@ -123,6 +182,7 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
                 "expected_answer": expected,
                 "answer_a": answer_a,
                 "answer_b": answer_b,
+                "independent_normal_answer": stability,
                 "verdict": "",
                 "reason": "",
             }
@@ -142,7 +202,7 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
         **shared,
         "review": "mtrag-counterfactual-blinded-semantic-review",
         "allowed_verdicts": ["equivalent", "answer_a_better", "answer_b_better", "unclear"],
-        "rubric": "Judge correctness, completeness, relevance, and unsupported claims against the expected answer. Do not infer which answer used KV reuse.",
+        "rubric": "Judge correctness, completeness, relevance, and unsupported claims against the expected answer. Do not infer which answer used KV reuse. If an independent normal answer is present, choose unclear unless its meaning is compatible with the compared answers.",
         "rows": review_rows,
     }
     key = {

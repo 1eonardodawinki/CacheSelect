@@ -130,7 +130,7 @@ def save_counterfactual_training_dataset(
             or intervention.candidate_block_indices != discovery.candidate_block_indices
         ):
             raise ValueError("trial result does not belong to this discovery")
-        if trial.label is None:
+        if not batch.reference_stable or trial.label is None:
             continue
         if (
             not trial.execution_evidence.valid
