@@ -11,12 +11,20 @@ from benchmarks.consolidate_mtrag_counterfactual import (
 
 
 # Write one case summary and its schema-complete training table.
-def _write_case(root: Path, decision: str | None) -> dict[str, object]:
+def _write_case(
+    root: Path,
+    decision: str | None,
+    *,
+    local_index: int = 1,
+    source_index: int | None = None,
+    status: str | None = None,
+) -> dict[str, object]:
+    suffix = source_index or local_index
     case = {
         "collection": "collection-1",
-        "current_task_id": "conversation-1<::>2",
-        "trace_id": "trace-1",
-        "transition_id": "transition-1",
+        "current_task_id": f"conversation-{suffix}<::>2",
+        "trace_id": f"trace-{suffix}",
+        "transition_id": f"transition-{suffix}",
         "trial_count": 1,
         "valid_training_rows": int(decision is not None),
         "invalid_trials": 0,
@@ -25,8 +33,22 @@ def _write_case(root: Path, decision: str | None) -> dict[str, object]:
         "repair_labels": int(decision == "repair"),
         "reuse_labels": int(decision == "reuse"),
     }
-    case_dir = root / "case-01"
+    if source_index is not None:
+        case["source_case_index"] = source_index
+    if status is not None:
+        case["status"] = status
+    case_dir = root / f"case-{local_index:02d}"
     case_dir.mkdir()
+    if status == "skipped_reference_quality":
+        case.update(
+            trial_count=0,
+            valid_training_rows=0,
+            abstained_trials=0,
+            repair_labels=0,
+            reuse_labels=0,
+        )
+        (case_dir / "summary.json").write_text(json.dumps(case), encoding="utf-8")
+        return case
     with (case_dir / "counterfactual-blocks.csv").open(
         "w", newline="", encoding="utf-8"
     ) as output:
@@ -35,12 +57,13 @@ def _write_case(root: Path, decision: str | None) -> dict[str, object]:
         if decision:
             row = {name: "0" for name in TRAINING_COLUMNS}
             row.update(
-                trace_id="trace-1",
-                transition_id="transition-1",
+                trace_id=f"trace-{suffix}",
+                transition_id=f"transition-{suffix}",
                 decision=decision,
                 candidate_block_index="7",
             )
             writer.writerow(row)
+    (case_dir / "summary.json").write_text(json.dumps(case), encoding="utf-8")
     return case
 
 
@@ -77,10 +100,83 @@ class ConsolidateMtragCounterfactualTests(TestCase):
             self.assertEqual(report["valid_training_rows"], 1)
             self.assertEqual(rows[0]["mtrag_conversation_id"], "conversation-1")
             case["valid_training_rows"] = 2
+            summary["valid_training_rows"] = 2
             summary_path.write_text(json.dumps(summary), encoding="utf-8")
+            (root / "case-01" / "summary.json").write_text(
+                json.dumps(case), encoding="utf-8"
+            )
             with self.assertRaisesRegex(ValueError, "trial counts"):
                 consolidate_mtrag_counterfactual_results(
                     root,
+                    output_path=root / "combined.csv",
+                    report_path=root / "report.json",
+                )
+
+    # Recover an interrupted prefix and merge it with a resumed suffix and skip.
+    def test_merges_resumed_runs_by_source_case_index(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            prefix = root / "prefix"
+            resumed = root / "resumed"
+            prefix.mkdir()
+            resumed.mkdir()
+            _write_case(prefix, "reuse")
+            skipped = _write_case(
+                resumed,
+                None,
+                local_index=1,
+                source_index=2,
+                status="skipped_reference_quality",
+            )
+            completed = _write_case(
+                resumed, "repair", local_index=2, source_index=3, status="completed"
+            )
+            resumed_summary = {
+                "experiment": "qwen3-reviewed-mtrag-counterfactual",
+                "case_count": 2,
+                "source_case_start": 2,
+                "source_case_count": 3,
+                **{
+                    name: skipped[name] + completed[name]
+                    for name in (
+                        "trial_count",
+                        "valid_training_rows",
+                        "invalid_trials",
+                        "abstained_trials",
+                        "reference_drift_trials",
+                        "repair_labels",
+                        "reuse_labels",
+                    )
+                },
+                "cases": [skipped, completed],
+            }
+            (resumed / "summary.json").write_text(
+                json.dumps(resumed_summary), encoding="utf-8"
+            )
+
+            report = consolidate_mtrag_counterfactual_results(
+                (prefix, resumed),
+                output_path=root / "combined.csv",
+                report_path=root / "report.json",
+            )
+            with (root / "combined.csv").open(newline="", encoding="utf-8") as source:
+                rows = list(csv.DictReader(source))
+
+            self.assertEqual([row["mtrag_case_index"] for row in rows], ["1", "3"])
+            self.assertEqual(report["skipped_reference_case_indices"], [2])
+            self.assertEqual(report["case_count"], 3)
+
+            completed["source_case_index"] = 4
+            (resumed / "case-02" / "summary.json").write_text(
+                json.dumps(completed), encoding="utf-8"
+            )
+            resumed_summary["cases"][1] = completed
+            (resumed / "summary.json").write_text(
+                json.dumps(resumed_summary), encoding="utf-8"
+            )
+            with self.assertRaisesRegex(ValueError, "missing source cases"):
+                consolidate_mtrag_counterfactual_results(
+                    (prefix, resumed),
                     output_path=root / "combined.csv",
                     report_path=root / "report.json",
                 )
