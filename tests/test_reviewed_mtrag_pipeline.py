@@ -255,6 +255,7 @@ class ReviewedMtragPipelineTests(TestCase):
             '== *"A40"*',
             'plan["total_target_blocks"] == plan["total_testable_blocks"]',
             'row["target_block_indices"] == row["testable_block_indices"]',
+            'summary["trial_count"] + summary["skipped_target_blocks"]',
             "RunPod checkout must be clean",
             "--enable-cacheselect",
             "--cacheselect-repair-selector full_block",

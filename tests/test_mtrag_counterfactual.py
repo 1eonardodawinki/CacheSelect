@@ -6,6 +6,7 @@ from unittest import TestCase
 from unittest.mock import patch
 
 from benchmarks.block_dataset import DatasetSplit
+from benchmarks.counterfactual_trial import CounterfactualReferenceQualityError
 from benchmarks.mtrag_counterfactual import run_mtrag_counterfactual_cases
 
 
@@ -94,10 +95,57 @@ class MtragCounterfactualTests(TestCase):
         self.assertIs(first_call["recorder"], recorder)
         self.assertEqual(first_summary["current_task_id"], "task-1")
         self.assertEqual(result["case_count"], 2)
+        self.assertEqual(result["completed_case_count"], 2)
+        self.assertEqual(result["skipped_reference_case_count"], 0)
+        self.assertEqual(result["planned_target_blocks"], 2)
         self.assertEqual(result["trial_count"], 2)
         self.assertEqual(result["valid_training_rows"], 1)
         self.assertEqual(result["abstained_trials"], 1)
         self.assertEqual(result["reference_drift_trials"], 1)
+
+    # Skip only an unusable uncached reference and continue with later cases.
+    def test_records_bad_reference_and_continues(self):
+        cases = (_case(1), _case(2))
+        valid = {
+            "trial_count": 1,
+            "valid_training_rows": 1,
+            "invalid_trials": 0,
+            "abstained_trials": 0,
+            "reference_drift_trials": 0,
+            "repair_labels": 0,
+            "reuse_labels": 1,
+        }
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            with (
+                patch("benchmarks.mtrag_counterfactual.save_trace"),
+                patch(
+                    "benchmarks.mtrag_counterfactual."
+                    "run_counterfactual_dataset_workflow",
+                    side_effect=[
+                        CounterfactualReferenceQualityError("bad reference"),
+                        valid,
+                    ],
+                ),
+            ):
+                result = run_mtrag_counterfactual_cases(
+                    cases,
+                    reference_outputs={"task-1": "one", "task-2": "two"},
+                    output_dir=root,
+                    url="http://server/v1/chat/completions",
+                    model="test-model",
+                    max_completion_tokens=384,
+                    api_key=None,
+                    timeout_seconds=300.0,
+                    recorder=SimpleNamespace(path=Path("requests.jsonl")),
+                )
+            skipped = json.loads((root / "case-01" / "summary.json").read_text())
+
+        self.assertEqual(skipped["status"], "skipped_reference_quality")
+        self.assertEqual(result["completed_case_count"], 1)
+        self.assertEqual(result["skipped_reference_case_count"], 1)
+        self.assertEqual(result["skipped_target_blocks"], 1)
+        self.assertEqual(result["trial_count"], 1)
 
     # Reject a case whose answer was never approved by the manual audit.
     def test_rejects_case_without_approved_reference(self):

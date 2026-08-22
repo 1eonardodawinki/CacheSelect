@@ -121,7 +121,9 @@ import json, sys
 summary = json.load(open(sys.argv[1], encoding="utf-8"))
 plan = json.load(open(sys.argv[2], encoding="utf-8"))
 assert summary["case_count"] == plan["transition_count"]
-assert summary["trial_count"] == plan["total_target_blocks"]
+assert summary["completed_case_count"] + summary["skipped_reference_case_count"] == summary["case_count"]
+assert summary["planned_target_blocks"] == plan["total_target_blocks"]
+assert summary["trial_count"] + summary["skipped_target_blocks"] == summary["planned_target_blocks"]
 assert summary["invalid_trials"] == 0
 PY
 python -m benchmarks.prepare_mtrag_counterfactual_review --result-dir "$RESULT"

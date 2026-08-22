@@ -22,6 +22,10 @@ from benchmarks.schema import RequestSpec, RequestTransition
 from observability.request_recorder import RequestRecorder
 
 
+class CounterfactualReferenceQualityError(RuntimeError):
+    """The uncached edited answer is unsuitable as counterfactual ground truth."""
+
+
 @dataclass(frozen=True)
 class CounterfactualTrialResult:
     """All observations and the optional training label from one trial."""
@@ -317,7 +321,9 @@ def run_counterfactual_candidate_discovery(
         raise RuntimeError("discovery did not conservatively repair every candidate")
     # The source only donates KV; only the edited answer is experiment ground truth.
     if not bool((edited_observation.get("quality") or {}).get("passed")):
-        raise RuntimeError("counterfactual discovery edit failed its quality gate")
+        raise CounterfactualReferenceQualityError(
+            "counterfactual discovery edit failed its quality gate"
+        )
     return CounterfactualDiscoveryRunResult(
         discovery_id,
         source_observation,
