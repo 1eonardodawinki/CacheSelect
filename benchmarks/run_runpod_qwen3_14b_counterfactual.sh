@@ -83,6 +83,8 @@ PY
 REPACK_ARGS=()
 if python -c 'import json,sys; sys.exit(not json.load(open(sys.argv[1])).get("repacking_enabled", False))' "$PLAN"; then
   REPACK_ARGS+=(--cacheselect-repack-partial-reuse)
+else
+  REPACK_ARGS+=(--no-cacheselect-repack-partial-reuse)
 fi
 
 SERVER_PID=""

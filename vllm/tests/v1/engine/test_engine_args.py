@@ -59,10 +59,13 @@ def test_cacheselect_from_cli():
     assert engine_args.cacheselect_repair_selector == "full_block"
     assert engine_args.cacheselect_edit_radius == 1
     assert not engine_args.cacheselect_execute_partial_reuse
-    assert not engine_args.cacheselect_repack_partial_reuse
+    assert engine_args.cacheselect_repack_partial_reuse
     assert engine_args.gdn_delta_cache_capacity == 0
     assert engine_args.gdn_delta_block_size == 64
     assert engine_args.gdn_delta_execution_mode == "shadow"
+
+    args = parser.parse_args(["--no-cacheselect-repack-partial-reuse"])
+    assert not EngineArgs.from_cli_args(args=args).cacheselect_repack_partial_reuse
 
     args = parser.parse_args(
         [

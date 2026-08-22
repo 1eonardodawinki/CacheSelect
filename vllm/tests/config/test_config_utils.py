@@ -225,7 +225,7 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
         CacheConfig(
             enable_cacheselect=True,
             cacheselect_execute_partial_reuse=True,
-            cacheselect_repack_partial_reuse=True,
+            cacheselect_repack_partial_reuse=False,
         ).compute_hash()
         == base_hash
     )
@@ -251,15 +251,6 @@ def test_cacheselect_requires_prefix_caching():
 def test_cacheselect_execution_requires_planner():
     with pytest.raises(ValueError, match="requires CacheSelect to be enabled"):
         CacheConfig(cacheselect_execute_partial_reuse=True)
-
-
-# Check that KV repacking cannot run without partial-reuse execution.
-def test_cacheselect_repacking_requires_execution():
-    with pytest.raises(ValueError, match="repacking requires partial reuse"):
-        CacheConfig(
-            enable_cacheselect=True,
-            cacheselect_repack_partial_reuse=True,
-        )
 
 
 # Check that CacheSelect rejects an invalid edit-proximity radius.

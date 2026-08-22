@@ -106,12 +106,10 @@ class CacheConfig:
     """Largest block distance from a structural edit repaired by the
     experimental edit-proximity selector."""
     cacheselect_execute_partial_reuse: bool = False
-    """Allow CacheSelect to execute partial KV reuse. This default-off switch
-    is currently propagated to the GPU worker but does not yet change model
-    execution."""
-    cacheselect_repack_partial_reuse: bool = False
+    """Allow CacheSelect to execute partial KV reuse in the GPU worker."""
+    cacheselect_repack_partial_reuse: bool = True
     """Allow exact token windows spanning two source KV blocks to be repacked
-    into one target block. Requires partial-reuse execution."""
+    into one target block whenever partial-reuse execution is enabled."""
     gdn_delta_cache_capacity: int = Field(default=0, ge=0)
     """Maximum number of GDN block-delta operators cached per layer. Zero
     disables the experimental bounded sidecar."""
@@ -309,15 +307,6 @@ class CacheConfig:
             raise ValueError(
                 "CacheSelect partial-reuse execution requires CacheSelect to be enabled"
             )
-        return self
-
-    @model_validator(mode="after")
-    def _validate_cacheselect_repacking_requires_execution(self) -> "CacheConfig":
-        if (
-            self.cacheselect_repack_partial_reuse
-            and not self.cacheselect_execute_partial_reuse
-        ):
-            raise ValueError("CacheSelect KV repacking requires partial reuse")
         return self
 
     # Keep the experimental operator sidecar on the checkpoint-capable path.
