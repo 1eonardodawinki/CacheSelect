@@ -83,8 +83,10 @@ def _write_result_fixture(root: Path) -> None:
         "collection": "collection-1",
         "current_task_id": "conversation-1<::>2",
     }
+    skipped = {"source_case_index": 1, "status": "skipped_reference_quality"}
+    case.update(source_case_index=2, status="completed")
     (root / "summary.json").write_text(
-        json.dumps({"trial_count": 2, "cases": [case]}), encoding="utf-8"
+        json.dumps({"trial_count": 2, "cases": [skipped, case]}), encoding="utf-8"
     )
     row = {name: "0" for name in (*TRAINING_COLUMNS, *AUDIT_COLUMNS)}
     row.update(
@@ -136,6 +138,7 @@ class CurateMtragCounterfactualDatasetTests(TestCase):
         self.assertEqual(rows[0]["matching_run_length_blocks"], "1")
         self.assertEqual(rows[1]["adjudication"], "blinded_semantic_review")
         self.assertEqual(rows[1]["trial_id"], "review-trial")
+        self.assertEqual(rows[1]["mtrag_case_index"], "2")
 
     # Preserve an unclear review in the audit without creating a training label.
     def test_excludes_abstained_review(self):

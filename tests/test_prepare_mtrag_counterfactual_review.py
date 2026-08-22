@@ -48,10 +48,10 @@ class PrepareMtragCounterfactualReviewTests(TestCase):
             log_dir.mkdir()
             events = [
                 *_trial_events("exact-trial", "same", "same", 2),
-                *_trial_events("abstained-trial", "reference", "changed", 7),
+                *_trial_events("abstained-trial", "reference", "changed\u2028answer", 7),
             ]
             (log_dir / "requests.jsonl").write_text(
-                "\n".join(json.dumps(event) for event in events) + "\n",
+                "\n".join(json.dumps(event, ensure_ascii=False) for event in events) + "\n",
                 encoding="utf-8",
             )
             (root / "summary.json").write_text(
@@ -67,7 +67,10 @@ class PrepareMtragCounterfactualReviewTests(TestCase):
         self.assertEqual(result["rows"], 1)
         self.assertNotIn("abstained-trial", review_text)
         self.assertNotIn('"block_index"', review_text)
-        self.assertEqual({review["rows"][0]["answer_a"], review["rows"][0]["answer_b"]}, {"reference", "changed"})
+        self.assertEqual(
+            {review["rows"][0]["answer_a"], review["rows"][0]["answer_b"]},
+            {"reference", "changed\u2028answer"},
+        )
         self.assertEqual(review["rows"][0]["verdict"], "")
         self.assertEqual(key["rows"][0]["trial_id"], "abstained-trial")
         self.assertEqual(key["rows"][0]["block_index"], 7)

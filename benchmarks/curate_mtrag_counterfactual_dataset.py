@@ -192,8 +192,9 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
             raise ValueError(f"manual-review audit has a mismatched {name}")
 
     cases = {
-        case["transition_id"]: (index, case)
+        case["transition_id"]: (case.get("source_case_index", index), case)
         for index, case in enumerate(summary["cases"], 1)
+        if case.get("status", "completed") == "completed"
     }
     started, completed = _load_ledger(ledger_path)
     trial_ids = _trial_ids_by_block(started, completed)

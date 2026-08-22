@@ -6,6 +6,7 @@ from unittest import TestCase
 
 from benchmarks.consolidate_mtrag_counterfactual import (
     TRAINING_COLUMNS,
+    assemble_mtrag_counterfactual_results,
     consolidate_mtrag_counterfactual_results,
 )
 
@@ -65,6 +66,28 @@ def _write_case(
             writer.writerow(row)
     (case_dir / "summary.json").write_text(json.dumps(case), encoding="utf-8")
     return case
+
+
+# Write complete request lifecycles for one exact-output block trial.
+def _write_ledger(root: Path, trial_id: str) -> None:
+    log_dir = root / "request-logs"
+    log_dir.mkdir()
+    events = []
+    for role in ("reference", "donor", "intervention"):
+        request_id = f"{trial_id}:{role}"
+        events.extend(
+            [
+                {"event": "request_started", "request_id": request_id},
+                {
+                    "event": "request_completed",
+                    "request_id": request_id,
+                    "output": {"text": "same"},
+                },
+            ]
+        )
+    (log_dir / "requests.jsonl").write_text(
+        "\n".join(json.dumps(event) for event in events) + "\n", encoding="utf-8"
+    )
 
 
 class ConsolidateMtragCounterfactualTests(TestCase):
@@ -165,6 +188,22 @@ class ConsolidateMtragCounterfactualTests(TestCase):
             self.assertEqual([row["mtrag_case_index"] for row in rows], ["1", "3"])
             self.assertEqual(report["skipped_reference_case_indices"], [2])
             self.assertEqual(report["case_count"], 3)
+
+            _write_ledger(prefix, "trial-1")
+            _write_ledger(resumed, "trial-3")
+            assembled = root / "assembled"
+            assembled_report = assemble_mtrag_counterfactual_results(
+                (prefix, resumed), assembled
+            )
+            assembled_summary = json.loads(
+                (assembled / "summary.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(assembled_report["recorded_requests"], 6)
+            self.assertEqual(assembled_summary["case_count"], 3)
+            self.assertEqual(
+                assembled_summary["cases"][1]["status"],
+                "skipped_reference_quality",
+            )
 
             completed["source_case_index"] = 4
             (resumed / "case-02" / "summary.json").write_text(

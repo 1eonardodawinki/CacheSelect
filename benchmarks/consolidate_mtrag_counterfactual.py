@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from cacheselect.block_features import CandidateBlockFeatures
+from observability.request_recorder import validate_ledger
 
 
 COUNT_FIELDS = (
@@ -110,13 +111,10 @@ def _load_run_cases(input_dir: Path) -> tuple[list[tuple[int, Path, dict]], int 
     return loaded, source_count
 
 
-# Validate every case across one or more runs and merge its labelled training rows.
-def consolidate_mtrag_counterfactual_results(
+# Index source cases across runs and require complete, non-overlapping coverage.
+def _index_cases(
     input_dirs: Path | Sequence[Path],
-    *,
-    output_path: Path,
-    report_path: Path,
-) -> dict[str, Any]:
+) -> tuple[tuple[Path, ...], dict[int, tuple[Path, dict]], int]:
     run_dirs = (input_dirs,) if isinstance(input_dirs, Path) else tuple(input_dirs)
     if not run_dirs:
         raise ValueError("at least one MTRAG run is required")
@@ -140,6 +138,17 @@ def consolidate_mtrag_counterfactual_results(
     unexpected = sorted(indexed_cases.keys() - expected_indices)
     if unexpected:
         raise ValueError(f"MTRAG runs contain unexpected source cases: {unexpected}")
+    return run_dirs, indexed_cases, expected_count
+
+
+# Validate every case across one or more runs and merge its labelled training rows.
+def consolidate_mtrag_counterfactual_results(
+    input_dirs: Path | Sequence[Path],
+    *,
+    output_path: Path,
+    report_path: Path,
+) -> dict[str, Any]:
+    run_dirs, indexed_cases, expected_count = _index_cases(input_dirs)
 
     totals: Counter[str] = Counter()
     merged: list[dict[str, str | int]] = []
@@ -228,6 +237,75 @@ def consolidate_mtrag_counterfactual_results(
     return report
 
 
+# Assemble the merged dataset, summary, and ledgers expected by review and curation.
+def assemble_mtrag_counterfactual_results(
+    input_dirs: Sequence[Path], output_dir: Path
+) -> dict[str, Any]:
+    run_dirs, indexed_cases, expected_count = _index_cases(input_dirs)
+    if any(output_dir.resolve() == path.resolve() for path in run_dirs):
+        raise ValueError("assembled output must be separate from its source runs")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    report = consolidate_mtrag_counterfactual_results(
+        run_dirs,
+        output_path=output_dir / "mtrag-counterfactual-blocks.csv",
+        report_path=output_dir / "consolidated-summary.json",
+    )
+
+    ledger_dir = output_dir / "request-logs"
+    ledger_dir.mkdir(exist_ok=True)
+    merged_ledger = ledger_dir / "merged-requests.jsonl"
+    with merged_ledger.open("wb") as output:
+        for run_dir in run_dirs:
+            paths = tuple((run_dir / "request-logs").glob("*.jsonl"))
+            if len(paths) != 1:
+                raise ValueError("each MTRAG run must contain exactly one request ledger")
+            validation = validate_ledger(paths[0])
+            if not validation.is_complete or validation.failed:
+                raise ValueError("MTRAG source request ledger is not fully successful")
+            content = paths[0].read_bytes()
+            output.write(content)
+            if content and not content.endswith(b"\n"):
+                output.write(b"\n")
+    ledger = validate_ledger(merged_ledger)
+    if not ledger.is_complete or ledger.failed:
+        raise ValueError("merged MTRAG request ledger is not fully successful")
+
+    cases = []
+    skipped_target_blocks = 0
+    for index in range(1, expected_count + 1):
+        case = dict(indexed_cases[index][1])
+        case.setdefault("source_case_index", index)
+        case.setdefault("status", "completed")
+        skipped_target_blocks += case.get("skipped_target_blocks", 0)
+        cases.append(case)
+    summary = {
+        "schema_version": 1,
+        "experiment": "qwen3-reviewed-mtrag-counterfactual",
+        "run_id": "consolidated-mtrag-counterfactual",
+        "case_count": expected_count,
+        "source_case_count": expected_count,
+        "source_case_start": 1,
+        "source_case_end": expected_count,
+        "completed_case_count": report["completed_case_count"],
+        "skipped_reference_case_count": report["skipped_reference_case_count"],
+        "planned_target_blocks": report["trial_count"] + skipped_target_blocks,
+        "skipped_target_blocks": skipped_target_blocks,
+        **{field: report[field] for field in COUNT_FIELDS},
+        "cases": cases,
+        "source_runs": [str(path) for path in run_dirs],
+        "request_ledger": str(merged_ledger),
+        "recorded_requests": ledger.started,
+    }
+    summary_path = output_dir / "summary.json"
+    summary_path.write_text(json.dumps(summary, indent=2) + "\n", encoding="utf-8")
+    return {
+        **report,
+        "summary_path": str(summary_path),
+        "request_ledger": str(merged_ledger),
+        "recorded_requests": ledger.started,
+    }
+
+
 # Parse paths and consolidate one or more copied or cluster-resident run directories.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -237,11 +315,14 @@ def main() -> None:
     if len(args.input_dir) > 1 and args.output_dir is None:
         parser.error("multiple inputs require --output-dir")
     output_dir = args.output_dir or args.input_dir[0]
-    report = consolidate_mtrag_counterfactual_results(
-        args.input_dir,
-        output_path=output_dir / "mtrag-counterfactual-blocks.csv",
-        report_path=output_dir / "consolidated-summary.json",
-    )
+    if len(args.input_dir) > 1:
+        report = assemble_mtrag_counterfactual_results(args.input_dir, output_dir)
+    else:
+        report = consolidate_mtrag_counterfactual_results(
+            args.input_dir,
+            output_path=output_dir / "mtrag-counterfactual-blocks.csv",
+            report_path=output_dir / "consolidated-summary.json",
+        )
     print(
         f"Consolidated {report['valid_training_rows']} labels from "
         f"{report['trial_count']} trials"

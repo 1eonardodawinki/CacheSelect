@@ -18,13 +18,14 @@ def _load_ledger(path: Path) -> tuple[dict[str, dict], dict[str, dict]]:
         raise ValueError("MTRAG review requires a complete successful request ledger")
     started: dict[str, dict] = {}
     completed: dict[str, dict] = {}
-    for line in path.read_text(encoding="utf-8").splitlines():
-        event = json.loads(line)
-        request_id = event["request_id"]
-        if event["event"] == "request_started":
-            started[request_id] = event
-        elif event["event"] == "request_completed":
-            completed[request_id] = event
+    with path.open(encoding="utf-8") as source:
+        for line in source:
+            event = json.loads(line)
+            request_id = event["request_id"]
+            if event["event"] == "request_started":
+                started[request_id] = event
+            elif event["event"] == "request_completed":
+                completed[request_id] = event
     return started, completed
 
 
