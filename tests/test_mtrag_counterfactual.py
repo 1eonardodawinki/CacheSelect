@@ -94,6 +94,7 @@ class MtragCounterfactualTests(TestCase):
         self.assertTrue(first_call["require_exact_output_match"])
         self.assertIs(first_call["recorder"], recorder)
         self.assertEqual(first_summary["current_task_id"], "task-1")
+        self.assertEqual(first_summary["source_case_index"], 1)
         self.assertEqual(result["case_count"], 2)
         self.assertEqual(result["completed_case_count"], 2)
         self.assertEqual(result["skipped_reference_case_count"], 0)
@@ -138,10 +139,13 @@ class MtragCounterfactualTests(TestCase):
                     api_key=None,
                     timeout_seconds=300.0,
                     recorder=SimpleNamespace(path=Path("requests.jsonl")),
+                    source_case_start=66,
                 )
             skipped = json.loads((root / "case-01" / "summary.json").read_text())
 
         self.assertEqual(skipped["status"], "skipped_reference_quality")
+        self.assertEqual(skipped["source_case_index"], 66)
+        self.assertEqual(result["source_case_end"], 67)
         self.assertEqual(result["completed_case_count"], 1)
         self.assertEqual(result["skipped_reference_case_count"], 1)
         self.assertEqual(result["skipped_target_blocks"], 1)

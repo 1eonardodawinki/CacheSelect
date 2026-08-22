@@ -39,13 +39,17 @@ def run_mtrag_counterfactual_cases(
     timeout_seconds: float,
     recorder: RequestRecorder,
     require_reference_output_match: bool = False,
+    source_case_start: int = 1,
 ) -> dict[str, Any]:
     if not cases:
         raise ValueError("MTRAG pilot contains no cases")
+    if source_case_start < 1:
+        raise ValueError("source case start must be positive")
     summaries = []
     totals: Counter[str] = Counter()
     planned_target_blocks = sum(len(case.target_block_indices) for case in cases)
     for index, case in enumerate(cases, start=1):
+        source_case_index = source_case_start + index - 1
         if len(case.trace.transitions) != 1:
             raise ValueError("each MTRAG case must contain exactly one transition")
         transition = case.trace.transitions[0]
@@ -61,6 +65,7 @@ def run_mtrag_counterfactual_cases(
         case_dir.mkdir(parents=True, exist_ok=True)
         save_trace(case.trace, trace_path)
         common = {
+            "source_case_index": source_case_index,
             "collection": case.collection,
             "current_task_id": transition.current_request_id,
             "trace_path": str(trace_path),
@@ -110,6 +115,8 @@ def run_mtrag_counterfactual_cases(
         "schema_version": 1,
         "experiment": "mtrag-counterfactual-pilot",
         "case_count": len(summaries),
+        "source_case_start": source_case_start,
+        "source_case_end": source_case_start + len(summaries) - 1,
         "completed_case_count": totals["completed_cases"],
         "skipped_reference_case_count": totals["skipped_reference_cases"],
         "planned_target_blocks": planned_target_blocks,

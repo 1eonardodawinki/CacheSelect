@@ -55,7 +55,7 @@ class RunMtragCounterfactualPilotTests(TestCase):
             source_dataset_revision="revision-1",
             source_dataset_sha256=source_sha256,
         )
-        cases = (SimpleNamespace(),)
+        cases = (SimpleNamespace(name="first"), SimpleNamespace(name="second"))
         result = {
             "schema_version": 1,
             "experiment": "mtrag-counterfactual-pilot",
@@ -105,6 +105,8 @@ class RunMtragCounterfactualPilotTests(TestCase):
                 str(summary_path),
                 "--run-id",
                 "test-run",
+                "--start-case",
+                "2",
             ]
             recorder = SimpleNamespace(path=root / "requests.jsonl")
             ledger = SimpleNamespace(
@@ -148,6 +150,8 @@ class RunMtragCounterfactualPilotTests(TestCase):
             summary = json.loads(summary_path.read_text(encoding="utf-8"))
 
         self.assertEqual(build_cases.call_args.kwargs["expected_model"], "test-model")
+        self.assertEqual(run_cases.call_args.args[0], cases[1:])
+        self.assertEqual(run_cases.call_args.kwargs["source_case_start"], 2)
         self.assertEqual(run_cases.call_args.kwargs["max_completion_tokens"], 384)
         self.assertIs(run_cases.call_args.kwargs["recorder"], recorder)
         self.assertEqual(summary["trial_count"], 2)

@@ -34,11 +34,14 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout-seconds", type=float, default=300.0)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--summary-output", type=Path, default=None)
+    parser.add_argument("--start-case", type=int, default=1)
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--request-log-dir", type=Path, default=None)
     args = parser.parse_args()
     if args.max_completion_tokens < 1 or args.timeout_seconds <= 0:
         parser.error("completion tokens and timeout must be positive")
+    if args.start_case < 1:
+        parser.error("--start-case must be positive")
     if args.audit and not args.reference_artifact:
         parser.error("--audit requires --reference-artifact")
     return args
@@ -94,6 +97,10 @@ def main() -> None:
         require_exact_reference = False
         experiment = "mtrag-counterfactual-pilot"
         approval_metadata = {"manual_audit": str(args.audit)}
+    source_case_count = len(cases)
+    if args.start_case > source_case_count:
+        raise ValueError("--start-case exceeds the frozen MTRAG case count")
+    cases = cases[args.start_case - 1 :]
     endpoint = args.base_url.rstrip("/") + "/v1/chat/completions"
     run_id = args.run_id or (
         "mtrag-counterfactual-"
@@ -125,6 +132,7 @@ def main() -> None:
         timeout_seconds=args.timeout_seconds,
         recorder=recorder,
         require_reference_output_match=require_exact_reference,
+        source_case_start=args.start_case,
     )
     ledger = validate_ledger(recorder.path)
     if not ledger.is_complete or ledger.failed:
@@ -137,6 +145,7 @@ def main() -> None:
         "endpoint": endpoint,
         "source_sha256": source_sha256,
         "manifest": str(args.manifest),
+        "source_case_count": source_case_count,
         **approval_metadata,
         "request_ledger": str(ledger.path),
         "recorded_requests": ledger.started,

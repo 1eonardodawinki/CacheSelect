@@ -8,6 +8,7 @@ VENV="${CACHESELECT_VENV_ROOT:-/workspace/cacheselect-env-cu130}"
 STORAGE="${CACHESELECT_STORAGE_ROOT:-/workspace}"
 MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
 PORT="${CACHESELECT_SERVER_PORT:-8000}"
+START_CASE="${CACHESELECT_COUNTERFACTUAL_START_CASE:-1}"
 INPUTS="${CACHESELECT_COUNTERFACTUAL_INPUT_ROOT:-$STORAGE/cacheselect-inputs/qwen3-mtrag-v1}"
 PLAN="${CACHESELECT_COUNTERFACTUAL_PLAN:-$INPUTS/counterfactual-plan.json}"
 REFERENCES="${CACHESELECT_COUNTERFACTUAL_REFERENCES:-$INPUTS/references.json}"
@@ -35,6 +36,10 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
   echo "This experiment requires a 48 GB A40" >&2
   exit 2
 }
+[[ "$START_CASE" =~ ^[1-9][0-9]*$ ]] || {
+  echo "CACHESELECT_COUNTERFACTUAL_START_CASE must be positive" >&2
+  exit 2
+}
 
 mkdir -p "$(dirname "$MTRAG")" "$RESULT/request-logs" "$SERVER_LOGS" \
   "$STORAGE/hf-cache" "$STORAGE/tmp"
@@ -58,6 +63,7 @@ export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
 }
 printf 'project_commit=%s\nmodel=%s\ngpu=%s\n' "$COMMIT" "$MODEL" "$GPU" \
   >"$RESULT/metadata.env"
+printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
 
 # Bind the exact reviewed answers to a plan containing every testable block.
 python - "$PLAN" "$REFERENCES" "$MODEL" "$MTRAG_SHA" <<'PY'
@@ -113,6 +119,7 @@ python -m benchmarks.run_mtrag_counterfactual_pilot \
   --input "$MTRAG" --manifest "$PLAN" --references "$REFERENCES" \
   --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
   --max-completion-tokens 768 --timeout-seconds 900 \
+  --start-case "$START_CASE" \
   --run-id "$RUN_ID" --request-log-dir "$RESULT/request-logs" \
   --output-dir "$RESULT" --summary-output "$RESULT/summary.json"
 
@@ -120,9 +127,10 @@ python - "$RESULT/summary.json" "$PLAN" <<'PY'
 import json, sys
 summary = json.load(open(sys.argv[1], encoding="utf-8"))
 plan = json.load(open(sys.argv[2], encoding="utf-8"))
-assert summary["case_count"] == plan["transition_count"]
+selected = plan["transitions"][summary["source_case_start"] - 1:]
+assert summary["case_count"] == len(selected)
 assert summary["completed_case_count"] + summary["skipped_reference_case_count"] == summary["case_count"]
-assert summary["planned_target_blocks"] == plan["total_target_blocks"]
+assert summary["planned_target_blocks"] == sum(len(row["target_block_indices"]) for row in selected)
 assert summary["trial_count"] + summary["skipped_target_blocks"] == summary["planned_target_blocks"]
 assert summary["invalid_trials"] == 0
 PY
