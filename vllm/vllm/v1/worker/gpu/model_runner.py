@@ -140,6 +140,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_gpu_execution_times,
     record_preparation_time,
     record_span_attention_metadata_construction,
+    repack_kv_cache_blocks_inplace,
     resolve_target_block_ids,
     select_partial_reuse_forward_path,
     stitch_partial_reuse_span_outputs,
@@ -220,6 +221,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         )
         self.cacheselect_execute_partial_reuse = (
             self.cache_config.cacheselect_execute_partial_reuse
+        )
+        self.cacheselect_repack_partial_reuse = (
+            self.cache_config.cacheselect_repack_partial_reuse
         )
         self.pending_cacheselect_repair_metrics: dict[
             str, CacheSelectRepairMetrics
@@ -1143,15 +1147,45 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             for request_instructions in instructions_by_request.values()
             for instruction in request_instructions
         )
-        block_copies = build_kv_cache_block_copies(instructions)
-        if block_copies:
+        repacked = tuple(
+            instruction
+            for instruction in instructions
+            if instruction.requires_repacking
+        )
+        if repacked and not self.cacheselect_repack_partial_reuse:
+            raise RuntimeError("KV repacking was planned without being enabled")
+        aligned = tuple(
+            instruction
+            for instruction in instructions
+            if not instruction.requires_repacking
+        )
+        block_copies = build_kv_cache_block_copies(aligned)
+        if instructions:
             # Repaired rows overwrite copied values before they can be consumed.
-            copy_operation = functools.partial(
-                copy_kv_cache_blocks_inplace,
-                self.kv_caches,
-                self.kv_cache_config.num_blocks,
-                block_copies,
-            )
+            def copy_operation() -> None:
+                if repacked:
+                    block_sizes = {
+                        self.partial_reuse_plans[req_id].block_size
+                        for req_id, request_instructions in (
+                            instructions_by_request.items()
+                        )
+                        if any(
+                            instruction.requires_repacking
+                            for instruction in request_instructions
+                        )
+                    }
+                    if len(block_sizes) != 1:
+                        raise RuntimeError("KV repacking requires one block size")
+                    repack_kv_cache_blocks_inplace(
+                        self.kv_caches, repacked, block_sizes.pop()
+                    )
+                if block_copies:
+                    copy_kv_cache_blocks_inplace(
+                        self.kv_caches,
+                        self.kv_cache_config.num_blocks,
+                        block_copies,
+                    )
+
             _, copy_events = self._launch_timed_cacheselect_gpu_operation(
                 copy_operation
             )
