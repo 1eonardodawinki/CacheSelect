@@ -27,6 +27,7 @@ from benchmarks.counterfactual_labels import (
 from benchmarks.counterfactual_trial import (
     CounterfactualCandidateDiscovery,
     CounterfactualDiscoveryRunResult,
+    CounterfactualReferenceQualityError,
     CounterfactualTrialBatchResult,
     CounterfactualTrialResult,
     build_discovered_counterfactual_interventions,
@@ -507,6 +508,95 @@ class CounterfactualLabelTests(TestCase):
         )
         self.assertEqual(result.label.decision, RepairDecision.REUSE)
         self.assertTrue(result.quality_comparison["passed"])
+
+    # Reuse one discovery answer and reject the case if the final answer drifts.
+    def test_shares_reference_and_checks_final_stability(self):
+        trace = build_rag_trace()
+        source, edited = trace.requests[:2]
+        discovery = CounterfactualCandidateDiscovery(
+            trace.trace_id,
+            trace.transitions[0].transition_id,
+            4,
+            (1, 2),
+            (1, 2),
+            None,
+        )
+        answer = edited.ground_truth.expected_answer
+        fresh = {
+            "output_text": answer,
+            "finish_reason": "stop",
+            "quality": {"mode": "requirements", "passed": True},
+            "cached_tokens": 0,
+            "runtime_policy": {"policy": "FULL_RECOMPUTE"},
+            "server_metrics": {},
+        }
+
+        with (
+            patch(
+                "benchmarks.counterfactual_trial._observe_request",
+                side_effect=({**fresh} for _ in range(5)),
+            ) as observe,
+            patch(
+                "benchmarks.counterfactual_trial.validate_counterfactual_execution",
+                side_effect=lambda intervention, **_: _successful_execution(
+                    intervention
+                ),
+            ),
+        ):
+            result = run_discovered_counterfactual_trials(
+                discovery=discovery,
+                source_request=source,
+                edited_request=edited,
+                url="http://vllm.test/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=8,
+                api_key=None,
+                timeout_seconds=2.0,
+                recorder=object(),
+                reference_observation=fresh,
+                required_reference_output=answer,
+            )
+
+        self.assertEqual(observe.call_count, 5)
+        self.assertTrue(
+            all(trial.reference_observation is fresh for trial in result.trials)
+        )
+        self.assertTrue(
+            observe.call_args_list[-1].args[0].request_id.endswith(
+                ":stability_reference"
+            )
+        )
+
+        drifted = {**fresh, "output_text": "different answer"}
+        with (
+            patch(
+                "benchmarks.counterfactual_trial._observe_request",
+                side_effect=({**fresh}, {**fresh}, drifted),
+            ),
+            patch(
+                "benchmarks.counterfactual_trial.validate_counterfactual_execution",
+                return_value=_successful_execution(
+                    build_discovered_counterfactual_interventions(discovery)[0]
+                ),
+            ),
+        ):
+            with self.assertRaisesRegex(
+                CounterfactualReferenceQualityError, "unstable"
+            ):
+                run_discovered_counterfactual_trials(
+                    discovery=discovery,
+                    source_request=source,
+                    edited_request=edited,
+                    url="http://vllm.test/v1/chat/completions",
+                    model="test-model",
+                    max_completion_tokens=8,
+                    api_key=None,
+                    timeout_seconds=2.0,
+                    recorder=object(),
+                    selected_block_indices=(1,),
+                    reference_observation=fresh,
+                    required_reference_output=answer,
+                )
 
     # Stop after the reference when it differs from the manually audited text.
     def test_rejects_changed_approved_reference(self):

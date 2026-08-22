@@ -113,6 +113,10 @@ class CounterfactualWorkflowTests(TestCase):
             run_trials.call_args.kwargs["required_reference_output"],
             "fresh full-compute answer",
         )
+        self.assertIs(
+            run_trials.call_args.kwargs["reference_observation"],
+            discovery_run.edited_observation,
+        )
         self.assertEqual(save_dataset.call_args.kwargs["split"], DatasetSplit.TRAIN)
 
     # Stop before causal trials when live discovery drifts from the frozen pilot.

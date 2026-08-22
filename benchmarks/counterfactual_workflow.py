@@ -115,6 +115,7 @@ def run_counterfactual_dataset_workflow(
         timeout_seconds=timeout_seconds,
         recorder=recorder,
         selected_block_indices=selected,
+        reference_observation=discovery_run.edited_observation,
         # Bind every trial to the full-compute answer produced by this server run.
         required_reference_output=fresh_reference_output,
         require_reference_output_match=require_reference_output_match,

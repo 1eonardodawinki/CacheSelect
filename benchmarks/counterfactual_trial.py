@@ -346,6 +346,7 @@ def run_single_block_counterfactual_trial(
     api_key: str | None,
     timeout_seconds: float,
     recorder: RequestRecorder,
+    reference_observation: dict[str, Any] | None = None,
     required_reference_output: str | None = None,
     require_reference_output_match: bool = True,
     require_exact_output_match: bool = False,
@@ -389,13 +390,15 @@ def run_single_block_counterfactual_trial(
             cache_salt=cache_salt,
         )
 
-    reference = observe(
-        reference_request,
-        "reference",
-        reference_salt,
-        {"cacheselect_request_id": reference_request.request_id},
-    )
-    _require_fresh_full_recompute(reference, "reference")
+    reference = reference_observation
+    if reference is None:
+        reference = observe(
+            reference_request,
+            "reference",
+            reference_salt,
+            {"cacheselect_request_id": reference_request.request_id},
+        )
+        _require_fresh_full_recompute(reference, "reference")
     if (
         required_reference_output is not None
         and reference.get("finish_reason") != "stop"
@@ -474,6 +477,7 @@ def run_discovered_counterfactual_trials(
     timeout_seconds: float,
     recorder: RequestRecorder,
     selected_block_indices: tuple[int, ...] | None = None,
+    reference_observation: dict[str, Any] | None = None,
     required_reference_output: str | None = None,
     require_reference_output_match: bool = True,
     require_exact_output_match: bool = False,
@@ -497,11 +501,45 @@ def run_discovered_counterfactual_trials(
                 api_key=api_key,
                 timeout_seconds=timeout_seconds,
                 recorder=recorder,
+                reference_observation=reference_observation,
                 required_reference_output=required_reference_output,
                 require_reference_output_match=require_reference_output_match,
                 require_exact_output_match=require_exact_output_match,
             )
         )
+    if reference_observation is not None:
+        check_id = uuid4().hex
+        check_request = replace(
+            edited_request,
+            request_id=f"{check_id}:stability_reference",
+        )
+        final_reference = _observe_request(
+            check_request,
+            url=url,
+            model=model,
+            max_completion_tokens=max_completion_tokens,
+            api_key=api_key,
+            timeout_seconds=timeout_seconds,
+            recorder=recorder,
+            policy_metadata={
+                "counterfactual_reference_check_id": check_id,
+                "counterfactual_role": "stability_reference",
+            },
+            require_cacheselect_metrics=True,
+            vllm_xargs={"cacheselect_request_id": check_request.request_id},
+            cache_salt=f"{check_id}:stability_reference",
+        )
+        _require_fresh_full_recompute(final_reference, "stability reference")
+        if final_reference.get("finish_reason") != "stop":
+            raise CounterfactualReferenceQualityError(
+                "final full-compute reference was truncated"
+            )
+        if final_reference.get("output_text") != reference_observation.get(
+            "output_text"
+        ):
+            raise CounterfactualReferenceQualityError(
+                "full-compute reference was unstable"
+            )
     targets = tuple(
         intervention.reused_block_index for intervention in interventions
     )
