@@ -36,6 +36,16 @@ class ResolvedPartialReuseCandidate:
     requires_repair: bool
     block_displacement: int = 0
     nearest_changed_block_distance: int | None = None
+    source_block_ids: tuple[int, ...] = ()
+    source_block_offset: int = 0
+
+    @property
+    def physical_source_block_ids(self) -> tuple[int, ...]:
+        return self.source_block_ids or (self.source_block_id,)
+
+    @property
+    def requires_repacking(self) -> bool:
+        return self.source_block_offset != 0
 
 
 @dataclass(frozen=True)
@@ -44,6 +54,16 @@ class PartialReuseCopyInstruction:
     target_block_id: int
     target_block_index: int
     requires_repair: bool
+    source_block_ids: tuple[int, ...] = ()
+    source_block_offset: int = 0
+
+    @property
+    def physical_source_block_ids(self) -> tuple[int, ...]:
+        return self.source_block_ids or (self.source_block_id,)
+
+    @property
+    def requires_repacking(self) -> bool:
+        return self.source_block_offset != 0
 
 
 @dataclass(frozen=True)
@@ -158,6 +178,10 @@ def resolve_target_block_ids(
                 nearest_changed_block_distance=(
                     candidate.nearest_changed_block_distance
                 ),
+                source_block_ids=tuple(
+                    getattr(candidate, "source_block_ids", ())
+                ),
+                source_block_offset=getattr(candidate, "source_block_offset", 0),
             )
         )
     return tuple(resolved)
@@ -174,6 +198,8 @@ def build_partial_reuse_copy_instructions(
             target_block_id=candidate.target_block_id,
             target_block_index=candidate.target_block_index,
             requires_repair=candidate.requires_repair,
+            source_block_ids=candidate.source_block_ids,
+            source_block_offset=candidate.source_block_offset,
         )
         for candidate in candidates
     )
@@ -183,6 +209,8 @@ def build_partial_reuse_copy_instructions(
 def build_kv_cache_block_copies(
     instructions: Sequence[PartialReuseCopyInstruction],
 ) -> tuple[KVCacheBlockCopy, ...]:
+    if any(instruction.requires_repacking for instruction in instructions):
+        raise ValueError("unaligned mappings require KV repacking")
     return tuple(
         KVCacheBlockCopy(
             src_block_id=instruction.source_block_id,
@@ -190,6 +218,51 @@ def build_kv_cache_block_copies(
         )
         for instruction in instructions
     )
+
+
+# Assemble one logical target block from two adjacent source-cache pages.
+def repack_kv_cache_blocks_inplace(
+    kv_caches: Sequence[torch.Tensor | list[torch.Tensor]],
+    instructions: Sequence[PartialReuseCopyInstruction],
+    block_size: int,
+) -> None:
+    if not instructions:
+        return
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
+    caches = tuple(kv_caches)
+    if not caches or any(
+        not isinstance(cache, torch.Tensor)
+        or cache.ndim != 4
+        or cache.shape[2] != block_size
+        for cache in caches
+    ):
+        raise ValueError("KV repacking requires a four-dimensional attention cache")
+    num_blocks = caches[0].shape[0]
+    if any(cache.shape[0] != num_blocks for cache in caches):
+        raise ValueError("KV repacking requires one shared physical block count")
+    for instruction in instructions:
+        source_ids = instruction.physical_source_block_ids
+        offset = instruction.source_block_offset
+        if (
+            len(source_ids) != 2
+            or offset <= 0
+            or offset >= block_size
+            or any(block_id < 0 or block_id >= num_blocks for block_id in source_ids)
+            or instruction.target_block_id < 0
+            or instruction.target_block_id >= num_blocks
+        ):
+            raise ValueError("invalid KV repacking instruction")
+
+    for cache in caches:
+        for instruction in instructions:
+            first, second = instruction.physical_source_block_ids
+            offset = instruction.source_block_offset
+            gathered = torch.cat(
+                (cache[first, :, offset:, :], cache[second, :, :offset, :]),
+                dim=1,
+            )
+            cache[instruction.target_block_id].copy_(gathered)
 
 
 # Record block copies that were actually submitted by the GPU worker.

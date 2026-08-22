@@ -48,6 +48,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     record_gpu_execution_times,
     record_preparation_time,
     record_span_attention_metadata_construction,
+    repack_kv_cache_blocks_inplace,
     resolve_target_block_ids,
     select_partial_reuse_forward_path,
     stitch_partial_reuse_span_outputs,
@@ -162,6 +163,43 @@ def test_build_kv_cache_block_copies() -> None:
     )
 
     assert build_kv_cache_block_copies(instructions) == ((42, 63), (43, 64))
+
+
+# Check that two source-page slices assemble one complete target cache block.
+def test_repack_kv_cache_blocks_inplace() -> None:
+    caches = []
+    originals = []
+    for layer in range(2):
+        cache = torch.arange(4 * 2 * 4).reshape(4, 2, 4, 1) + layer * 100
+        caches.append(cache)
+        originals.append(cache.clone())
+    instruction = PartialReuseCopyInstruction(
+        source_block_id=0,
+        source_block_ids=(0, 1),
+        source_block_offset=2,
+        target_block_id=2,
+        target_block_index=3,
+        requires_repair=False,
+    )
+
+    repack_kv_cache_blocks_inplace(caches, (instruction,), block_size=4)
+
+    for cache, original in zip(caches, originals, strict=True):
+        expected = torch.cat(
+            (original[0, :, 2:, :], original[1, :, :2, :]), dim=1
+        )
+        assert torch.equal(cache[2], expected)
+        assert torch.equal(cache[:2], original[:2])
+
+
+# Check that a repacked instruction cannot enter the whole-page copy path.
+def test_block_copy_rejects_repacking_instruction() -> None:
+    instruction = PartialReuseCopyInstruction(
+        1, 3, 2, False, source_block_ids=(1, 2), source_block_offset=1
+    )
+
+    with pytest.raises(ValueError, match="require KV repacking"):
+        build_kv_cache_block_copies((instruction,))
 
 
 # Check that the fallback selector chooses every token in affected blocks.
