@@ -145,12 +145,12 @@ class CounterfactualLabelTests(TestCase):
 
     # Verify a trial reconstructs the tested block's model-ready feature row.
     def test_extracts_counterfactual_trial_feature(self):
-        intervention = SingleBlockIntervention("trace", "transition", (1, 2, 3), 2)
+        intervention = SingleBlockIntervention("trace", "transition", (1, 2), 1)
         score = CounterfactualLabelResult(
             intervention, False, False, None, False, 0.0, "unused"
         )
         previous_tokens = list(range(16))
-        current_tokens = previous_tokens[:4] + [90, 91, 92, 93] + previous_tokens[8:]
+        current_tokens = [90, 91, 92, 93] + previous_tokens[2:6] + previous_tokens[8:]
         trial = CounterfactualTrialResult(
             "trial",
             intervention,
@@ -161,7 +161,7 @@ class CounterfactualLabelTests(TestCase):
                 "server_metrics": {
                     "cacheselect_partial_reuse_plan": {
                         "block_size": 4,
-                        "native_cached_tokens": 4,
+                        "native_cached_tokens": 0,
                     }
                 },
             },
@@ -172,9 +172,8 @@ class CounterfactualLabelTests(TestCase):
 
         features = extract_counterfactual_trial_feature(trial, block_size=4)
 
-        self.assertEqual(features.candidate_block_index, 2)
-        self.assertFalse(features.requires_repacking)
-        self.assertEqual(features.nearest_changed_block_distance, 1)
+        self.assertEqual(features.candidate_block_index, 1)
+        self.assertTrue(features.requires_repacking)
 
     # Verify causal labels are persisted in the shared selector CSV schema.
     def test_saves_counterfactual_training_dataset(self):

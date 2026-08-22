@@ -83,10 +83,10 @@ def _reviewed_feature(
     matches = [
         feature
         for feature in extract_candidate_block_features(previous, current, opportunity)
-        if feature.candidate_block_index == target and not feature.requires_repacking
+        if feature.candidate_block_index == target
     ]
     if len(matches) != 1 or not isinstance(transition_id, str):
-        raise ValueError(f"trial {trial_id!r} has no unique aligned feature row")
+        raise ValueError(f"trial {trial_id!r} has no unique feature row")
     return asdict(matches[0]), transition_id
 
 
@@ -137,7 +137,6 @@ def _context_feature(
             opportunity.candidate_blocks, context_rows, strict=True
         )
         if candidate.current_block_index == block_index
-        and not candidate.requires_repacking
     ]
     if len(matches) != 1 or not isinstance(transition_id, str):
         raise ValueError(f"trial {trial_id!r} has no unique context feature row")

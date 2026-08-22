@@ -97,8 +97,8 @@ def extract_counterfactual_trial_feature(
         )
         if feature.candidate_block_index == trial.intervention.reused_block_index
     )
-    if len(matches) != 1 or matches[0].requires_repacking:
-        raise ValueError("tested block has no unique aligned feature row")
+    if len(matches) != 1:
+        raise ValueError("tested block has no unique feature row")
     return matches[0]
 
 
