@@ -162,12 +162,18 @@ shadow forward. A negative `mean_active_vs_native_ttft_ms` is the stronger
 end-to-end result: CacheSelect returned the first token faster than ordinary
 vLLM APC after including selection, copying and recomputation overhead.
 
-The online locator currently covers the deliberately narrow first milestone:
-one full-attention KV group where scheduler, hash and physical block sizes are
-equal. It indexes only full source blocks, requires an explicit source request
-ID, checks cache-salt and LoRA compatibility, and confirms that each source
-block is still resident. Candidates that cross source block boundaries remain
-visible only to the offline analyzer until gathering/repacking is implemented.
+The online locator supports aligned source blocks and exact token windows that
+cross a source-block boundary. For the latter, it records the source offset and
+both resident source blocks; the GPU worker repacks their KV rows into one
+target block before selective repair. Repacking is enabled with active partial
+reuse by default and can be disabled with
+`--no-cacheselect-repack-partial-reuse`.
+
+The implementation remains deliberately narrow: it requires one
+full-attention KV group with equal scheduler, hash and physical block sizes, an
+explicit source request ID, compatible cache salt and LoRA state, and resident
+source blocks. Execution across multiple chunked-prefill steps remains outside
+this benchmark.
 
 Analyze the full blocks whose token content exists elsewhere in the previous
 prompt but falls outside APC's exact-prefix hit:
