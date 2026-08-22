@@ -125,7 +125,7 @@ class PartialReusePlan:
         retained_candidates = tuple(
             candidate
             for candidate in self.candidates
-            if candidate.source_block_id in source_block_ids
+            if set(candidate.physical_source_block_ids).issubset(source_block_ids)
         )
         if not retained_candidates:
             return None
@@ -462,24 +462,25 @@ class AlignedBlockReuseLocator:
         if source is None:
             return ()
 
-        indexed_blocks = {
-            (block.block_index, block.block_id): block for block in source.blocks
-        }
+        indexed_blocks = {block.block_id: block for block in source.blocks}
         retained_by_id: dict[int, KVCacheBlock] = {}
         for candidate in plan.candidates:
             if not candidate.source_resident:
                 continue
-            source_block = indexed_blocks.get(
-                (candidate.source_block_index, candidate.source_block_id)
+            source_blocks = tuple(
+                indexed_blocks.get(block_id)
+                for block_id in candidate.physical_source_block_ids
             )
-            if source_block is None or not self._is_resident(source_block):
+            if any(
+                block is None or not self._is_resident(block) for block in source_blocks
+            ):
                 continue
 
             # BlockPool owns one canonical object per physical block ID. The
             # hash-and-ID residency check above prevents retaining a reassigned block.
-            retained_by_id[source_block.block_id] = self.block_pool.blocks[
-                source_block.block_id
-            ]
+            for block in source_blocks:
+                assert block is not None
+                retained_by_id[block.block_id] = self.block_pool.blocks[block.block_id]
 
         retained = tuple(retained_by_id.values())
         if retained:

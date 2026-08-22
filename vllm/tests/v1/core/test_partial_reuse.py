@@ -122,6 +122,33 @@ def test_plan_filters_candidates_to_retained_source_ids() -> None:
     assert plan.for_retained_source_ids(set()) is None
 
 
+# Check that a repacked candidate is retained only when both pages are pinned.
+def test_repacking_candidate_requires_every_source_block() -> None:
+    locator, pool, plan = make_locator_and_plan()
+    source = locator._sources["source"]
+    locator._sources["source"] = replace(
+        source,
+        blocks=(
+            *source.blocks,
+            SourceBlock(4, tuple(range(16, 32)), 6, object()),
+        ),
+    )
+    candidate = replace(
+        plan.candidates[0],
+        source_block_offset=3,
+        source_block_ids=(7, 6),
+    )
+    plan = replace(plan, candidates=(candidate,))
+
+    retained = locator.retain_resident_sources(plan)
+
+    assert {block.block_id for block in retained} == {6, 7}
+    assert plan.for_retained_source_ids({7}) is None
+    assert plan.for_retained_source_ids({6, 7}) == plan
+    locator.release_sources(retained)
+    assert pool.blocks[6].ref_cnt == pool.blocks[7].ref_cnt == 0
+
+
 # Check that repeated content maps to the closest context-compatible occurrence.
 def test_select_nearest_repeated_source_block() -> None:
     locator = AlignedBlockReuseLocator(FakeBlockPool(7), block_size=16)
