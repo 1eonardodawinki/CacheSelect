@@ -33,6 +33,7 @@ class SourceRequestIndex:
     cache_salt: str | None
     lora_adapter_id: int | None
     blocks: tuple[SourceBlock, ...]
+    prompt_token_ids: tuple[int, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -45,6 +46,16 @@ class PartialReuseCandidate:
     block_displacement: int = 0
     nearest_changed_block_distance: int | None = None
     source_contextual_hash: bytes | None = None
+    source_block_offset: int = 0
+    source_block_ids: tuple[int, ...] = ()
+
+    @property
+    def physical_source_block_ids(self) -> tuple[int, ...]:
+        return self.source_block_ids or (self.source_block_id,)
+
+    @property
+    def requires_repacking(self) -> bool:
+        return self.source_block_offset != 0
 
     def to_public_dict(self) -> dict[str, Any]:
         return {
@@ -59,6 +70,9 @@ class PartialReuseCandidate:
                 if self.source_contextual_hash is not None
                 else None
             ),
+            "source_block_offset": self.source_block_offset,
+            "source_block_ids": list(self.physical_source_block_ids),
+            "requires_repacking": self.requires_repacking,
         }
 
 
@@ -149,6 +163,7 @@ class AlignedBlockReuseLocator:
         block_size: int,
         max_source_requests: int = 1024,
         hash_block_size: int | None = None,
+        allow_repacking: bool = False,
     ) -> None:
         if block_size < 1:
             raise ValueError("block_size must be positive")
@@ -158,6 +173,7 @@ class AlignedBlockReuseLocator:
         self.block_size = block_size
         self.hash_block_size = hash_block_size or block_size
         self.max_source_requests = max_source_requests
+        self.allow_repacking = allow_repacking
         self._sources: OrderedDict[str, SourceRequestIndex] = OrderedDict()
 
     @staticmethod
@@ -204,6 +220,7 @@ class AlignedBlockReuseLocator:
             cache_salt=request.cache_salt,
             lora_adapter_id=self._lora_adapter_id(request),
             blocks=tuple(indexed_blocks),
+            prompt_token_ids=tuple(prompt_token_ids),
         )
         self._sources.move_to_end(request_id)
         while len(self._sources) > self.max_source_requests:
@@ -228,9 +245,7 @@ class AlignedBlockReuseLocator:
         if request.prompt_token_ids is None:
             return self._plan(request, native_cached_tokens, "token_ids_unavailable")
 
-        by_content: dict[tuple[int, ...], list[SourceBlock]] = {}
-        for block in source.blocks:
-            by_content.setdefault(block.token_ids, []).append(block)
+        by_content = self._source_windows_by_content(source)
 
         prompt_token_ids = request.prompt_token_ids
         first_target_block = (
@@ -241,20 +256,26 @@ class AlignedBlockReuseLocator:
         for target_block_index in range(first_target_block, num_full_blocks):
             start = target_block_index * self.block_size
             token_ids = tuple(prompt_token_ids[start : start + self.block_size])
-            source_blocks = by_content.get(token_ids)
-            if not source_blocks:
+            source_windows = by_content.get(token_ids)
+            if not source_windows:
                 continue
-            source_block = self._select_nearest_source_block(
-                source_blocks,
+            source_start, source_blocks = self._select_nearest_source_window(
+                source_windows,
                 target_block_index,
             )
+            source_block = source_blocks[0]
+            source_offset = source_start % self.block_size
             candidates.append(
                 PartialReuseCandidate(
                     source_block_index=source_block.block_index,
                     target_block_index=target_block_index,
                     source_block_id=source_block.block_id,
-                    source_resident=self._is_resident(source_block),
+                    source_resident=all(
+                        self._is_resident(block) for block in source_blocks
+                    ),
                     source_contextual_hash=source_block.contextual_hash,
+                    source_block_offset=source_offset,
+                    source_block_ids=tuple(block.block_id for block in source_blocks),
                 )
             )
 
@@ -264,8 +285,63 @@ class AlignedBlockReuseLocator:
         return self._plan(
             request,
             native_cached_tokens,
-            reason="aligned_candidates" if candidates else "no_aligned_candidates",
+            reason=(
+                "repacking_candidates"
+                if any(candidate.requires_repacking for candidate in candidates)
+                else "aligned_candidates"
+                if candidates
+                else "no_aligned_candidates"
+            ),
             candidates=annotated_candidates,
+        )
+
+    # Index exact source windows while retaining their physical block mapping.
+    def _source_windows_by_content(
+        self, source: SourceRequestIndex
+    ) -> dict[tuple[int, ...], list[tuple[int, tuple[SourceBlock, ...]]]]:
+        blocks_by_index = {block.block_index: block for block in source.blocks}
+        tokens = source.prompt_token_ids
+        if not tokens:
+            # Old indexes contain only aligned blocks and remain valid.
+            windows: dict[
+                tuple[int, ...], list[tuple[int, tuple[SourceBlock, ...]]]
+            ] = {}
+            for block in source.blocks:
+                windows.setdefault(block.token_ids, []).append(
+                    (block.block_index * self.block_size, (block,))
+                )
+            return windows
+        step = 1 if self.allow_repacking else self.block_size
+        windows: dict[tuple[int, ...], list[tuple[int, tuple[SourceBlock, ...]]]] = {}
+        for start in range(0, len(tokens) - self.block_size + 1, step):
+            first = start // self.block_size
+            last = (start + self.block_size - 1) // self.block_size
+            physical = tuple(
+                blocks_by_index[index] for index in range(first, last + 1)
+                if index in blocks_by_index
+            )
+            if len(physical) != last - first + 1:
+                continue
+            token_ids = tuple(tokens[start : start + self.block_size])
+            windows.setdefault(token_ids, []).append((start, physical))
+        return windows
+
+    # Prefer resident aligned storage, then the occurrence nearest the target.
+    def _select_nearest_source_window(
+        self,
+        windows: Sequence[tuple[int, tuple[SourceBlock, ...]]],
+        target_block_index: int,
+    ) -> tuple[int, tuple[SourceBlock, ...]]:
+        if not windows:
+            raise ValueError("source window choices cannot be empty")
+        return min(
+            windows,
+            key=lambda item: (
+                not all(self._is_resident(block) for block in item[1]),
+                item[0] % self.block_size != 0,
+                abs(item[0] - target_block_index * self.block_size),
+                item[0],
+            ),
         )
 
     # Prefer the resident identical block whose original position is closest.

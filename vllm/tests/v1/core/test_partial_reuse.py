@@ -137,6 +137,65 @@ def test_select_nearest_repeated_source_block() -> None:
     assert selected.block_index == 5
 
 
+# Check that an exact window spanning two source blocks becomes one candidate.
+def test_locate_repacking_candidate() -> None:
+    locator = AlignedBlockReuseLocator(
+        FakeBlockPool(7), block_size=4, allow_repacking=True
+    )
+    source_tokens = tuple(range(12))
+    locator._sources["source"] = SourceRequestIndex(
+        request_id="source",
+        cache_salt="trial",
+        lora_adapter_id=None,
+        blocks=(
+            SourceBlock(0, source_tokens[:4], 6, object()),
+            SourceBlock(1, source_tokens[4:8], 7, object()),
+            SourceBlock(2, source_tokens[8:], 5, object()),
+        ),
+        prompt_token_ids=source_tokens,
+    )
+    request = SimpleNamespace(
+        cacheselect_source_request_id="source",
+        cacheselect_request_id="target",
+        cacheselect_transition_id="transition",
+        cacheselect_counterfactual_reuse_block_index=None,
+        request_id="target",
+        cache_salt="trial",
+        lora_request=None,
+        prompt_token_ids=source_tokens[2:6] + (40, 41, 42, 43),
+    )
+
+    plan = locator.locate(request, native_cached_tokens=0)
+
+    assert plan is not None
+    assert plan.reason == "repacking_candidates"
+    assert len(plan.candidates) == 1
+    candidate = plan.candidates[0]
+    assert candidate.source_block_offset == 2
+    assert candidate.physical_source_block_ids == (6, 7)
+    assert candidate.requires_repacking is True
+
+
+# Check that unaligned matches remain invisible until explicitly enabled.
+def test_repacking_is_disabled_by_default() -> None:
+    locator = AlignedBlockReuseLocator(FakeBlockPool(7), block_size=4)
+    source_tokens = tuple(range(8))
+    source = SourceRequestIndex(
+        "source",
+        "trial",
+        None,
+        (
+            SourceBlock(0, source_tokens[:4], 6, object()),
+            SourceBlock(1, source_tokens[4:], 7, object()),
+        ),
+        source_tokens,
+    )
+
+    windows = locator._source_windows_by_content(source)
+
+    assert tuple(source_tokens[2:6]) not in windows
+
+
 # Check that insertion geometry measures candidates from the unmatched block.
 def test_change_geometry_for_inserted_block() -> None:
     candidates = (
