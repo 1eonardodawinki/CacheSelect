@@ -35,6 +35,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--summary-output", type=Path, default=None)
     parser.add_argument("--start-case", type=int, default=1)
+    parser.add_argument("--max-cases", type=int)
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--request-log-dir", type=Path, default=None)
     args = parser.parse_args()
@@ -42,6 +43,8 @@ def _parse_args() -> argparse.Namespace:
         parser.error("completion tokens and timeout must be positive")
     if args.start_case < 1:
         parser.error("--start-case must be positive")
+    if args.max_cases is not None and args.max_cases < 1:
+        parser.error("--max-cases must be positive")
     if args.audit and not args.reference_artifact:
         parser.error("--audit requires --reference-artifact")
     return args
@@ -100,7 +103,8 @@ def main() -> None:
     source_case_count = len(cases)
     if args.start_case > source_case_count:
         raise ValueError("--start-case exceeds the frozen MTRAG case count")
-    cases = cases[args.start_case - 1 :]
+    end_case = None if args.max_cases is None else args.start_case - 1 + args.max_cases
+    cases = cases[args.start_case - 1 : end_case]
     endpoint = args.base_url.rstrip("/") + "/v1/chat/completions"
     run_id = args.run_id or (
         "mtrag-counterfactual-"

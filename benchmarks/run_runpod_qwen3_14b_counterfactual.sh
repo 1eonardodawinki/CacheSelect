@@ -9,6 +9,7 @@ STORAGE="${CACHESELECT_STORAGE_ROOT:-/workspace}"
 MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
 PORT="${CACHESELECT_SERVER_PORT:-8000}"
 START_CASE="${CACHESELECT_COUNTERFACTUAL_START_CASE:-1}"
+MAX_CASES="${CACHESELECT_COUNTERFACTUAL_MAX_CASES:-}"
 INPUTS="${CACHESELECT_COUNTERFACTUAL_INPUT_ROOT:-$STORAGE/cacheselect-inputs/qwen3-mtrag-v1}"
 PLAN="${CACHESELECT_COUNTERFACTUAL_PLAN:-$INPUTS/counterfactual-plan.json}"
 REFERENCES="${CACHESELECT_COUNTERFACTUAL_REFERENCES:-$INPUTS/references.json}"
@@ -86,6 +87,11 @@ if python -c 'import json,sys; sys.exit(not json.load(open(sys.argv[1])).get("re
 else
   REPACK_ARGS+=(--no-cacheselect-repack-partial-reuse)
 fi
+CASE_LIMIT_ARGS=()
+if [[ -n "$MAX_CASES" ]]; then
+  [[ "$MAX_CASES" =~ ^[1-9][0-9]*$ ]] || exit 2
+  CASE_LIMIT_ARGS+=(--max-cases "$MAX_CASES")
+fi
 
 SERVER_PID=""
 stop_server() {
@@ -129,6 +135,7 @@ python -m benchmarks.run_mtrag_counterfactual_pilot \
   --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
   --max-completion-tokens 768 --timeout-seconds 900 \
   --start-case "$START_CASE" \
+  "${CASE_LIMIT_ARGS[@]}" \
   --run-id "$RUN_ID" --request-log-dir "$RESULT/request-logs" \
   --output-dir "$RESULT" --summary-output "$RESULT/summary.json"
 
@@ -136,7 +143,7 @@ python - "$RESULT/summary.json" "$PLAN" <<'PY'
 import json, sys
 summary = json.load(open(sys.argv[1], encoding="utf-8"))
 plan = json.load(open(sys.argv[2], encoding="utf-8"))
-selected = plan["transitions"][summary["source_case_start"] - 1:]
+selected = plan["transitions"][summary["source_case_start"] - 1:summary["source_case_end"]]
 assert summary["case_count"] == len(selected)
 assert summary["completed_case_count"] + summary["skipped_reference_case_count"] == summary["case_count"]
 assert summary["planned_target_blocks"] == sum(len(row["target_block_indices"]) for row in selected)
