@@ -2,7 +2,10 @@ from unittest import TestCase
 
 from benchmarks.block_dataset import DatasetSplit
 from benchmarks.mtrag import mtrag_conversation_split
-from benchmarks.mtrag_pilot import select_audited_mtrag_counterfactual_pilot
+from benchmarks.mtrag_pilot import (
+    mtrag_testable_blocks,
+    select_audited_mtrag_counterfactual_pilot,
+)
 
 
 # Find a deterministic training conversation for selection fixtures.
@@ -38,6 +41,26 @@ def _row(collection: str, suffix: str, blocks: tuple[int, ...]) -> dict:
 
 
 class MtragPilotTests(TestCase):
+    # Admit an unaligned source window only when repacking is requested.
+    def test_optionally_includes_repacking_candidates(self):
+        row = _row("Cloud", "repacking", ())
+        row["reuse_opportunity"].update(
+            previous_token_count=32,
+            candidate_blocks=[
+                {
+                    "current_block_index": 1,
+                    "has_whole_source_block": False,
+                    "previous_starts": [2],
+                }
+            ],
+        )
+
+        self.assertEqual(mtrag_testable_blocks(row, block_size=16)[0], ())
+        self.assertEqual(
+            mtrag_testable_blocks(row, block_size=16, include_repacking=True)[0],
+            (1,),
+        )
+
     # Keep full candidate sets while selecting only two isolated GPU targets.
     def test_selects_audited_target_subsets(self):
         cloud = _row("Cloud", "a", (1, 2, 3, 4))

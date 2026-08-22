@@ -11,11 +11,12 @@ from benchmarks.block_dataset import DatasetSplit
 from benchmarks.mtrag import MTRAG_SPLIT_SEED, mtrag_conversation_split
 
 
-# Extract aligned candidates while protecting the final output-producing block.
+# Extract executable candidates while protecting the output-producing block.
 def mtrag_testable_blocks(
     row: Mapping[str, Any],
     *,
     block_size: int,
+    include_repacking: bool = False,
 ) -> tuple[tuple[int, ...], tuple[int, ...], int | None]:
     opportunity = row.get("reuse_opportunity")
     if not isinstance(opportunity, Mapping):
@@ -30,7 +31,15 @@ def mtrag_testable_blocks(
     ):
         raise ValueError("coverage transition has invalid candidate metadata")
 
-    aligned = []
+    previous_tokens = opportunity.get("previous_token_count")
+    if include_repacking and (
+        isinstance(previous_tokens, bool)
+        or not isinstance(previous_tokens, int)
+        or previous_tokens < 1
+    ):
+        raise ValueError("coverage transition has invalid source-token metadata")
+    full_source_tokens = (previous_tokens or 0) // block_size * block_size
+    executable = []
     for candidate in candidates:
         if not isinstance(candidate, Mapping):
             raise ValueError("coverage candidate must be an object")
@@ -39,15 +48,27 @@ def mtrag_testable_blocks(
             raise ValueError("coverage candidate has an invalid block index")
         if (index + 1) * block_size > prompt_tokens:
             raise ValueError("coverage candidate is outside the full prompt blocks")
-        if candidate.get("has_whole_source_block") is True:
-            aligned.append(index)
-    aligned_blocks = tuple(sorted(aligned))
-    if len(set(aligned_blocks)) != len(aligned_blocks):
-        raise ValueError("coverage transition has duplicate aligned candidates")
+        source_starts = candidate.get("previous_starts")
+        if include_repacking and (
+            not isinstance(source_starts, list)
+            or any(
+                isinstance(start, bool) or not isinstance(start, int) or start < 0
+                for start in source_starts
+            )
+        ):
+            raise ValueError("coverage candidate has invalid source positions")
+        if candidate.get("has_whole_source_block") is True or (
+            include_repacking
+            and any(start + block_size <= full_source_tokens for start in source_starts)
+        ):
+            executable.append(index)
+    candidate_blocks = tuple(sorted(executable))
+    if len(set(candidate_blocks)) != len(candidate_blocks):
+        raise ValueError("coverage transition has duplicate candidates")
     output_block = (prompt_tokens - 1) // block_size
-    excluded = output_block if output_block in aligned_blocks else None
-    testable = tuple(index for index in aligned_blocks if index != output_block)
-    return aligned_blocks, testable, excluded
+    excluded = output_block if output_block in candidate_blocks else None
+    testable = tuple(index for index in candidate_blocks if index != output_block)
+    return candidate_blocks, testable, excluded
 
 
 # Rank a transition or block before observing any counterfactual output.

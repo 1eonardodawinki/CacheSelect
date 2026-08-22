@@ -148,10 +148,15 @@ def _coverage_row(previous: MtragTask, current: MtragTask) -> dict:
         "current_task_id": current.task_id,
         "shared_document_ids": ["document-1"],
         "reuse_opportunity": {
+            "previous_token_count": 96,
             "current_token_count": 96,
             "native_cached_tokens": 16,
             "candidate_blocks": [
-                {"current_block_index": block, "has_whole_source_block": True}
+                {
+                    "current_block_index": block,
+                    "has_whole_source_block": True,
+                    "previous_starts": [block * 16],
+                }
                 for block in (1, 2, 3, 4)
             ],
         },
@@ -180,7 +185,7 @@ class ReviewedMtragPipelineTests(TestCase):
                 },
             )
             references, plan = prepare_reviewed_mtrag_counterfactual(
-                review_dirs, coverage_path
+                review_dirs, coverage_path, include_repacking=True
             )
             references_path = root / "references.json"
             references_path.write_text(
@@ -195,6 +200,7 @@ class ReviewedMtragPipelineTests(TestCase):
 
         self.assertEqual(references["accepted_task_count"], 2)
         self.assertIsNone(plan["max_target_blocks"])
+        self.assertTrue(plan["repacking_enabled"])
         self.assertEqual(plan["total_target_blocks"], 8)
         self.assertEqual(len(cases), 2)
         self.assertTrue(
@@ -262,6 +268,7 @@ class ReviewedMtragPipelineTests(TestCase):
             "--enable-cacheselect",
             "--cacheselect-repair-selector full_block",
             "--cacheselect-execute-partial-reuse",
+            "--cacheselect-repack-partial-reuse",
             "python -m benchmarks.run_mtrag_counterfactual_pilot",
             "prepare_mtrag_counterfactual_review",
             "artifacts.tar.gz",

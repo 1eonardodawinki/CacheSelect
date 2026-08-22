@@ -220,11 +220,14 @@ def build_mtrag_counterfactual_cases(
         if row.get("shared_document_ids") != shared_documents:
             raise ValueError("MTRAG pilot shared documents are inconsistent")
 
-        aligned = row.get("aligned_candidate_block_indices")
+        candidates = row.get(
+            "candidate_block_indices",
+            row.get("aligned_candidate_block_indices"),
+        )
         testable = row.get("testable_block_indices")
         targets = row.get("target_block_indices")
         excluded = row.get("excluded_output_block_index")
-        index_lists = (aligned, testable, targets)
+        index_lists = (candidates, testable, targets)
         if any(not isinstance(indices, list) or not indices for indices in index_lists):
             raise ValueError("MTRAG pilot block lists must not be empty")
         if any(
@@ -236,10 +239,10 @@ def build_mtrag_counterfactual_cases(
             for indices in index_lists
         ):
             raise ValueError("MTRAG pilot block lists must be sorted and unique")
-        if excluded is not None and excluded not in aligned:
-            raise ValueError("excluded output block is not an aligned candidate")
-        if testable != [index for index in aligned if index != excluded]:
-            raise ValueError("testable blocks do not match aligned candidates")
+        if excluded is not None and excluded not in candidates:
+            raise ValueError("excluded output block is not a candidate")
+        if testable != [index for index in candidates if index != excluded]:
+            raise ValueError("testable blocks do not match candidates")
         max_targets = manifest.get("max_target_blocks")
         exhaustive = max_targets is None and targets == testable
         bounded = (
@@ -261,7 +264,7 @@ def build_mtrag_counterfactual_cases(
                 split=split,
                 collection=current.collection,
                 block_size=block_size,
-                expected_candidate_block_indices=tuple(aligned),
+                expected_candidate_block_indices=tuple(candidates),
                 expected_testable_block_indices=tuple(testable),
                 target_block_indices=tuple(targets),
             )

@@ -152,6 +152,7 @@ def prepare_reviewed_mtrag_counterfactual(
     *,
     model: str = MODEL,
     max_target_blocks: int | None = None,
+    include_repacking: bool = False,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     if (
         not review_dirs
@@ -230,8 +231,10 @@ def prepare_reviewed_mtrag_counterfactual(
             != reference["prompt_token_count"]
         ):
             raise ValueError("reviewed reference prompt geometry drifted")
-        aligned, testable, excluded = mtrag_testable_blocks(
-            row, block_size=block_size
+        candidates, testable, excluded = mtrag_testable_blocks(
+            row,
+            block_size=block_size,
+            include_repacking=include_repacking,
         )
         if not testable:
             raise ValueError("reviewed reference has no testable block")
@@ -248,7 +251,7 @@ def prepare_reviewed_mtrag_counterfactual(
                 "previous_task_id": row["previous_task_id"],
                 "current_task_id": task_id,
                 "shared_document_ids": row["shared_document_ids"],
-                "aligned_candidate_block_indices": list(aligned),
+                "candidate_block_indices": list(candidates),
                 "testable_block_indices": list(testable),
                 "target_block_indices": targets,
                 "excluded_output_block_index": excluded,
@@ -270,6 +273,7 @@ def prepare_reviewed_mtrag_counterfactual(
         "selection_seed": SELECTION_SEED,
         "block_size": block_size,
         "max_target_blocks": max_target_blocks,
+        "repacking_enabled": include_repacking,
         "transition_count": len(selected),
         "transition_count_by_split": dict(
             Counter(row["split"] for row in selected)
@@ -291,6 +295,7 @@ def main() -> None:
     parser.add_argument("--coverage", type=Path, required=True)
     parser.add_argument("--model", default=MODEL)
     parser.add_argument("--max-target-blocks", type=int)
+    parser.add_argument("--include-repacking", action="store_true")
     parser.add_argument("--references-output", type=Path, required=True)
     parser.add_argument("--plan-output", type=Path, required=True)
     args = parser.parse_args()
@@ -299,6 +304,7 @@ def main() -> None:
         args.coverage,
         model=args.model,
         max_target_blocks=args.max_target_blocks,
+        include_repacking=args.include_repacking,
     )
     for path, artifact in (
         (args.references_output, references),

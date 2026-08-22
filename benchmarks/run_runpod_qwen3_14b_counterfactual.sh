@@ -75,9 +75,15 @@ assert plan["source_dataset_sha256"] == refs["source_dataset_sha256"] == sys.arg
 assert plan["source_reference_manifest_sha256"] == hashlib.sha256(open(sys.argv[2], "rb").read()).hexdigest()
 assert refs["accepted_task_count"] == plan["transition_count"] == len(plan["transitions"])
 assert plan["block_size"] == 16
+assert isinstance(plan.get("repacking_enabled", False), bool)
 assert plan["total_target_blocks"] == plan["total_testable_blocks"] > 0
 assert all(row["target_block_indices"] == row["testable_block_indices"] for row in plan["transitions"])
 PY
+
+REPACK_ARGS=()
+if python -c 'import json,sys; sys.exit(not json.load(open(sys.argv[1])).get("repacking_enabled", False))' "$PLAN"; then
+  REPACK_ARGS+=(--cacheselect-repack-partial-reuse)
+fi
 
 SERVER_PID=""
 stop_server() {
@@ -100,6 +106,7 @@ setsid vllm serve "$MODEL" \
   --enable-prefix-caching --enable-cacheselect \
   --cacheselect-repair-selector full_block \
   --cacheselect-execute-partial-reuse \
+  "${REPACK_ARGS[@]}" \
   --no-enable-chunked-prefill --enforce-eager \
   --enable-prompt-tokens-details --enable-per-request-metrics \
   >"$SERVER_LOG" 2>&1 &
