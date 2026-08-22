@@ -277,3 +277,20 @@ class ReviewedMtragPipelineTests(TestCase):
         ):
             with self.subTest(token=token):
                 self.assertIn(token, content)
+
+    def test_imperial_launcher_contract(self):
+        script = Path(__file__).resolve().parents[1] / "benchmarks" / "run_imperial_qwen3_14b_counterfactual.slurm"
+        subprocess.run(["bash", "-n", str(script)], check=True)
+        content = script.read_text(encoding="utf-8")
+        for token in (
+            "#SBATCH --partition=a40",
+            "#SBATCH --gres=gpu:nvidia_a40:1",
+            "#SBATCH --time=1-12:00:00",
+            "qwen3-mtrag-v3",
+            'CACHESELECT_COUNTERFACTUAL_START_CASE:-1',
+            "CACHESELECT_SERVER_PORT",
+            'CACHESELECT_EXECUTION_PLATFORM="imperial-a40"',
+            "run_runpod_qwen3_14b_counterfactual.sh",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, content)

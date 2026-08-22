@@ -6,6 +6,7 @@ set -Eeuo pipefail
 ROOT="${CACHESELECT_PROJECT_ROOT:-/workspace/DeltaCache}"
 VENV="${CACHESELECT_VENV_ROOT:-/workspace/cacheselect-env-cu130}"
 STORAGE="${CACHESELECT_STORAGE_ROOT:-/workspace}"
+PLATFORM="${CACHESELECT_EXECUTION_PLATFORM:-runpod-a40}"
 MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
 PORT="${CACHESELECT_SERVER_PORT:-8000}"
 START_CASE="${CACHESELECT_COUNTERFACTUAL_START_CASE:-1}"
@@ -62,7 +63,8 @@ export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
   echo "vLLM is not imported from this checkout" >&2
   exit 2
 }
-printf 'project_commit=%s\nmodel=%s\ngpu=%s\n' "$COMMIT" "$MODEL" "$GPU" \
+printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
+  "$COMMIT" "$MODEL" "$GPU" "$PLATFORM" \
   >"$RESULT/metadata.env"
 printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
 
