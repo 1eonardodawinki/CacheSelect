@@ -59,6 +59,7 @@ def test_cacheselect_from_cli():
     assert engine_args.cacheselect_repair_selector == "full_block"
     assert engine_args.cacheselect_edit_radius == 1
     assert not engine_args.cacheselect_execute_partial_reuse
+    assert not engine_args.cacheselect_repack_partial_reuse
     assert engine_args.gdn_delta_cache_capacity == 0
     assert engine_args.gdn_delta_block_size == 64
     assert engine_args.gdn_delta_execution_mode == "shadow"
@@ -71,6 +72,7 @@ def test_cacheselect_from_cli():
             "--cacheselect-edit-radius",
             "2",
             "--cacheselect-execute-partial-reuse",
+            "--cacheselect-repack-partial-reuse",
             "--gdn-delta-cache-capacity",
             "8",
             "--gdn-delta-block-size",
@@ -86,11 +88,13 @@ def test_cacheselect_from_cli():
     assert engine_args.cacheselect_repair_selector == "edit_proximity"
     assert engine_args.cacheselect_edit_radius == 2
     assert engine_args.cacheselect_execute_partial_reuse
+    assert engine_args.cacheselect_repack_partial_reuse
     assert engine_args.gdn_delta_cache_capacity == 8
     assert engine_args.gdn_delta_block_size == 128
     assert engine_args.gdn_delta_execution_mode == "active"
     cache_config = engine_args.create_engine_config().cache_config
     assert cache_config.cacheselect_execute_partial_reuse
+    assert cache_config.cacheselect_repack_partial_reuse
     assert cache_config.gdn_delta_cache_capacity == 8
     assert cache_config.gdn_delta_block_size == 128
     assert cache_config.prefix_match_unit is None

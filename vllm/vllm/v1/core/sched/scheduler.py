@@ -279,6 +279,9 @@ class Scheduler(SchedulerInterface):
             metrics_collector=self.kv_metrics_collector,
             watermark=self.scheduler_config.watermark,
             enable_cacheselect=self.cache_config.enable_cacheselect,
+            cacheselect_repack_partial_reuse=(
+                self.cache_config.cacheselect_repack_partial_reuse
+            ),
             gdn_delta_cache_capacity=self.cache_config.gdn_delta_cache_capacity,
             gdn_delta_block_size=self.cache_config.gdn_delta_block_size,
         )

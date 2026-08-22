@@ -132,6 +132,7 @@ class KVCacheManager:
         metrics_collector: KVCacheMetricsCollector | None = None,
         watermark: float = 0.0,
         enable_cacheselect: bool = False,
+        cacheselect_repack_partial_reuse: bool = False,
         gdn_delta_cache_capacity: int = 0,
         gdn_delta_block_size: int | None = None,
     ) -> None:
@@ -197,6 +198,7 @@ class KVCacheManager:
                 self.block_pool,
                 scheduler_block_size,
                 hash_block_size=hash_block_size,
+                allow_repacking=cacheselect_repack_partial_reuse,
             )
             if supports_aligned_reuse
             else None
