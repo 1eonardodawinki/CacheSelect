@@ -508,6 +508,59 @@ class CounterfactualLabelTests(TestCase):
         self.assertEqual(result.label.decision, RepairDecision.REUSE)
         self.assertTrue(result.quality_comparison["passed"])
 
+    # Preserve a long intervention but never turn its incomplete output into a label.
+    def test_withholds_truncated_counterfactual_intervention(self):
+        trace = build_rag_trace()
+        source, edited = trace.requests[:2]
+        intervention = SingleBlockIntervention(
+            trace.trace_id, trace.transitions[0].transition_id, (4,), 4
+        )
+        fresh = {
+            "request_id": "shared-reference",
+            "output_text": edited.ground_truth.expected_answer,
+            "finish_reason": "stop",
+            "quality": {"mode": "requirements", "passed": True},
+            "cached_tokens": 0,
+            "runtime_policy": {"policy": "FULL_RECOMPUTE"},
+            "server_metrics": {},
+        }
+        truncated = {
+            **fresh,
+            "output_text": "incomplete intervention",
+            "finish_reason": "length",
+        }
+
+        with (
+            patch(
+                "benchmarks.counterfactual_trial._observe_request",
+                side_effect=({**fresh}, truncated),
+            ),
+            patch(
+                "benchmarks.counterfactual_trial.validate_counterfactual_execution",
+                return_value=_successful_execution(intervention),
+            ),
+        ):
+            result = run_single_block_counterfactual_trial(
+                source_request=source,
+                edited_request=edited,
+                intervention=intervention,
+                block_size=4,
+                url="http://vllm.test/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=8,
+                api_key=None,
+                timeout_seconds=2.0,
+                recorder=object(),
+                reference_observation=fresh,
+                required_reference_output=edited.ground_truth.expected_answer,
+                require_exact_output_match=True,
+            )
+
+        self.assertIsNone(result.label)
+        self.assertIsNone(result.label_result.decision)
+        self.assertIn("withheld", result.label_result.reason)
+        self.assertEqual(result.intervention_observation, truncated)
+
     # Reuse one discovery answer and reject the case if the final answer drifts.
     def test_shares_reference_and_checks_final_stability(self):
         trace = build_rag_trace()

@@ -272,6 +272,7 @@ class ReviewedMtragPipelineTests(TestCase):
             "--cacheselect-execute-partial-reuse",
             "--cacheselect-repack-partial-reuse",
             "python -m benchmarks.run_mtrag_counterfactual_pilot",
+            "--max-completion-tokens 2048",
             "prepare_mtrag_counterfactual_review",
             "artifacts.tar.gz",
         ):

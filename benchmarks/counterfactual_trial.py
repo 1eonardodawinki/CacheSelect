@@ -438,11 +438,7 @@ def run_single_block_counterfactual_trial(
         active_xargs,
         reference.get("request_id"),
     )
-    if (
-        required_reference_output is not None
-        and active.get("finish_reason") != "stop"
-    ):
-        raise RuntimeError("counterfactual intervention output was truncated")
+    intervention_truncated = active.get("finish_reason") != "stop"
     evidence = validate_counterfactual_execution(
         intervention,
         block_size=block_size,
@@ -462,6 +458,12 @@ def run_single_block_counterfactual_trial(
         intervention_quality_passed=quality_comparison["passed"],
         require_exact_output_match=require_exact_output_match,
     )
+    if intervention_truncated:
+        result = replace(
+            result,
+            decision=None,
+            reason="Truncated intervention was preserved but withheld from labeling.",
+        )
     label = counterfactual_block_label(result) if result.decision is not None else None
     return CounterfactualTrialResult(
         trial_id,

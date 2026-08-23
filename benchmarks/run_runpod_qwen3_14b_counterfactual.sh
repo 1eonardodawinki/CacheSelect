@@ -135,7 +135,7 @@ curl --fail --silent "http://127.0.0.1:$PORT/health" >/dev/null
 python -m benchmarks.run_mtrag_counterfactual_pilot \
   --input "$MTRAG" --manifest "$PLAN" --references "$REFERENCES" \
   --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
-  --max-completion-tokens 768 --timeout-seconds 900 \
+  --max-completion-tokens 2048 --timeout-seconds 900 \
   --start-case "$START_CASE" \
   "${CASE_LIMIT_ARGS[@]}" \
   --run-id "$RUN_ID" --request-log-dir "$RESULT/request-logs" \
