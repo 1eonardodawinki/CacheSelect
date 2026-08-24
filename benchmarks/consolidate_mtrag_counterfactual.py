@@ -141,6 +141,40 @@ def _index_cases(
     return run_dirs, indexed_cases, expected_count
 
 
+# Copy a full ledger, or trim the unfinished tail from an interrupted prefix run.
+def _copy_completed_ledger(
+    run_dir: Path,
+    ledger_path: Path,
+    output: Any,
+    completed_case_count: int,
+) -> None:
+    if (run_dir / "summary.json").exists():
+        content = ledger_path.read_bytes()
+        output.write(content)
+        if content and not content.endswith(b"\n"):
+            output.write(b"\n")
+        return
+
+    discovered_cases = 0
+    last_written = b""
+    with ledger_path.open("rb") as source:
+        for line in source:
+            event = json.loads(line)
+            if (
+                event.get("event") == "request_started"
+                and (event.get("metadata") or {}).get("counterfactual_role")
+                == "discovery_source"
+            ):
+                discovered_cases += 1
+            if discovered_cases <= completed_case_count:
+                output.write(line)
+                last_written = line
+    if discovered_cases < completed_case_count:
+        raise ValueError("interrupted ledger has fewer cases than its summaries")
+    if last_written and not last_written.endswith(b"\n"):
+        output.write(b"\n")
+
+
 # Validate every case across one or more runs and merge its labelled training rows.
 def consolidate_mtrag_counterfactual_results(
     input_dirs: Path | Sequence[Path],
@@ -256,16 +290,16 @@ def assemble_mtrag_counterfactual_results(
     merged_ledger = ledger_dir / "merged-requests.jsonl"
     with merged_ledger.open("wb") as output:
         for run_dir in run_dirs:
+            completed_cases, _ = _load_run_cases(run_dir)
             paths = tuple((run_dir / "request-logs").glob("*.jsonl"))
             if len(paths) != 1:
                 raise ValueError("each MTRAG run must contain exactly one request ledger")
             validation = validate_ledger(paths[0])
             if not validation.is_complete or validation.failed:
                 raise ValueError("MTRAG source request ledger is not fully successful")
-            content = paths[0].read_bytes()
-            output.write(content)
-            if content and not content.endswith(b"\n"):
-                output.write(b"\n")
+            _copy_completed_ledger(
+                run_dir, paths[0], output, len(completed_cases)
+            )
     ledger = validate_ledger(merged_ledger)
     if not ledger.is_complete or ledger.failed:
         raise ValueError("merged MTRAG request ledger is not fully successful")

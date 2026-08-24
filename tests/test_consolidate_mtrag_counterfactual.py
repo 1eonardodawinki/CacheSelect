@@ -73,11 +73,21 @@ def _write_ledger(root: Path, trial_id: str) -> None:
     log_dir = root / "request-logs"
     log_dir.mkdir()
     events = []
-    for role in ("reference", "donor", "intervention"):
+    for role in (
+        "discovery_source",
+        "discovery_edit",
+        "donor",
+        "intervention",
+        "stability_reference",
+    ):
         request_id = f"{trial_id}:{role}"
         events.extend(
             [
-                {"event": "request_started", "request_id": request_id},
+                {
+                    "event": "request_started",
+                    "request_id": request_id,
+                    "metadata": {"counterfactual_role": role},
+                },
                 {
                     "event": "request_completed",
                     "request_id": request_id,
@@ -191,6 +201,21 @@ class ConsolidateMtragCounterfactualTests(TestCase):
 
             _write_ledger(prefix, "trial-1")
             _write_ledger(resumed, "trial-3")
+            with (prefix / "request-logs" / "requests.jsonl").open(
+                "a", encoding="utf-8"
+            ) as output:
+                for event in (
+                    {
+                        "event": "request_started",
+                        "request_id": "unfinished:source",
+                        "metadata": {"counterfactual_role": "discovery_source"},
+                    },
+                    {
+                        "event": "request_completed",
+                        "request_id": "unfinished:source",
+                    },
+                ):
+                    output.write(json.dumps(event) + "\n")
             assembled = root / "assembled"
             assembled_report = assemble_mtrag_counterfactual_results(
                 (prefix, resumed), assembled
@@ -198,7 +223,7 @@ class ConsolidateMtragCounterfactualTests(TestCase):
             assembled_summary = json.loads(
                 (assembled / "summary.json").read_text(encoding="utf-8")
             )
-            self.assertEqual(assembled_report["recorded_requests"], 6)
+            self.assertEqual(assembled_report["recorded_requests"], 10)
             self.assertEqual(assembled_summary["case_count"], 3)
             self.assertEqual(
                 assembled_summary["cases"][1]["status"],
