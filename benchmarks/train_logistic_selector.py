@@ -66,6 +66,8 @@ def load_selector_dataset(
     dataset = {}
     for split, examples in grouped.items():
         if not examples:
+            if split == "test":
+                continue
             raise ValueError(f"dataset split {split!r} is empty")
         feature_rows, labels = zip(*examples, strict=True)
         dataset[split] = (

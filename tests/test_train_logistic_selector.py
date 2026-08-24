@@ -37,7 +37,7 @@ class LogisticSelectorTests(TestCase):
             with dataset_path.open("w", newline="") as output_file:
                 writer = csv.DictWriter(output_file, fieldnames=fieldnames)
                 writer.writeheader()
-                for split in ("train", "validation", "test"):
+                for split in ("train", "validation"):
                     row = {
                         name: str(index)
                         for index, name in enumerate(
@@ -59,6 +59,7 @@ class LogisticSelectorTests(TestCase):
                 feature_schema=CONTEXT_FEATURE_SCHEMA,
             )
 
+        self.assertEqual(set(dataset), {"train", "validation"})
         self.assertEqual(dataset["train"][0].shape, (1, 27))
         np.testing.assert_array_equal(dataset["train"][0][0], expected)
 
