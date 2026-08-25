@@ -1,10 +1,12 @@
 from unittest import TestCase
+from unittest.mock import patch
 from pathlib import Path
 
 import numpy as np
 
 from benchmarks.train_mlp_selector import (
     balanced_binary_training_rows,
+    sweep_mlp_architectures,
     train_mlp_selector,
 )
 
@@ -53,4 +55,35 @@ class MlpSelectorTests(TestCase):
         self.assertGreaterEqual(metrics["selected_reuse_rate"], 0.60)
         self.assertFalse(report["test_split_evaluated"])
         self.assertTrue(report["training"]["converged"])
+        self.assertEqual(report["hyperparameters"]["hidden_layer_sizes"], [8])
         self.assertEqual(model.n_features_in_, 17)
+
+    def test_configures_hidden_layers(self):
+        model, report = train_mlp_selector(
+            Path("results/block-dataset-v1/candidate-blocks.csv"),
+            hidden_layer_sizes=(4, 2),
+        )
+
+        self.assertEqual(report["hyperparameters"]["hidden_layer_sizes"], [4, 2])
+        self.assertEqual(model.named_steps["classifier"].hidden_layer_sizes, (4, 2))
+
+    def test_sweeps_grouped_out_of_fold_predictions(self):
+        labels = np.tile([0, 1], 8)
+        features = np.column_stack((labels, np.arange(len(labels))))
+        groups = np.repeat(np.arange(8), 2)
+        with (
+            patch(
+                "benchmarks.train_mlp_selector.load_selector_dataset",
+                return_value={"train": (features, labels)},
+            ),
+            patch(
+                "benchmarks.train_mlp_selector._training_groups",
+                return_value=groups,
+            ),
+        ):
+            report = sweep_mlp_architectures(
+                Path("unused.csv"), architectures=((2,),), folds=2
+            )
+
+        self.assertEqual(report["recommended_hidden_layer_sizes"], [2])
+        self.assertEqual(report["conversation_groups"], 8)

@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 
 import numpy as np
+from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -19,6 +21,8 @@ from benchmarks.train_logistic_selector import (
     operating_points,
     select_repair_threshold,
 )
+
+MLP_ARCHITECTURES = ((4,), (8,), (16,), (32,), (16, 8))
 
 
 # Repeat the minority class deterministically for scikit-learn 1.4 compatibility.
@@ -48,27 +52,14 @@ def balanced_binary_training_rows(
     return features[order], labels[order]
 
 
-# Train a small deterministic MLP and select its safety threshold on validation.
-def train_mlp_selector(
-    dataset_path: Path,
-    *,
-    minimum_repair_recall: float = 0.95,
-    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
-) -> tuple[Pipeline, dict[str, object]]:
-    dataset = load_selector_dataset(dataset_path, feature_schema=feature_schema)
-    train_features, train_labels = dataset["train"]
-    validation_features, validation_labels = dataset["validation"]
-    balanced_features, balanced_labels = balanced_binary_training_rows(
-        train_features,
-        train_labels,
-    )
-    model = Pipeline(
+def _mlp_pipeline(hidden_layer_sizes: tuple[int, ...]) -> Pipeline:
+    return Pipeline(
         [
             ("scale", StandardScaler()),
             (
                 "classifier",
                 MLPClassifier(
-                    hidden_layer_sizes=(8,),
+                    hidden_layer_sizes=hidden_layer_sizes,
                     activation="relu",
                     solver="adam",
                     alpha=0.001,
@@ -82,6 +73,24 @@ def train_mlp_selector(
             ),
         ]
     )
+
+
+# Train a small deterministic MLP and select its safety threshold on validation.
+def train_mlp_selector(
+    dataset_path: Path,
+    *,
+    minimum_repair_recall: float = 0.95,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
+    hidden_layer_sizes: tuple[int, ...] = (8,),
+) -> tuple[Pipeline, dict[str, object]]:
+    dataset = load_selector_dataset(dataset_path, feature_schema=feature_schema)
+    train_features, train_labels = dataset["train"]
+    validation_features, validation_labels = dataset["validation"]
+    balanced_features, balanced_labels = balanced_binary_training_rows(
+        train_features,
+        train_labels,
+    )
+    model = _mlp_pipeline(hidden_layer_sizes)
     model.fit(balanced_features, balanced_labels)
     validation_probabilities = model.predict_proba(validation_features)[:, 1]
     threshold = select_repair_threshold(
@@ -99,7 +108,7 @@ def train_mlp_selector(
         "selected_threshold": threshold,
         "test_split_evaluated": False,
         "hyperparameters": {
-            "hidden_layer_sizes": [8],
+            "hidden_layer_sizes": list(hidden_layer_sizes),
             "activation": "relu",
             "solver": "adam",
             "alpha": 0.001,
@@ -132,3 +141,70 @@ def train_mlp_selector(
         },
     }
     return model, report
+
+
+def _training_groups(path: Path) -> np.ndarray:
+    with path.open(newline="") as input_file:
+        groups = [
+            row.get("mtrag_conversation_id", "")
+            for row in csv.DictReader(input_file)
+            if row.get("split") == "train"
+        ]
+    if not groups or not all(groups):
+        raise ValueError("training rows require mtrag_conversation_id")
+    return np.asarray(groups)
+
+
+# Compare small MLPs using out-of-fold predictions from unseen conversations.
+def sweep_mlp_architectures(
+    dataset_path: Path,
+    *,
+    minimum_repair_recall: float = 0.95,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
+    architectures: tuple[tuple[int, ...], ...] = MLP_ARCHITECTURES,
+    folds: int = 5,
+) -> dict[str, object]:
+    features, labels = load_selector_dataset(
+        dataset_path, feature_schema=feature_schema
+    )["train"]
+    groups = _training_groups(dataset_path)
+    if len(groups) != len(labels):
+        raise ValueError("training groups and examples are misaligned")
+    results = []
+    for architecture in architectures:
+        probabilities = np.empty(len(labels))
+        splitter = StratifiedGroupKFold(
+            n_splits=folds, shuffle=True, random_state=0
+        )
+        for train, held_out in splitter.split(features, labels, groups):
+            balanced = balanced_binary_training_rows(features[train], labels[train])
+            model = _mlp_pipeline(architecture)
+            model.fit(*balanced)
+            probabilities[held_out] = model.predict_proba(features[held_out])[:, 1]
+        threshold = select_repair_threshold(
+            labels,
+            probabilities,
+            minimum_repair_recall=minimum_repair_recall,
+        )
+        results.append(
+            {
+                "hidden_layer_sizes": list(architecture),
+                "selected_threshold": threshold,
+                "metrics": evaluate_selector(
+                    labels,
+                    probabilities >= threshold,
+                    repair_probabilities=probabilities,
+                ),
+            }
+        )
+    recommended = max(results, key=lambda result: result["metrics"]["safe_reuse"])
+    return {
+        "dataset": str(dataset_path),
+        "evaluation": f"{folds}-fold conversation-grouped cross-validation",
+        "minimum_repair_recall": minimum_repair_recall,
+        "feature_schema": feature_schema.name,
+        "training_examples": len(labels),
+        "conversation_groups": len(set(groups)),
+        "architectures": results,
+        "recommended_hidden_layer_sizes": recommended["hidden_layer_sizes"],
+    }
