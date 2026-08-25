@@ -49,3 +49,24 @@ def test_rejects_mismatched_standardizer() -> None:
                 "layers": [],
             }
         )
+
+
+def test_rejects_non_finite_output() -> None:
+    model = MLPRepairModel(
+        {
+            "schema_version": 1,
+            "feature_names": ["value"],
+            "selected_repair_threshold": 0.5,
+            "standardizer": {"mean": [0.0], "scale": [1.0]},
+            "layers": [
+                {
+                    "weights": [[1.0]],
+                    "bias": [0.0],
+                    "activation": "relu",
+                }
+            ],
+        }
+    )
+
+    with pytest.raises(ValueError, match="finite"):
+        model.predict_repair_probability({"value": math.nan})

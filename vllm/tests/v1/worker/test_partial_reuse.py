@@ -7,9 +7,11 @@ from types import SimpleNamespace
 import pytest
 import torch
 
+from vllm.v1.worker.gpu.mlp_repair_model import MLPRepairModel
 from vllm.v1.worker.gpu.partial_reuse import (
     EditProximityRepairSelector,
     FullBlockRepairSelector,
+    MLPRepairSelector,
     PartialReuseBatchDecision,
     PartialReuseCompactedBatch,
     PartialReuseComputeSpan,
@@ -998,6 +1000,40 @@ def test_stitch_partial_reuse_span_outputs_rejects_wrong_row_count() -> None:
 def test_edit_proximity_repair_selector_rejects_negative_radius() -> None:
     with pytest.raises(ValueError, match="max_block_distance must be non-negative"):
         EditProximityRepairSelector(max_block_distance=-1)
+
+
+# Check learned repair decisions and conservative missing-feature fallback.
+def test_mlp_repair_selector() -> None:
+    model = MLPRepairModel(
+        {
+            "schema_version": 1,
+            "feature_names": ["signal"],
+            "selected_repair_threshold": 0.5,
+            "standardizer": {"mean": [0.0], "scale": [1.0]},
+            "layers": [
+                {
+                    "weights": [[1.0]],
+                    "bias": [0.0],
+                    "activation": "logistic",
+                }
+            ],
+        }
+    )
+    candidates = tuple(
+        ResolvedPartialReuseCandidate(
+            source_block_index=index,
+            target_block_index=index,
+            source_block_id=40 + index,
+            target_block_id=50 + index,
+            source_resident=True,
+            selector_features=features,
+        )
+        for index, features in enumerate(((("signal", -2.0),), (("signal", 2.0),), ()))
+    )
+
+    repairs = MLPRepairSelector(model).select(candidates, block_size=4)
+
+    assert {repair.target_block_index for repair in repairs} == {1, 2}
 
 
 # Check that configuration names construct the expected repair policies.

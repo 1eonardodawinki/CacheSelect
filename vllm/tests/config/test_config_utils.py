@@ -221,6 +221,7 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
         == base_hash
     )
     assert CacheConfig(cacheselect_edit_radius=2).compute_hash() == base_hash
+    assert CacheConfig(cacheselect_mlp_model="model.json").compute_hash() == base_hash
     assert (
         CacheConfig(
             enable_cacheselect=True,
@@ -257,6 +258,12 @@ def test_cacheselect_execution_requires_planner():
 def test_cacheselect_rejects_negative_edit_radius():
     with pytest.raises(ValueError, match="greater than or equal to 0"):
         CacheConfig(cacheselect_edit_radius=-1)
+
+
+# Check that selecting the learned policy requires an exported model.
+def test_cacheselect_mlp_requires_model_path():
+    with pytest.raises(ValueError, match="requires an exported model path"):
+        CacheConfig(cacheselect_repair_selector="mlp")
 
 
 # Check that the GDN sidecar is only enabled beside all-state prefix checkpoints.

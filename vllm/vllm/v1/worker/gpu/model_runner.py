@@ -217,6 +217,7 @@ class GPUModelRunner(LoRAModelRunnerMixin):
             create_repair_selector(
                 self.cache_config.cacheselect_repair_selector,
                 self.cache_config.cacheselect_edit_radius,
+                self.cache_config.cacheselect_mlp_model,
             )
         )
         self.cacheselect_execute_partial_reuse = (

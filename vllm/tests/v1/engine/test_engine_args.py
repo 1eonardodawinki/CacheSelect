@@ -58,6 +58,7 @@ def test_cacheselect_from_cli():
     assert not engine_args.enable_cacheselect
     assert engine_args.cacheselect_repair_selector == "full_block"
     assert engine_args.cacheselect_edit_radius == 1
+    assert engine_args.cacheselect_mlp_model is None
     assert not engine_args.cacheselect_execute_partial_reuse
     assert engine_args.cacheselect_repack_partial_reuse
     assert engine_args.gdn_delta_cache_capacity == 0
@@ -66,6 +67,18 @@ def test_cacheselect_from_cli():
 
     args = parser.parse_args(["--no-cacheselect-repack-partial-reuse"])
     assert not EngineArgs.from_cli_args(args=args).cacheselect_repack_partial_reuse
+
+    args = parser.parse_args(
+        [
+            "--cacheselect-repair-selector",
+            "mlp",
+            "--cacheselect-mlp-model",
+            "model.json",
+        ]
+    )
+    engine_args = EngineArgs.from_cli_args(args=args)
+    assert engine_args.cacheselect_repair_selector == "mlp"
+    assert engine_args.cacheselect_mlp_model == "model.json"
 
     args = parser.parse_args(
         [

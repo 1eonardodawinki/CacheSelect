@@ -283,6 +283,9 @@ class Scheduler(SchedulerInterface):
                 self.cache_config.cacheselect_execute_partial_reuse
                 and self.cache_config.cacheselect_repack_partial_reuse
             ),
+            collect_cacheselect_selector_features=(
+                self.cache_config.cacheselect_repair_selector == "mlp"
+            ),
             gdn_delta_cache_capacity=self.cache_config.gdn_delta_cache_capacity,
             gdn_delta_block_size=self.cache_config.gdn_delta_block_size,
         )

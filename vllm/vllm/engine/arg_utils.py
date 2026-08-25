@@ -518,6 +518,7 @@ class EngineArgs:
         CacheConfig.cacheselect_repair_selector
     )
     cacheselect_edit_radius: int = CacheConfig.cacheselect_edit_radius
+    cacheselect_mlp_model: str | None = CacheConfig.cacheselect_mlp_model
     cacheselect_execute_partial_reuse: bool = (
         CacheConfig.cacheselect_execute_partial_reuse
     )
@@ -1204,6 +1205,10 @@ class EngineArgs:
         cache_group.add_argument(
             "--cacheselect-edit-radius",
             **cache_kwargs["cacheselect_edit_radius"],
+        )
+        cache_group.add_argument(
+            "--cacheselect-mlp-model",
+            **cache_kwargs["cacheselect_mlp_model"],
         )
         cache_group.add_argument(
             "--cacheselect-execute-partial-reuse",
@@ -1956,6 +1961,7 @@ class EngineArgs:
             enable_cacheselect=self.enable_cacheselect,
             cacheselect_repair_selector=self.cacheselect_repair_selector,
             cacheselect_edit_radius=self.cacheselect_edit_radius,
+            cacheselect_mlp_model=self.cacheselect_mlp_model,
             cacheselect_execute_partial_reuse=(self.cacheselect_execute_partial_reuse),
             cacheselect_repack_partial_reuse=self.cacheselect_repack_partial_reuse,
             gdn_delta_cache_capacity=self.gdn_delta_cache_capacity,

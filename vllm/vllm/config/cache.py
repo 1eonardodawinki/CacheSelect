@@ -38,7 +38,7 @@ MambaDType = Literal["auto", "float32", "float16", "bfloat16"]
 MambaCacheMode = Literal["all", "align", "none"]
 PrefixCachingHashAlgo = Literal["sha256", "sha256_cbor", "xxhash", "xxhash_cbor"]
 KVOffloadingBackend = Literal["native", "lmcache"]
-CacheSelectRepairSelector = Literal["full_block", "edit_proximity"]
+CacheSelectRepairSelector = Literal["full_block", "edit_proximity", "mlp"]
 GDNDeltaExecutionMode = Literal["shadow", "active"]
 
 
@@ -105,6 +105,8 @@ class CacheConfig:
     cacheselect_edit_radius: int = Field(default=1, ge=0)
     """Largest block distance from a structural edit repaired by the
     experimental edit-proximity selector."""
+    cacheselect_mlp_model: str | None = None
+    """Path to an exported CacheSelect MLP when the learned selector is used."""
     cacheselect_execute_partial_reuse: bool = False
     """Allow CacheSelect to execute partial KV reuse in the GPU worker."""
     cacheselect_repack_partial_reuse: bool = True
@@ -238,6 +240,7 @@ class CacheConfig:
             "enable_cacheselect",
             "cacheselect_repair_selector",
             "cacheselect_edit_radius",
+            "cacheselect_mlp_model",
             "cacheselect_execute_partial_reuse",
             "cacheselect_repack_partial_reuse",
             "gdn_delta_cache_capacity",
@@ -307,6 +310,12 @@ class CacheConfig:
             raise ValueError(
                 "CacheSelect partial-reuse execution requires CacheSelect to be enabled"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_cacheselect_mlp_model(self) -> "CacheConfig":
+        if self.cacheselect_repair_selector == "mlp" and not self.cacheselect_mlp_model:
+            raise ValueError("MLP repair selection requires an exported model path")
         return self
 
     # Keep the experimental operator sidecar on the checkpoint-capable path.

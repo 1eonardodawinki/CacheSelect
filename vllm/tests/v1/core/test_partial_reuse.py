@@ -167,7 +167,10 @@ def test_select_nearest_repeated_source_block() -> None:
 # Check that an exact window spanning two source blocks becomes one candidate.
 def test_locate_repacking_candidate() -> None:
     locator = AlignedBlockReuseLocator(
-        FakeBlockPool(7), block_size=4, allow_repacking=True
+        FakeBlockPool(7),
+        block_size=4,
+        allow_repacking=True,
+        collect_selector_features=True,
     )
     source_tokens = tuple(range(12))
     locator._sources["source"] = SourceRequestIndex(
@@ -201,6 +204,11 @@ def test_locate_repacking_candidate() -> None:
     assert candidate.source_block_offset == 2
     assert candidate.physical_source_block_ids == (6, 7)
     assert candidate.requires_repacking is True
+    features = dict(candidate.selector_features)
+    assert len(features) == 27
+    assert features["previous_token_count"] == 12
+    assert features["current_token_count"] == 8
+    assert features["requires_repacking"] == 1.0
 
 
 # Check that unaligned matches remain invisible until explicitly enabled.

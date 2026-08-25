@@ -48,6 +48,7 @@ class PartialReuseCandidate:
     source_contextual_hash: bytes | None = None
     source_block_offset: int = 0
     source_block_ids: tuple[int, ...] = ()
+    selector_features: tuple[tuple[str, float], ...] = ()
 
     @property
     def physical_source_block_ids(self) -> tuple[int, ...]:
@@ -164,6 +165,7 @@ class AlignedBlockReuseLocator:
         max_source_requests: int = 1024,
         hash_block_size: int | None = None,
         allow_repacking: bool = False,
+        collect_selector_features: bool = False,
     ) -> None:
         if block_size < 1:
             raise ValueError("block_size must be positive")
@@ -174,6 +176,7 @@ class AlignedBlockReuseLocator:
         self.hash_block_size = hash_block_size or block_size
         self.max_source_requests = max_source_requests
         self.allow_repacking = allow_repacking
+        self.collect_selector_features = collect_selector_features
         self._sources: OrderedDict[str, SourceRequestIndex] = OrderedDict()
 
     @staticmethod
@@ -282,6 +285,13 @@ class AlignedBlockReuseLocator:
         annotated_candidates = self._annotate_change_geometry(
             tuple(candidates), first_target_block, num_full_blocks
         )
+        if self.collect_selector_features and annotated_candidates:
+            annotated_candidates = self._attach_selector_features(
+                source.prompt_token_ids,
+                prompt_token_ids,
+                native_cached_tokens,
+                annotated_candidates,
+            )
         return self._plan(
             request,
             native_cached_tokens,
@@ -293,6 +303,55 @@ class AlignedBlockReuseLocator:
                 else "no_aligned_candidates"
             ),
             candidates=annotated_candidates,
+        )
+
+    # Reuse the training feature contract instead of duplicating its formulas.
+    def _attach_selector_features(
+        self,
+        previous_tokens: Sequence[int],
+        current_tokens: Sequence[int],
+        native_cached_tokens: int,
+        candidates: tuple[PartialReuseCandidate, ...],
+    ) -> tuple[PartialReuseCandidate, ...]:
+        from cacheselect.block_features import extract_candidate_block_features
+        from cacheselect.context_features import extract_candidate_context_features
+        from cacheselect.reuse_opportunity import analyze_reuse_opportunity
+        from cacheselect.selector_features import CONTEXT_FEATURE_SCHEMA
+
+        opportunity = analyze_reuse_opportunity(
+            previous_tokens,
+            current_tokens,
+            native_cached_tokens=native_cached_tokens,
+            block_size=self.block_size,
+        )
+        context = extract_candidate_context_features(
+            previous_tokens, current_tokens, opportunity
+        )
+        rows = {
+            candidate.current_block_index: {
+                **asdict(block_features),
+                **asdict(context_features),
+            }
+            for candidate, block_features, context_features in zip(
+                opportunity.candidate_blocks,
+                extract_candidate_block_features(
+                    previous_tokens, current_tokens, opportunity
+                ),
+                context,
+                strict=True,
+            )
+        }
+        return tuple(
+            replace(
+                candidate,
+                selector_features=tuple(
+                    (name, float(rows[candidate.target_block_index][name]))
+                    for name in CONTEXT_FEATURE_SCHEMA.feature_names
+                ),
+            )
+            if candidate.target_block_index in rows
+            else candidate
+            for candidate in candidates
         )
 
     # Index exact source windows while retaining their physical block mapping.

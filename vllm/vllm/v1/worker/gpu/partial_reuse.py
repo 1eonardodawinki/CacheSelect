@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 from vllm.v1.core.kv_cache_utils import KVCacheBlockCopy
 from vllm.v1.core.partial_reuse import CacheSelectRepairMetrics
 from vllm.v1.worker.gpu.attn_utils import build_attn_metadata
+from vllm.v1.worker.gpu.mlp_repair_model import MLPRepairModel
 
 PartialReuseForwardPath: TypeAlias = Literal["full", "spans"]
 COUNTERFACTUAL_REPAIR_SELECTOR = "counterfactual_single_block"
@@ -38,6 +39,7 @@ class ResolvedPartialReuseCandidate:
     nearest_changed_block_distance: int | None = None
     source_block_ids: tuple[int, ...] = ()
     source_block_offset: int = 0
+    selector_features: tuple[tuple[str, float], ...] = ()
 
     @property
     def physical_source_block_ids(self) -> tuple[int, ...]:
@@ -182,6 +184,7 @@ def resolve_target_block_ids(
                     getattr(candidate, "source_block_ids", ())
                 ),
                 source_block_offset=getattr(candidate, "source_block_offset", 0),
+                selector_features=getattr(candidate, "selector_features", ()),
             )
         )
     return tuple(resolved)
@@ -1172,15 +1175,42 @@ class EditProximityRepairSelector:
         )
 
 
+class MLPRepairSelector:
+    def __init__(self, model: MLPRepairModel) -> None:
+        self.model = model
+
+    def select(
+        self,
+        candidates: Sequence[ResolvedPartialReuseCandidate],
+        block_size: int,
+    ) -> tuple[PartialReuseRepairInstruction, ...]:
+        selected = []
+        for candidate in candidates:
+            if not candidate.requires_repair:
+                continue
+            try:
+                repair = self.model.should_repair(dict(candidate.selector_features))
+            except (KeyError, TypeError, ValueError, OverflowError):
+                repair = True
+            if repair:
+                selected.append(candidate)
+        return build_full_block_repair_instructions(selected, block_size)
+
+
 # Construct the configured repair selector while keeping policy wiring centralized.
 def create_repair_selector(
     selector_name: CacheSelectRepairSelector,
     edit_radius: int,
+    mlp_model_path: str | None = None,
 ) -> PartialReuseRepairSelector:
     if selector_name == "full_block":
         return FullBlockRepairSelector()
     if selector_name == "edit_proximity":
         return EditProximityRepairSelector(edit_radius)
+    if selector_name == "mlp":
+        if mlp_model_path is None:
+            raise ValueError("MLP repair selector requires an exported model path")
+        return MLPRepairSelector(MLPRepairModel.from_json(mlp_model_path))
     raise ValueError(f"unknown CacheSelect repair selector: {selector_name}")
 
 

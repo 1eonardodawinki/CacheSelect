@@ -40,6 +40,8 @@ class MLPRepairModel:
                 self.feature_names, self.mean, self.scale, strict=True
             )
         ]
+        if not all(map(math.isfinite, values)):
+            raise ValueError("MLP features must be finite")
         for layer in self.layers:
             weights = layer["weights"]
             bias = layer["bias"]
@@ -67,6 +69,8 @@ class MLPRepairModel:
                 raise ValueError(f"unsupported MLP activation: {activation}")
         if len(values) != 1:
             raise ValueError("binary repair MLP must produce one value")
+        if not math.isfinite(values[0]):
+            raise ValueError("binary repair MLP produced a non-finite value")
         return values[0]
 
     def should_repair(self, features: Mapping[str, float]) -> bool:
