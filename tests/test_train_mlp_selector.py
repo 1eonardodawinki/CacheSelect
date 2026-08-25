@@ -1,11 +1,14 @@
+import json
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest import TestCase
 from unittest.mock import patch
-from pathlib import Path
 
 import numpy as np
 
 from benchmarks.train_mlp_selector import (
     balanced_binary_training_rows,
+    export_mlp_selector,
     sweep_mlp_architectures,
     train_mlp_selector,
 )
@@ -57,6 +60,14 @@ class MlpSelectorTests(TestCase):
         self.assertTrue(report["training"]["converged"])
         self.assertEqual(report["hyperparameters"]["hidden_layer_sizes"], [8])
         self.assertEqual(model.n_features_in_, 17)
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "mlp.json"
+            artifact = export_mlp_selector(model, report, output)
+            self.assertEqual(json.loads(output.read_text()), artifact)
+        self.assertEqual(len(artifact["standardizer"]["mean"]), 17)
+        self.assertEqual(len(artifact["layers"]), 2)
+        self.assertEqual(artifact["layers"][0]["activation"], "relu")
+        self.assertEqual(artifact["layers"][1]["activation"], "logistic")
 
     def test_configures_hidden_layers(self):
         model, report = train_mlp_selector(

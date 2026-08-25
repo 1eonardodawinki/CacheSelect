@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from pathlib import Path
 
 import numpy as np
@@ -141,6 +142,46 @@ def train_mlp_selector(
         },
     }
     return model, report
+
+
+# Save only the values needed for dependency-free runtime inference.
+def export_mlp_selector(
+    model: Pipeline,
+    report: dict[str, object],
+    output_path: Path,
+) -> dict[str, object]:
+    scaler = model.named_steps["scale"]
+    classifier = model.named_steps["classifier"]
+    activations = [classifier.activation] * (len(classifier.coefs_) - 1)
+    activations.append(classifier.out_activation_)
+    artifact = {
+        "schema_version": 1,
+        "model_type": "standard_scaler_mlp_binary_repair_selector",
+        "feature_schema": report["feature_schema"],
+        "feature_names": report["feature_names"],
+        "selected_repair_threshold": report["selected_threshold"],
+        "operating_point_thresholds": {
+            target: values["threshold"]
+            for target, values in report["validation"]["operating_points"].items()
+        },
+        "standardizer": {
+            "mean": scaler.mean_.tolist(),
+            "scale": scaler.scale_.tolist(),
+        },
+        "layers": [
+            {
+                "weights": weights.tolist(),
+                "bias": bias.tolist(),
+                "activation": activation,
+            }
+            for weights, bias, activation in zip(
+                classifier.coefs_, classifier.intercepts_, activations, strict=True
+            )
+        ],
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(artifact, indent=2) + "\n")
+    return artifact
 
 
 def _training_groups(path: Path) -> np.ndarray:
