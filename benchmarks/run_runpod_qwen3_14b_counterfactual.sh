@@ -11,6 +11,8 @@ MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
 PORT="${CACHESELECT_SERVER_PORT:-8000}"
 START_CASE="${CACHESELECT_COUNTERFACTUAL_START_CASE:-1}"
 MAX_CASES="${CACHESELECT_COUNTERFACTUAL_MAX_CASES:-}"
+MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
+MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
 INPUTS="${CACHESELECT_COUNTERFACTUAL_INPUT_ROOT:-$STORAGE/cacheselect-inputs/qwen3-mtrag-v1}"
 PLAN="${CACHESELECT_COUNTERFACTUAL_PLAN:-$INPUTS/counterfactual-plan.json}"
 REFERENCES="${CACHESELECT_COUNTERFACTUAL_REFERENCES:-$INPUTS/references.json}"
@@ -42,6 +44,10 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
   echo "CACHESELECT_COUNTERFACTUAL_START_CASE must be positive" >&2
   exit 2
 }
+[[ "$MLP_SMOKE" == 0 || "$MLP_SMOKE" == 1 ]] || exit 2
+if [[ "$MLP_SMOKE" == 1 ]]; then
+  test -s "$MLP_MODEL" || { echo "CACHESELECT_MLP_MODEL is required" >&2; exit 2; }
+fi
 
 mkdir -p "$(dirname "$MTRAG")" "$RESULT/request-logs" "$SERVER_LOGS" \
   "$STORAGE/hf-cache" "$STORAGE/tmp"
@@ -54,7 +60,7 @@ fi
   exit 2
 }
 
-export PYTHONPATH="$ROOT/vllm${PYTHONPATH:+:$PYTHONPATH}"
+export PYTHONPATH="$ROOT:$ROOT/vllm${PYTHONPATH:+:$PYTHONPATH}"
 export HF_HOME="$STORAGE/hf-cache"
 export TMPDIR="$STORAGE/tmp"
 export HF_HUB_OFFLINE="${CACHESELECT_HF_OFFLINE:-1}"
@@ -94,6 +100,10 @@ if [[ -n "$MAX_CASES" ]]; then
   [[ "$MAX_CASES" =~ ^[1-9][0-9]*$ ]] || exit 2
   CASE_LIMIT_ARGS+=(--max-cases "$MAX_CASES")
 fi
+REPAIR_ARGS=(--cacheselect-repair-selector full_block)
+if [[ "$MLP_SMOKE" == 1 ]]; then
+  REPAIR_ARGS=(--cacheselect-repair-selector mlp --cacheselect-mlp-model "$MLP_MODEL")
+fi
 
 SERVER_PID=""
 stop_server() {
@@ -114,7 +124,7 @@ setsid vllm serve "$MODEL" \
   --max-model-len 8192 --max-num-seqs 1 --max-num-batched-tokens 8192 \
   --gpu-memory-utilization 0.90 --block-size 16 \
   --enable-prefix-caching --enable-cacheselect \
-  --cacheselect-repair-selector full_block \
+  "${REPAIR_ARGS[@]}" \
   --cacheselect-execute-partial-reuse \
   "${REPACK_ARGS[@]}" \
   --no-enable-chunked-prefill --enforce-eager \
@@ -131,6 +141,24 @@ for _ in {1..1800}; do
   sleep 2
 done
 curl --fail --silent "http://127.0.0.1:$PORT/health" >/dev/null
+
+if [[ "$MLP_SMOKE" == 1 ]]; then
+  python -m benchmarks.run_hybrid_apc_baseline \
+    --base-url "http://127.0.0.1:$PORT" --model "$MODEL" \
+    --run-id "$RUN_ID" --request-log-dir "$RESULT/request-logs" \
+    --output "$RESULT/summary.json" --record-count 40 \
+    --max-completion-tokens 16 --timeout-seconds 900 \
+    --validate-against-reference
+  stop_server
+  SERVER_PID=""
+  ARCHIVE="$STORAGE/$RUN_ID-artifacts.tar.gz"
+  tar -czf "$ARCHIVE" -C "$STORAGE" \
+    "cacheselect-results/$RUN_ID" "cacheselect-server-logs/$RUN_ID"
+  echo "Completed $RUN_ID"
+  echo "archive=$ARCHIVE"
+  echo "archive_sha256=$(sha256sum "$ARCHIVE" | cut -d ' ' -f 1)"
+  exit 0
+fi
 
 python -m benchmarks.run_mtrag_counterfactual_pilot \
   --input "$MTRAG" --manifest "$PLAN" --references "$REFERENCES" \
