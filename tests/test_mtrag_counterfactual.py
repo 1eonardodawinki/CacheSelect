@@ -7,7 +7,11 @@ from unittest.mock import patch
 
 from benchmarks.block_dataset import DatasetSplit
 from benchmarks.counterfactual_trial import CounterfactualReferenceQualityError
-from benchmarks.mtrag_counterfactual import run_mtrag_counterfactual_cases
+from benchmarks.mtrag_counterfactual import (
+    run_mtrag_counterfactual_cases,
+    run_mtrag_policy_cases,
+)
+from benchmarks.schema import AnswerRequirement, RequestGroundTruth, RequestSpec
 
 
 # Build one compact case object for runner wiring tests.
@@ -32,6 +36,76 @@ def _case(index: int) -> SimpleNamespace:
 
 
 class MtragCounterfactualTests(TestCase):
+    def test_runs_natural_mlp_policy_against_fresh_reference(self):
+        ground_truth = RequestGroundTruth(
+            expected_answer="answer",
+            requirements=[AnswerRequirement("answer", ["answer"])],
+        )
+        source = RequestSpec("source", "mtrag", 1, [], [], ground_truth)
+        edited = RequestSpec("task-1", "mtrag", 2, [], [], ground_truth)
+        transition = SimpleNamespace(
+            transition_id="transition-1",
+            previous_request_id="source",
+            current_request_id="task-1",
+        )
+        case = SimpleNamespace(
+            trace=SimpleNamespace(
+                trace_id="trace-1",
+                requests=[source, edited],
+                transitions=[transition],
+            ),
+            split=DatasetSplit.VALIDATION,
+            collection="collection",
+        )
+        fresh = {
+            "cached_tokens": 0,
+            "runtime_policy": {"policy": "FULL_RECOMPUTE"},
+            "server_metrics": {
+                "cacheselect_compacted_batch_executed": False,
+                "time_to_first_token_ms": 100.0,
+            },
+            "output_text": "answer",
+            "finish_reason": "stop",
+            "quality": {"mode": "requirements", "passed": True},
+            "client_wall_seconds": 1.0,
+        }
+        active = {
+            **fresh,
+            "cached_tokens": 16,
+            "server_metrics": {
+                "cacheselect_repair_selector": "mlp",
+                "cacheselect_candidate_tokens": 32,
+                "cacheselect_repair_tokens": 16,
+                "cacheselect_skipped_repair_tokens": 16,
+                "cacheselect_compacted_batch_executed": True,
+                "cacheselect_execution_reason": "eligible",
+                "time_to_first_token_ms": 50.0,
+            },
+            "client_wall_seconds": 0.5,
+        }
+        with patch(
+            "benchmarks.mtrag_counterfactual._observe_request",
+            side_effect=[fresh, fresh, active],
+        ) as observe:
+            result = run_mtrag_policy_cases(
+                (case,),
+                reference_outputs={"task-1": "answer"},
+                url="http://server/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=128,
+                api_key=None,
+                timeout_seconds=300.0,
+                recorder=SimpleNamespace(path=Path("requests.jsonl")),
+            )
+
+        self.assertEqual(observe.call_count, 3)
+        self.assertEqual(observe.call_args_list[1].kwargs["max_completion_tokens"], 1)
+        self.assertEqual(result["case_count"], 1)
+        self.assertEqual(result["exact_output_matches"], 1)
+        self.assertEqual(result["quality_passes"], 1)
+        self.assertEqual(result["selected_reuse_tokens"], 16)
+        self.assertEqual(result["aggregate_ttft_speedup"], 2.0)
+
     # Run cases in order while forwarding their frozen plans and audited outputs.
     def test_runs_frozen_cases_through_existing_workflow(self):
         cases = (_case(1), _case(2))
@@ -60,9 +134,7 @@ class MtragCounterfactualTests(TestCase):
         with TemporaryDirectory() as directory:
             output_dir = Path(directory)
             with (
-                patch(
-                    "benchmarks.mtrag_counterfactual.save_trace"
-                ) as save_trace,
+                patch("benchmarks.mtrag_counterfactual.save_trace") as save_trace,
                 patch(
                     "benchmarks.mtrag_counterfactual."
                     "run_counterfactual_dataset_workflow",

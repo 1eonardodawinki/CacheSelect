@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from benchmarks.mtrag import load_mtrag_tasks, mtrag_source_sha256
-from benchmarks.mtrag_counterfactual import run_mtrag_counterfactual_cases
+from benchmarks.mtrag_counterfactual import (
+    run_mtrag_counterfactual_cases,
+    run_mtrag_policy_cases,
+)
 from benchmarks.mtrag_quality import load_mtrag_manual_quality_audit
 from benchmarks.mtrag_trace import build_mtrag_counterfactual_cases
 from benchmarks.reviewed_mtrag_counterfactual import (
@@ -36,6 +39,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--summary-output", type=Path, default=None)
     parser.add_argument("--start-case", type=int, default=1)
     parser.add_argument("--max-cases", type=int)
+    parser.add_argument("--policy-evaluation", action="store_true")
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--request-log-dir", type=Path, default=None)
     args = parser.parse_args()
@@ -100,6 +104,9 @@ def main() -> None:
         require_exact_reference = False
         experiment = "mtrag-counterfactual-pilot"
         approval_metadata = {"manual_audit": str(args.audit)}
+    if args.policy_evaluation:
+        cases = tuple(case for case in cases if case.split.value == "validation")
+        experiment = "qwen3-reviewed-mtrag-natural-policy"
     source_case_count = len(cases)
     if args.start_case > source_case_count:
         raise ValueError("--start-case exceeds the frozen MTRAG case count")
@@ -125,19 +132,29 @@ def main() -> None:
             "endpoint": endpoint,
         },
     )
-    result = run_mtrag_counterfactual_cases(
-        cases,
-        reference_outputs=outputs,
-        output_dir=args.output_dir,
-        url=endpoint,
-        model=args.model,
-        max_completion_tokens=args.max_completion_tokens,
-        api_key=args.api_key,
-        timeout_seconds=args.timeout_seconds,
-        recorder=recorder,
-        require_reference_output_match=require_exact_reference,
-        source_case_start=args.start_case,
+    runner = (
+        run_mtrag_policy_cases
+        if args.policy_evaluation
+        else run_mtrag_counterfactual_cases
     )
+    runner_args = {
+        "reference_outputs": outputs,
+        "url": endpoint,
+        "model": args.model,
+        "max_completion_tokens": args.max_completion_tokens,
+        "api_key": args.api_key,
+        "timeout_seconds": args.timeout_seconds,
+        "recorder": recorder,
+    }
+    if not args.policy_evaluation:
+        runner_args.update(
+            {
+                "output_dir": args.output_dir,
+                "require_reference_output_match": require_exact_reference,
+                "source_case_start": args.start_case,
+            }
+        )
+    result = runner(cases, **runner_args)
     ledger = validate_ledger(recorder.path)
     if not ledger.is_complete or ledger.failed:
         raise RuntimeError("MTRAG counterfactual request ledger is incomplete")
@@ -159,10 +176,10 @@ def main() -> None:
         json.dumps(summary, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(
-        f"Completed {result['case_count']} MTRAG cases and "
-        f"{result['trial_count']} block trials"
+    trials = (
+        "" if args.policy_evaluation else f" and {result['trial_count']} block trials"
     )
+    print(f"Completed {result['case_count']} MTRAG cases{trials}")
     print(f"Saved pilot summary to {summary_path}")
     print(f"Saved full request ledger to {ledger.path}")
 

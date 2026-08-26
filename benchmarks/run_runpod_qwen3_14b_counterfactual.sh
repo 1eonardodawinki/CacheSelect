@@ -12,6 +12,7 @@ PORT="${CACHESELECT_SERVER_PORT:-8000}"
 START_CASE="${CACHESELECT_COUNTERFACTUAL_START_CASE:-1}"
 MAX_CASES="${CACHESELECT_COUNTERFACTUAL_MAX_CASES:-}"
 MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
+MLP_EVALUATION="${CACHESELECT_MLP_EVALUATION:-0}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
 INPUTS="${CACHESELECT_COUNTERFACTUAL_INPUT_ROOT:-$STORAGE/cacheselect-inputs/qwen3-mtrag-v1}"
 PLAN="${CACHESELECT_COUNTERFACTUAL_PLAN:-$INPUTS/counterfactual-plan.json}"
@@ -45,7 +46,9 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
   exit 2
 }
 [[ "$MLP_SMOKE" == 0 || "$MLP_SMOKE" == 1 ]] || exit 2
-if [[ "$MLP_SMOKE" == 1 ]]; then
+[[ "$MLP_EVALUATION" == 0 || "$MLP_EVALUATION" == 1 ]] || exit 2
+[[ "$MLP_SMOKE" != 1 || "$MLP_EVALUATION" != 1 ]] || exit 2
+if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 ]]; then
   test -s "$MLP_MODEL" || { echo "CACHESELECT_MLP_MODEL is required" >&2; exit 2; }
 fi
 
@@ -73,6 +76,9 @@ printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
   "$COMMIT" "$MODEL" "$GPU" "$PLATFORM" \
   >"$RESULT/metadata.env"
 printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
+if [[ "$MLP_EVALUATION" == 1 ]]; then
+  cp "$MLP_MODEL" "$RESULT/mlp-model.json"
+fi
 
 # Bind the exact reviewed answers to a plan containing every testable block.
 python - "$PLAN" "$REFERENCES" "$MODEL" "$MTRAG_SHA" <<'PY'
@@ -101,7 +107,7 @@ if [[ -n "$MAX_CASES" ]]; then
   CASE_LIMIT_ARGS+=(--max-cases "$MAX_CASES")
 fi
 REPAIR_ARGS=(--cacheselect-repair-selector full_block)
-if [[ "$MLP_SMOKE" == 1 ]]; then
+if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 ]]; then
   REPAIR_ARGS=(--cacheselect-repair-selector mlp --cacheselect-mlp-model "$MLP_MODEL")
 fi
 
@@ -149,6 +155,25 @@ if [[ "$MLP_SMOKE" == 1 ]]; then
     --output "$RESULT/summary.json" --record-count 40 \
     --max-completion-tokens 16 --timeout-seconds 900 \
     --validate-against-reference
+  stop_server
+  SERVER_PID=""
+  ARCHIVE="$STORAGE/$RUN_ID-artifacts.tar.gz"
+  tar -czf "$ARCHIVE" -C "$STORAGE" \
+    "cacheselect-results/$RUN_ID" "cacheselect-server-logs/$RUN_ID"
+  echo "Completed $RUN_ID"
+  echo "archive=$ARCHIVE"
+  echo "archive_sha256=$(sha256sum "$ARCHIVE" | cut -d ' ' -f 1)"
+  exit 0
+fi
+
+if [[ "$MLP_EVALUATION" == 1 ]]; then
+  python -m benchmarks.run_mtrag_counterfactual_pilot \
+    --input "$MTRAG" --manifest "$PLAN" --references "$REFERENCES" \
+    --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
+    --max-completion-tokens 2048 --timeout-seconds 900 \
+    --policy-evaluation --run-id "$RUN_ID" \
+    --request-log-dir "$RESULT/request-logs" --output-dir "$RESULT" \
+    --summary-output "$RESULT/summary.json"
   stop_server
   SERVER_PID=""
   ARCHIVE="$STORAGE/$RUN_ID-artifacts.tar.gz"
