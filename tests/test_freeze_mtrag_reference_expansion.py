@@ -44,6 +44,21 @@ def _row(split: DatasetSplit, collection: str, index: int) -> dict:
 
 
 class FreezeMtragReferenceExpansionTests(TestCase):
+    def test_completed_transition_manifest_contains_only_finished_cases(self):
+        path = (
+            Path(__file__).resolve().parents[1]
+            / "benchmarks"
+            / "mtrag_completed_transitions.json"
+        )
+        manifest = json.loads(path.read_text(encoding="utf-8"))
+        task_ids = [row["current_task_id"] for row in manifest["transitions"]]
+
+        self.assertEqual(manifest["completed_transition_count"], 78)
+        self.assertEqual(len(task_ids), len(set(task_ids)))
+        self.assertEqual(len(task_ids), 78)
+        self.assertNotIn("c01c8cf11437e6bb3bc93efac26528c2<::>2", task_ids)
+        self.assertNotIn("f5a8ca2f2bc12180940167fb920bb018<::>4", task_ids)
+
     # Freeze new train/validation manifests while excluding completed tasks.
     def test_freezes_additional_reference_manifests(self):
         with TemporaryDirectory() as temporary_directory:

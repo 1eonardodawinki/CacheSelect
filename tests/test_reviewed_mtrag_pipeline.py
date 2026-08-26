@@ -316,6 +316,7 @@ class ReviewedMtragPipelineTests(TestCase):
             "CACHESELECT_FULL_MTRAG_COUNTERFACTUAL",
             "CACHESELECT_COUNTERFACTUAL_START_BATCH",
             "CACHESELECT_COUNTERFACTUAL_BLOCKS_PER_BATCH",
+            "mtrag_completed_transitions.json",
             '--start-case "$START_CASE"',
             '--max-cases "$MAX_CASES"',
             "RunPod checkout must be clean",
