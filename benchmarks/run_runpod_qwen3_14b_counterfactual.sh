@@ -11,10 +11,15 @@ MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
 PORT="${CACHESELECT_SERVER_PORT:-8000}"
 START_CASE="${CACHESELECT_COUNTERFACTUAL_START_CASE:-1}"
 MAX_CASES="${CACHESELECT_COUNTERFACTUAL_MAX_CASES:-}"
+FULL_DATASET="${CACHESELECT_FULL_MTRAG_COUNTERFACTUAL:-0}"
+START_BATCH="${CACHESELECT_COUNTERFACTUAL_START_BATCH:-1}"
+BLOCKS_PER_BATCH="${CACHESELECT_COUNTERFACTUAL_BLOCKS_PER_BATCH:-900}"
 MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
 MLP_EVALUATION="${CACHESELECT_MLP_EVALUATION:-0}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
-INPUTS="${CACHESELECT_COUNTERFACTUAL_INPUT_ROOT:-$STORAGE/cacheselect-inputs/qwen3-mtrag-v1}"
+DEFAULT_INPUTS=qwen3-mtrag-v1
+[[ "$FULL_DATASET" == 1 ]] && DEFAULT_INPUTS=qwen3-mtrag-full-v1
+INPUTS="${CACHESELECT_COUNTERFACTUAL_INPUT_ROOT:-$STORAGE/cacheselect-inputs/$DEFAULT_INPUTS}"
 PLAN="${CACHESELECT_COUNTERFACTUAL_PLAN:-$INPUTS/counterfactual-plan.json}"
 REFERENCES="${CACHESELECT_COUNTERFACTUAL_REFERENCES:-$INPUTS/references.json}"
 MTRAG="$STORAGE/cacheselect-data/mtrag/RAG.jsonl"
@@ -27,7 +32,6 @@ SERVER_LOG="$SERVER_LOGS/vllm.log"
 
 cd "$ROOT"
 source "$VENV/bin/activate"
-test -s "$PLAN" && test -s "$REFERENCES"
 COMMIT="$(git rev-parse HEAD)"
 git diff --quiet && git diff --cached --quiet || {
   echo "RunPod checkout must be clean" >&2
@@ -45,9 +49,13 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
   echo "CACHESELECT_COUNTERFACTUAL_START_CASE must be positive" >&2
   exit 2
 }
+[[ "$FULL_DATASET" == 0 || "$FULL_DATASET" == 1 ]] || exit 2
+[[ "$START_BATCH" =~ ^[1-9][0-9]*$ ]] || exit 2
+[[ "$BLOCKS_PER_BATCH" =~ ^[1-9][0-9]*$ ]] || exit 2
 [[ "$MLP_SMOKE" == 0 || "$MLP_SMOKE" == 1 ]] || exit 2
 [[ "$MLP_EVALUATION" == 0 || "$MLP_EVALUATION" == 1 ]] || exit 2
 [[ "$MLP_SMOKE" != 1 || "$MLP_EVALUATION" != 1 ]] || exit 2
+[[ "$FULL_DATASET" != 1 || "$MLP_SMOKE$MLP_EVALUATION" == 00 ]] || exit 2
 if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 ]]; then
   test -s "$MLP_MODEL" || { echo "CACHESELECT_MLP_MODEL is required" >&2; exit 2; }
 fi
@@ -72,6 +80,20 @@ export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
   echo "vLLM is not imported from this checkout" >&2
   exit 2
 }
+if [[ "$FULL_DATASET" == 1 ]]; then
+  COVERAGE="$INPUTS/qwen3-mtrag-coverage.json"
+  mkdir -p "$INPUTS"
+  python -m benchmarks.analyze_mtrag_coverage \
+    --input "$MTRAG" --output "$COVERAGE" --model "$MODEL" \
+    --block-size 16 --local-files-only
+  python -m benchmarks.freeze_mtrag_reference_expansion \
+    --coverage "$COVERAGE" --source-dataset "$MTRAG" \
+    --output-dir "$INPUTS" --full-repacking-coverage \
+    --target-blocks-per-batch "$BLOCKS_PER_BATCH"
+else
+  test -s "$REFERENCES"
+fi
+test -s "$PLAN"
 printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
   "$COMMIT" "$MODEL" "$GPU" "$PLATFORM" \
   >"$RESULT/metadata.env"
@@ -80,19 +102,27 @@ if [[ "$MLP_EVALUATION" == 1 ]]; then
   cp "$MLP_MODEL" "$RESULT/mlp-model.json"
 fi
 
-# Bind the exact reviewed answers to a plan containing every testable block.
-python - "$PLAN" "$REFERENCES" "$MODEL" "$MTRAG_SHA" <<'PY'
+# Validate either reviewed inputs or the frozen live-reference full plan.
+python - "$PLAN" "$REFERENCES" "$MODEL" "$MTRAG_SHA" "$FULL_DATASET" <<'PY'
 import hashlib, json, sys
 
-plan, refs = (json.load(open(path, encoding="utf-8")) for path in sys.argv[1:3])
-assert plan["source_model"] == refs["model"] == sys.argv[3]
-assert plan["source_dataset_sha256"] == refs["source_dataset_sha256"] == sys.argv[4]
-assert plan["source_reference_manifest_sha256"] == hashlib.sha256(open(sys.argv[2], "rb").read()).hexdigest()
-assert refs["accepted_task_count"] == plan["transition_count"] == len(plan["transitions"])
+plan = json.load(open(sys.argv[1], encoding="utf-8"))
+assert plan["source_model"] == sys.argv[3]
+assert plan["source_dataset_sha256"] == sys.argv[4]
+assert plan["transition_count"] == len(plan["transitions"])
 assert plan["block_size"] == 16
 assert isinstance(plan.get("repacking_enabled", False), bool)
 assert plan["total_target_blocks"] == plan["total_testable_blocks"] > 0
 assert all(row["target_block_indices"] == row["testable_block_indices"] for row in plan["transitions"])
+if sys.argv[5] == "1":
+    assert plan["reference_status"] == "generated_in_trial_pending_review"
+    assert plan["batch_count"] == len(plan["batches"])
+else:
+    refs = json.load(open(sys.argv[2], encoding="utf-8"))
+    assert refs["model"] == sys.argv[3]
+    assert refs["source_dataset_sha256"] == sys.argv[4]
+    assert plan["source_reference_manifest_sha256"] == hashlib.sha256(open(sys.argv[2], "rb").read()).hexdigest()
+    assert refs["accepted_task_count"] == plan["transition_count"]
 PY
 
 REPACK_ARGS=()
@@ -182,6 +212,91 @@ if [[ "$MLP_EVALUATION" == 1 ]]; then
   echo "Completed $RUN_ID"
   echo "archive=$ARCHIVE"
   echo "archive_sha256=$(sha256sum "$ARCHIVE" | cut -d ' ' -f 1)"
+  exit 0
+fi
+
+if [[ "$FULL_DATASET" == 1 ]]; then
+  BATCH_COUNT="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["batch_count"])' "$PLAN")"
+  ((START_BATCH <= BATCH_COUNT)) || { echo "start batch exceeds $BATCH_COUNT" >&2; exit 2; }
+  while IFS=$'\t' read -r BATCH_INDEX BATCH_SPLIT BATCH_START BATCH_CASES BATCH_BLOCKS; do
+    ((BATCH_INDEX >= START_BATCH)) || continue
+    BATCH_TAG="$(printf '%02d' "$BATCH_INDEX")"
+    BATCH_RUN_ID="$RUN_ID-batch-$BATCH_TAG"
+    BATCH_RESULT="$STORAGE/cacheselect-results/$BATCH_RUN_ID"
+    mkdir -p "$BATCH_RESULT/request-logs"
+    printf 'project_commit=%s\nmodel=%s\ngpu=%s\nsplit=%s\nbatch=%s\n' \
+      "$COMMIT" "$MODEL" "$GPU" "$BATCH_SPLIT" "$BATCH_INDEX" \
+      >"$BATCH_RESULT/metadata.env"
+    cp "$PLAN" "$BATCH_RESULT/counterfactual-plan.json"
+
+    python -m benchmarks.run_mtrag_counterfactual_pilot \
+      --input "$MTRAG" --manifest "$PLAN" --live-references \
+      --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
+      --max-completion-tokens 2048 --timeout-seconds 900 \
+      --start-case "$BATCH_START" --max-cases "$BATCH_CASES" \
+      --run-id "$BATCH_RUN_ID" --request-log-dir "$BATCH_RESULT/request-logs" \
+      --output-dir "$BATCH_RESULT" --summary-output "$BATCH_RESULT/summary.json"
+
+    python - "$BATCH_RESULT/summary.json" "$BATCH_BLOCKS" "$MODEL" <<'PY'
+import json, pathlib, sys
+path = pathlib.Path(sys.argv[1])
+summary = json.loads(path.read_text(encoding="utf-8"))
+assert summary["case_count"] == summary["completed_case_count"]
+assert summary["planned_target_blocks"] == int(sys.argv[2])
+assert summary["trial_count"] == summary["planned_target_blocks"]
+assert summary["skipped_target_blocks"] == 0
+rows = []
+for case in summary["cases"]:
+    rows.append({
+        "task_id": case["current_task_id"],
+        "split": case["split"],
+        "collection": case["collection"],
+        "prompt_token_count": case["reference_prompt_token_count"],
+        "cached_tokens": case["reference_cached_tokens"],
+        "finish_reason": case["reference_finish_reason"],
+        "output_text": case["reference_output"],
+        "expected_answer": case["expected_answer"],
+        "quality": case["reference_quality"],
+    })
+artifact = {
+    "schema_version": 1,
+    "analysis": "mtrag-reference-quality-calibration",
+    "gate_status": "pending_manual_review",
+    "model": sys.argv[3],
+    "source_sha256": summary["source_sha256"],
+    "request_count": len(rows),
+    "rows": rows,
+}
+(path.parent / "live-reference-calibration.json").write_text(
+    json.dumps(artifact, indent=2) + "\n", encoding="utf-8"
+)
+PY
+    python -m benchmarks.prepare_mtrag_reference_review \
+      --input "$BATCH_RESULT/live-reference-calibration.json" \
+      --review-output "$BATCH_RESULT/blinded-reference-review.json" \
+      --key-output "$BATCH_RESULT/blinded-reference-key.json"
+    if python -c 'import json,sys; sys.exit(json.load(open(sys.argv[1]))["invalid_trials"] != 0)' \
+      "$BATCH_RESULT/summary.json"; then
+      python -m benchmarks.prepare_mtrag_counterfactual_review \
+        --result-dir "$BATCH_RESULT"
+    fi
+    tail -n 1000 "$SERVER_LOG" >"$BATCH_RESULT/vllm-tail.log"
+    BATCH_ARCHIVE="$STORAGE/$BATCH_RUN_ID-artifacts.tar.gz"
+    tar -czf "$BATCH_ARCHIVE" -C "$STORAGE" \
+      "cacheselect-results/$BATCH_RUN_ID"
+    echo "Completed batch $BATCH_INDEX/$BATCH_COUNT ($BATCH_BLOCKS blocks)"
+    echo "archive=$BATCH_ARCHIVE"
+    echo "archive_sha256=$(sha256sum "$BATCH_ARCHIVE" | cut -d ' ' -f 1)"
+  done < <(python - "$PLAN" <<'PY'
+import json, sys
+plan = json.load(open(sys.argv[1], encoding="utf-8"))
+for row in plan["batches"]:
+    print(row["batch"], row["split"], row["start_case"], row["case_count"], row["target_block_count"], sep="\t")
+PY
+  )
+  stop_server
+  SERVER_PID=""
+  echo "Completed all full-MTRAG batches from batch $START_BATCH"
   exit 0
 fi
 

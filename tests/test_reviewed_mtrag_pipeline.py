@@ -252,6 +252,52 @@ class ReviewedMtragPipelineTests(TestCase):
         self.assertFalse(run.call_args.kwargs["require_reference_output_match"])
         self.assertEqual(summary["recorded_requests"], 8)
 
+    def test_runner_accepts_pending_live_references(self):
+        source = b"raw MTRAG source\n"
+        source_hash = hashlib.sha256(source).hexdigest()
+        result = {"case_count": 1, "trial_count": 2, "invalid_trials": 0}
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            source_path = root / "RAG.jsonl"
+            source_path.write_bytes(source)
+            plan_path = root / "plan.json"
+            _write(
+                plan_path,
+                {
+                    "reference_status": "generated_in_trial_pending_review",
+                    "source_dataset_sha256": source_hash,
+                    "transitions": [{"current_task_id": "task-2"}],
+                },
+            )
+            summary_path = root / "summary.json"
+            argv = [
+                "runner", "--input", str(source_path), "--manifest", str(plan_path),
+                "--live-references", "--model", MODEL, "--output-dir",
+                str(root / "output"), "--summary-output", str(summary_path),
+            ]
+            recorder = SimpleNamespace(path=root / "requests.jsonl")
+            ledger = SimpleNamespace(
+                is_complete=True, failed=0, started=8, path=recorder.path
+            )
+            module = "benchmarks.run_mtrag_counterfactual_pilot"
+            with (
+                patch.object(sys, "argv", argv),
+                patch(f"{module}.load_mtrag_tasks", return_value=(SimpleNamespace(),)),
+                patch(
+                    f"{module}.build_mtrag_counterfactual_cases",
+                    return_value=(SimpleNamespace(),),
+                ),
+                patch(f"{module}.RequestRecorder", return_value=recorder),
+                patch(
+                    f"{module}.run_mtrag_counterfactual_cases", return_value=result
+                ) as run,
+                patch(f"{module}.validate_ledger", return_value=ledger),
+            ):
+                run_main()
+
+        self.assertIsNone(run.call_args.kwargs["reference_outputs"])
+        self.assertFalse(run.call_args.kwargs["require_reference_quality"])
+
     def test_runpod_launcher_contract(self):
         script = Path(__file__).resolve().parents[1] / "benchmarks" / "run_runpod_qwen3_14b_counterfactual.sh"
         subprocess.run(["bash", "-n", str(script)], check=True)
@@ -267,6 +313,9 @@ class ReviewedMtragPipelineTests(TestCase):
             "CACHESELECT_MLP_SMOKE",
             "CACHESELECT_MLP_EVALUATION",
             "CACHESELECT_MLP_MODEL",
+            "CACHESELECT_FULL_MTRAG_COUNTERFACTUAL",
+            "CACHESELECT_COUNTERFACTUAL_START_BATCH",
+            "CACHESELECT_COUNTERFACTUAL_BLOCKS_PER_BATCH",
             '--start-case "$START_CASE"',
             '--max-cases "$MAX_CASES"',
             "RunPod checkout must be clean",
@@ -277,6 +326,8 @@ class ReviewedMtragPipelineTests(TestCase):
             "--cacheselect-execute-partial-reuse",
             "--cacheselect-repack-partial-reuse",
             "python -m benchmarks.run_mtrag_counterfactual_pilot",
+            "--live-references",
+            "live-reference-calibration.json",
             "--policy-evaluation",
             "--max-completion-tokens 2048",
             "prepare_mtrag_counterfactual_review",
