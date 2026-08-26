@@ -245,6 +245,7 @@ def run_counterfactual_candidate_discovery(
     timeout_seconds: float,
     recorder: RequestRecorder,
     required_edited_output: str | None = None,
+    require_reference_quality: bool = True,
 ) -> CounterfactualDiscoveryRunResult:
     if (
         transition.previous_request_id != source_request.request_id
@@ -321,7 +322,9 @@ def run_counterfactual_candidate_discovery(
     ):
         raise RuntimeError("discovery did not conservatively repair every candidate")
     # The source only donates KV; only the edited answer is experiment ground truth.
-    if not bool((edited_observation.get("quality") or {}).get("passed")):
+    if require_reference_quality and not bool(
+        (edited_observation.get("quality") or {}).get("passed")
+    ):
         raise CounterfactualReferenceQualityError(
             "counterfactual discovery edit failed its quality gate"
         )

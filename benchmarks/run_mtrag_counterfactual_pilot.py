@@ -15,6 +15,7 @@ from benchmarks.mtrag_counterfactual import (
 from benchmarks.mtrag_quality import load_mtrag_manual_quality_audit
 from benchmarks.mtrag_trace import build_mtrag_counterfactual_cases
 from benchmarks.reviewed_mtrag_counterfactual import (
+    QWEN3_REVIEWED_REFERENCE_GATE,
     build_reviewed_mtrag_counterfactual_cases,
     load_reviewed_mtrag_reference_set,
 )
@@ -29,6 +30,7 @@ def _parse_args() -> argparse.Namespace:
     approval = parser.add_mutually_exclusive_group(required=True)
     approval.add_argument("--audit", type=Path)
     approval.add_argument("--references", type=Path)
+    approval.add_argument("--live-references", action="store_true")
     parser.add_argument("--reference-artifact", type=Path)
     parser.add_argument("--model", required=True)
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
@@ -51,6 +53,8 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--max-cases must be positive")
     if args.audit and not args.reference_artifact:
         parser.error("--audit requires --reference-artifact")
+    if args.live_references and args.policy_evaluation:
+        parser.error("live references cannot be used for policy evaluation")
     return args
 
 
@@ -59,7 +63,32 @@ def main() -> None:
     args = _parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     source_sha256 = mtrag_source_sha256(args.input)
-    if args.references:
+    if args.live_references:
+        rows = manifest.get("transitions")
+        if (
+            manifest.get("reference_status")
+            != "generated_in_trial_pending_review"
+            or manifest.get("source_dataset_sha256") != source_sha256
+            or not isinstance(rows, list)
+        ):
+            raise ValueError("live-reference MTRAG plan is invalid")
+        task_ids = frozenset(
+            row.get("current_task_id") for row in rows if isinstance(row, dict)
+        )
+        if len(task_ids) != len(rows) or any(not task_id for task_id in task_ids):
+            raise ValueError("live-reference MTRAG tasks are invalid")
+        cases = build_mtrag_counterfactual_cases(
+            load_mtrag_tasks(args.input),
+            manifest,
+            quality_gate=QWEN3_REVIEWED_REFERENCE_GATE,
+            approved_task_ids=task_ids,
+            expected_model=args.model,
+        )
+        outputs = None
+        require_exact_reference = False
+        experiment = "qwen3-live-reference-mtrag-counterfactual"
+        approval_metadata = {"reference_status": manifest["reference_status"]}
+    elif args.references:
         references = load_reviewed_mtrag_reference_set(
             args.references, expected_model=args.model
         )
@@ -152,6 +181,7 @@ def main() -> None:
                 "output_dir": args.output_dir,
                 "require_reference_output_match": require_exact_reference,
                 "source_case_start": args.start_case,
+                "require_reference_quality": not args.live_references,
             }
         )
     result = runner(cases, **runner_args)

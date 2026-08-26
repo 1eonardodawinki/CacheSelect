@@ -176,6 +176,44 @@ class MtragCounterfactualTests(TestCase):
         self.assertEqual(result["abstained_trials"], 1)
         self.assertEqual(result["reference_drift_trials"], 1)
 
+    # Generate the reference inside an exhaustive run before manual review.
+    def test_runs_with_a_pending_live_reference(self):
+        workflow_result = {
+            "trial_count": 1,
+            "valid_training_rows": 0,
+            "invalid_trials": 1,
+            "abstained_trials": 1,
+            "reference_drift_trials": 0,
+            "repair_labels": 0,
+            "reuse_labels": 0,
+        }
+        with TemporaryDirectory() as directory:
+            with (
+                patch("benchmarks.mtrag_counterfactual.save_trace"),
+                patch(
+                    "benchmarks.mtrag_counterfactual."
+                    "run_counterfactual_dataset_workflow",
+                    return_value=workflow_result,
+                ) as workflow,
+            ):
+                result = run_mtrag_counterfactual_cases(
+                    (_case(1),),
+                    reference_outputs=None,
+                    output_dir=Path(directory),
+                    url="http://server/v1/chat/completions",
+                    model="test-model",
+                    max_completion_tokens=384,
+                    api_key=None,
+                    timeout_seconds=300.0,
+                    recorder=SimpleNamespace(path=Path("requests.jsonl")),
+                    require_reference_quality=False,
+                )
+
+        call = workflow.call_args.kwargs
+        self.assertIsNone(call["required_reference_output"])
+        self.assertFalse(call["require_reference_quality"])
+        self.assertEqual(result["trial_count"], 1)
+
     # Skip only an unusable uncached reference and continue with later cases.
     def test_records_bad_reference_and_continues(self):
         cases = (_case(1), _case(2))

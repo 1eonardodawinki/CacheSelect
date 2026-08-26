@@ -60,6 +60,7 @@ def run_counterfactual_dataset_workflow(
     required_reference_output: str | None = None,
     require_reference_output_match: bool = True,
     require_exact_output_match: bool = False,
+    require_reference_quality: bool = True,
 ) -> dict[str, Any]:
     transition, source, edited = _resolve_transition(trace, transition_id)
     discovery_run = run_counterfactual_candidate_discovery(
@@ -74,6 +75,7 @@ def run_counterfactual_dataset_workflow(
         timeout_seconds=timeout_seconds,
         recorder=recorder,
         required_edited_output=required_reference_output,
+        require_reference_quality=require_reference_quality,
     )
     discovery = discovery_run.discovery
     if expected_block_size is not None and discovery.block_size != expected_block_size:
@@ -149,6 +151,18 @@ def run_counterfactual_dataset_workflow(
         "excluded_output_block_index": discovery.excluded_output_block_index,
         "trial_count": len(batch.trials),
         "reference_stable": batch.reference_stable,
+        "reference_output": fresh_reference_output,
+        "reference_finish_reason": discovery_run.edited_observation.get(
+            "finish_reason"
+        ),
+        "reference_prompt_token_count": discovery_run.edited_observation.get(
+            "prompt_token_count"
+        ),
+        "reference_cached_tokens": discovery_run.edited_observation.get(
+            "cached_tokens"
+        ),
+        "reference_quality": discovery_run.edited_observation.get("quality"),
+        "expected_answer": edited.ground_truth.expected_answer,
         "valid_training_rows": training_rows,
         "invalid_trials": sum(
             not trial.label_result.valid_reference

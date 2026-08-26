@@ -37,7 +37,7 @@ COUNT_FIELDS = (
 def run_mtrag_policy_cases(
     cases: Sequence[MtragCounterfactualCase],
     *,
-    reference_outputs: Mapping[str, str],
+    reference_outputs: Mapping[str, str] | None,
     url: str,
     model: str,
     max_completion_tokens: int,
@@ -213,6 +213,7 @@ def run_mtrag_counterfactual_cases(
     timeout_seconds: float,
     recorder: RequestRecorder,
     require_reference_output_match: bool = False,
+    require_reference_quality: bool = True,
     source_case_start: int = 1,
 ) -> dict[str, Any]:
     if not cases:
@@ -227,10 +228,12 @@ def run_mtrag_counterfactual_cases(
         if len(case.trace.transitions) != 1:
             raise ValueError("each MTRAG case must contain exactly one transition")
         transition = case.trace.transitions[0]
-        try:
-            approved_output = reference_outputs[transition.current_request_id]
-        except KeyError as error:
-            raise ValueError("MTRAG case has no approved reference output") from error
+        approved_output = None
+        if reference_outputs is not None:
+            try:
+                approved_output = reference_outputs[transition.current_request_id]
+            except KeyError as error:
+                raise ValueError("MTRAG case has no approved reference output") from error
 
         case_dir = output_dir / f"case-{index:02d}"
         trace_path = case_dir / "trace.json"
@@ -263,6 +266,7 @@ def run_mtrag_counterfactual_cases(
                 required_reference_output=approved_output,
                 require_reference_output_match=require_reference_output_match,
                 require_exact_output_match=True,
+                require_reference_quality=require_reference_quality,
             )
         except CounterfactualReferenceQualityError as error:
             result = {
