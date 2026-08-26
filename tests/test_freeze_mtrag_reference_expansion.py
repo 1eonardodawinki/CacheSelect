@@ -6,6 +6,7 @@ from unittest import TestCase
 
 from benchmarks.block_dataset import DatasetSplit
 from benchmarks.freeze_mtrag_reference_expansion import (
+    freeze_mtrag_full_reference_splits,
     freeze_mtrag_reference_expansion,
 )
 from benchmarks.mtrag import mtrag_conversation_split
@@ -28,8 +29,14 @@ def _row(split: DatasetSplit, collection: str, index: int) -> dict:
         "shared_document_ids": ["document"],
         "reuse_opportunity": {
             "current_token_count": 128,
+            "previous_token_count": 128,
+            "candidate_block_count": 1,
             "candidate_blocks": [
-                {"current_block_index": 2, "has_whole_source_block": True}
+                {
+                    "current_block_index": 2,
+                    "has_whole_source_block": True,
+                    "previous_starts": [32],
+                }
             ],
         },
     }
@@ -105,3 +112,60 @@ class FreezeMtragReferenceExpansionTests(TestCase):
         self.assertEqual(validation["task_count"], 2)
         self.assertNotEqual(train["tasks"][0]["task_id"], excluded["current_task_id"])
         self.assertEqual(plan["test_status"], "sealed_unopened")
+
+    def test_freezes_every_repacking_candidate_across_all_splits(self):
+        with TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            source = root / "RAG.jsonl"
+            source.write_text("fixture\n", encoding="utf-8")
+            source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
+            rows = [_row(split, "RAG", index) for index, split in enumerate(DatasetSplit)]
+            excluded = _row(DatasetSplit.TRAIN, "RAG", 99)
+            excluded["reuse_opportunity"]["candidate_blocks"][0].update(
+                has_whole_source_block=False,
+                previous_starts=[120],
+            )
+            rows.append(excluded)
+            coverage = root / "coverage.json"
+            coverage.write_text(
+                json.dumps(
+                    {
+                        "schema_version": 1,
+                        "analysis": "mtrag-natural-block-coverage",
+                        "source_sha256": source_sha256,
+                        "prompt_template_version": 1,
+                        "model": "Qwen/Qwen3-14B",
+                        "tokenizer_class": "Qwen2Tokenizer",
+                        "block_size": 16,
+                        "candidate_transition_count": 4,
+                        "transitions": rows,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            plan = freeze_mtrag_full_reference_splits(
+                coverage_path=coverage,
+                source_dataset_path=source,
+                output_dir=root / "output",
+            )
+
+            manifests = {
+                split.value: json.loads(
+                    (root / "output" / f"{split.value}-manifest.json").read_text()
+                )
+                for split in DatasetSplit
+            }
+
+            self.assertEqual(plan["candidate_transitions"], 4)
+            self.assertEqual(plan["executable_transitions"], 3)
+            self.assertEqual(plan["structurally_excluded_transitions"], 1)
+        self.assertEqual(
+            plan["candidate_transitions_by_split"],
+            {"train": 2, "validation": 1, "test": 1},
+        )
+        self.assertEqual(
+            plan["executable_transitions_by_split"],
+            {split.value: 1 for split in DatasetSplit},
+        )
+        self.assertTrue(all(row["repacking_enabled"] for row in manifests.values()))

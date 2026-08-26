@@ -27,6 +27,7 @@ def select_mtrag_reference_expansion(
     task_count: int,
     max_prompt_tokens: int = 7000,
     max_testable_blocks: int = 64,
+    include_repacking: bool = False,
     split_seed: str = MTRAG_SPLIT_SEED,
 ) -> dict[str, Any]:
     if (
@@ -81,7 +82,11 @@ def select_mtrag_reference_expansion(
         opportunity = raw.get("reuse_opportunity")
         if not isinstance(opportunity, Mapping):
             raise ValueError("coverage transition has invalid reuse metadata")
-        _, testable, _ = mtrag_testable_blocks(raw, block_size=block_size)
+        _, testable, _ = mtrag_testable_blocks(
+            raw,
+            block_size=block_size,
+            include_repacking=include_repacking,
+        )
         prompt_tokens = opportunity.get("current_token_count")
         if (
             task_id in excluded_task_ids
@@ -139,6 +144,7 @@ def select_mtrag_reference_expansion(
         "requested_task_count": task_count,
         "max_prompt_tokens": max_prompt_tokens,
         "max_testable_blocks": max_testable_blocks,
+        "repacking_enabled": include_repacking,
         "task_count": len(selected),
         "collection_count": len(collections),
         "collection_task_counts": {
