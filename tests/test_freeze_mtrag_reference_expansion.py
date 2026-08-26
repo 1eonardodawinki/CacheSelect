@@ -121,6 +121,7 @@ class FreezeMtragReferenceExpansionTests(TestCase):
             source.write_text("fixture\n", encoding="utf-8")
             source_sha256 = hashlib.sha256(source.read_bytes()).hexdigest()
             rows = [_row(split, "RAG", index) for index, split in enumerate(DatasetSplit)]
+            rows.append(_row(DatasetSplit.TRAIN, "RAG", 98))
             excluded = _row(DatasetSplit.TRAIN, "RAG", 99)
             excluded["reuse_opportunity"]["candidate_blocks"][0].update(
                 has_whole_source_block=False,
@@ -138,7 +139,7 @@ class FreezeMtragReferenceExpansionTests(TestCase):
                         "model": "Qwen/Qwen3-14B",
                         "tokenizer_class": "Qwen2Tokenizer",
                         "block_size": 16,
-                        "candidate_transition_count": 4,
+                        "candidate_transition_count": 5,
                         "transitions": rows,
                     }
                 ),
@@ -160,22 +161,34 @@ class FreezeMtragReferenceExpansionTests(TestCase):
             counterfactual = json.loads(
                 (root / "output" / "counterfactual-plan.json").read_text()
             )
+            reduced = freeze_mtrag_full_reference_splits(
+                coverage_path=coverage,
+                source_dataset_path=source,
+                output_dir=root / "reduced",
+                excluded_task_ids=frozenset({rows[0]["current_task_id"]}),
+            )
+            reduced_counterfactual = json.loads(
+                (root / "reduced" / "counterfactual-plan.json").read_text()
+            )
 
-            self.assertEqual(plan["candidate_transitions"], 4)
-            self.assertEqual(plan["executable_transitions"], 3)
+            self.assertEqual(plan["candidate_transitions"], 5)
+            self.assertEqual(plan["executable_transitions"], 4)
             self.assertEqual(plan["structurally_excluded_transitions"], 1)
         self.assertEqual(
             plan["candidate_transitions_by_split"],
-            {"train": 2, "validation": 1, "test": 1},
+            {"train": 3, "validation": 1, "test": 1},
         )
         self.assertEqual(
             plan["executable_transitions_by_split"],
-            {split.value: 1 for split in DatasetSplit},
+            {"train": 2, "validation": 1, "test": 1},
         )
         self.assertTrue(all(row["repacking_enabled"] for row in manifests.values()))
-        self.assertEqual(counterfactual["transition_count"], 3)
-        self.assertEqual(counterfactual["total_target_blocks"], 3)
+        self.assertEqual(counterfactual["transition_count"], 4)
+        self.assertEqual(counterfactual["total_target_blocks"], 4)
         self.assertEqual(counterfactual["batch_count"], 3)
+        self.assertEqual(reduced["previously_completed_transitions"], 1)
+        self.assertEqual(reduced["scheduled_transitions"], 3)
+        self.assertEqual(reduced_counterfactual["transition_count"], 3)
         self.assertEqual(
             counterfactual["reference_status"],
             "generated_in_trial_pending_review",

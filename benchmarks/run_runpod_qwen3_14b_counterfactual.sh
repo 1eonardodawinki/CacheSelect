@@ -14,6 +14,7 @@ MAX_CASES="${CACHESELECT_COUNTERFACTUAL_MAX_CASES:-}"
 FULL_DATASET="${CACHESELECT_FULL_MTRAG_COUNTERFACTUAL:-0}"
 START_BATCH="${CACHESELECT_COUNTERFACTUAL_START_BATCH:-1}"
 BLOCKS_PER_BATCH="${CACHESELECT_COUNTERFACTUAL_BLOCKS_PER_BATCH:-900}"
+EXCLUDE_PLAN="${CACHESELECT_COUNTERFACTUAL_EXCLUDE_PLAN:-$STORAGE/cacheselect-inputs/qwen3-mtrag-v3/counterfactual-plan.json}"
 MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
 MLP_EVALUATION="${CACHESELECT_MLP_EVALUATION:-0}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
@@ -81,6 +82,7 @@ export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
   exit 2
 }
 if [[ "$FULL_DATASET" == 1 ]]; then
+  test -s "$EXCLUDE_PLAN" || { echo "completed counterfactual plan not found: $EXCLUDE_PLAN" >&2; exit 2; }
   COVERAGE="$INPUTS/qwen3-mtrag-coverage.json"
   mkdir -p "$INPUTS"
   python -m benchmarks.analyze_mtrag_coverage \
@@ -89,6 +91,7 @@ if [[ "$FULL_DATASET" == 1 ]]; then
   python -m benchmarks.freeze_mtrag_reference_expansion \
     --coverage "$COVERAGE" --source-dataset "$MTRAG" \
     --output-dir "$INPUTS" --full-repacking-coverage \
+    --exclude-plan "$EXCLUDE_PLAN" \
     --target-blocks-per-batch "$BLOCKS_PER_BATCH"
 else
   test -s "$REFERENCES"

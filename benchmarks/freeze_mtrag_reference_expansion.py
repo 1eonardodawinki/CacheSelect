@@ -157,6 +157,7 @@ def freeze_mtrag_full_reference_splits(
     source_dataset_path: Path,
     output_dir: Path,
     target_blocks_per_batch: int = 900,
+    excluded_task_ids: frozenset[str] = frozenset(),
 ) -> dict[str, object]:
     if isinstance(target_blocks_per_batch, bool) or target_blocks_per_batch < 1:
         raise ValueError("target blocks per batch must be positive")
@@ -172,6 +173,7 @@ def freeze_mtrag_full_reference_splits(
 
     raw_counts: Counter[DatasetSplit] = Counter()
     executable_counts: Counter[DatasetSplit] = Counter()
+    excluded_counts: Counter[DatasetSplit] = Counter()
     max_prompt_tokens = 0
     max_testable_blocks = 0
     transitions = []
@@ -202,6 +204,9 @@ def freeze_mtrag_full_reference_splits(
             if not testable:
                 continue
             executable_counts[split] += 1
+            if row["current_task_id"] in excluded_task_ids:
+                excluded_counts[split] += 1
+                continue
             max_prompt_tokens = max(max_prompt_tokens, prompt_tokens)
             max_testable_blocks = max(max_testable_blocks, len(testable))
             transitions.append(
@@ -228,9 +233,9 @@ def freeze_mtrag_full_reference_splits(
         selected = select_mtrag_reference_expansion(
             coverage,
             split=split,
-            excluded_task_ids=frozenset(),
+            excluded_task_ids=excluded_task_ids,
             prior_conversation_counts={},
-            task_count=executable_counts[split],
+            task_count=executable_counts[split] - excluded_counts[split],
             max_prompt_tokens=max_prompt_tokens,
             max_testable_blocks=max_testable_blocks,
             include_repacking=True,
@@ -320,6 +325,12 @@ def freeze_mtrag_full_reference_splits(
         "executable_transitions_by_split": {
             split.value: executable_counts[split] for split in DatasetSplit
         },
+        "previously_completed_transitions": sum(excluded_counts.values()),
+        "scheduled_transitions": len(transitions),
+        "scheduled_transitions_by_split": {
+            split.value: executable_counts[split] - excluded_counts[split]
+            for split in DatasetSplit
+        },
         "structurally_excluded_transitions": sum(raw_counts.values())
         - sum(executable_counts.values()),
         "max_prompt_tokens": max_prompt_tokens,
@@ -347,19 +358,27 @@ def main() -> None:
     parser.add_argument("--validation-count", type=int, default=15)
     parser.add_argument("--full-repacking-coverage", action="store_true")
     parser.add_argument("--target-blocks-per-batch", type=int, default=900)
+    parser.add_argument("--exclude-plan", type=Path)
     args = parser.parse_args()
     if args.full_repacking_coverage:
         if args.existing_manifest:
             parser.error("full coverage does not accept existing manifests")
+        excluded_task_ids = frozenset()
+        if args.exclude_plan:
+            prior = json.loads(args.exclude_plan.read_text(encoding="utf-8"))
+            excluded_task_ids = frozenset(
+                row["current_task_id"] for row in prior["transitions"]
+            )
         plan = freeze_mtrag_full_reference_splits(
             coverage_path=args.coverage,
             source_dataset_path=args.source_dataset,
             output_dir=args.output_dir,
             target_blocks_per_batch=args.target_blocks_per_batch,
+            excluded_task_ids=excluded_task_ids,
         )
         print(
-            f"Frozen all {plan['executable_transitions']} executable reference "
-            f"tasks from {plan['candidate_transitions']} candidate transitions"
+            f"Scheduled {plan['scheduled_transitions']} new reference tasks; "
+            f"excluded {plan['previously_completed_transitions']} completed tasks"
         )
         return
     if not args.existing_manifest:
