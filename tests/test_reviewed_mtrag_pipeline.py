@@ -85,7 +85,7 @@ def _review_dir(root: Path, task: MtragTask) -> Path:
         "expected_answer": task.target_text,
     }
     hashes = {}
-    for current_split in ("train", "validation"):
+    for current_split in ("train", "validation", "test"):
         filename = f"{current_split}-reference-calibration.json"
         path = root / filename
         _write(

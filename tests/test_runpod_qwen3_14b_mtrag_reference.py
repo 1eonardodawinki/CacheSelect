@@ -35,19 +35,22 @@ class RunPodQwen3MtragReferenceTests(unittest.TestCase):
             'export PYTHONPATH="$PROJECT_ROOT/vllm',
             "import vllm; print(vllm.__file__)",
             "CACHESELECT_MODEL_DTYPE=bfloat16",
-            "CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS=768",
+            'CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS="$MAX_COMPLETION_TOKENS"',
             "CACHESELECT_HF_OFFLINE",
             "CACHESELECT_MTRAG_EXPAND_REFERENCES",
             "CACHESELECT_MTRAG_REMAINING_REFERENCES",
+            "CACHESELECT_MTRAG_FULL_REFERENCES",
             "benchmarks.analyze_mtrag_coverage",
             "benchmarks.freeze_mtrag_reference_expansion",
             "EXPECTED_TRAIN_COUNT=60",
             "EXPECTED_VALIDATION_COUNT=15",
             "results/qwen3-14b-mtrag-reference-expansion-v2",
             "--local-files-only",
+            "--full-repacking-coverage",
+            "REFERENCE_SPLITS=(train validation test)",
+            "MAX_COMPLETION_TOKENS=2048",
             "bash benchmarks/run_mtrag_reference_splits.slurm",
-            "train-reference-calibration.json",
-            "validation-reference-calibration.json",
+            '$RESULT_DIR/$SPLIT-reference-calibration.json',
             'row["cached_tokens"] == 0',
             'row["finish_reason"] == "stop"',
             "benchmarks.prepare_mtrag_reference_review",
@@ -57,7 +60,6 @@ class RunPodQwen3MtragReferenceTests(unittest.TestCase):
         for token in required_tokens:
             with self.subTest(token=token):
                 self.assertIn(token, script)
-        self.assertNotIn("test-manifest.json", script)
 
 
 if __name__ == "__main__":

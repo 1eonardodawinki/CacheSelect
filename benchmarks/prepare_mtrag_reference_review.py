@@ -49,7 +49,7 @@ def prepare_mtrag_reference_review(
                 not isinstance(task_id, str)
                 or not task_id
                 or task_id in task_ids
-                or split not in {"train", "validation"}
+                or split not in {"train", "validation", "test"}
                 or not isinstance(output, str)
                 or not output
                 or not isinstance(expected, str)

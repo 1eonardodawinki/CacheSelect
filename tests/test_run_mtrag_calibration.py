@@ -12,8 +12,8 @@ from benchmarks.run_mtrag_calibration import main
 
 
 class RunMtragCalibrationCommandTests(TestCase):
-    # Keep the split launcher valid and prevent it from opening the test manifest.
-    def test_slurm_launcher_runs_only_train_and_validation(self):
+    # Keep train/validation as the default while allowing an explicit test split.
+    def test_slurm_launcher_uses_explicit_reference_splits(self):
         script = (
             Path(__file__).resolve().parents[1]
             / "benchmarks"
@@ -28,7 +28,7 @@ class RunMtragCalibrationCommandTests(TestCase):
         )
         content = script.read_text(encoding="utf-8")
         for token in (
-            "SPLITS=(train validation)",
+            "CACHESELECT_MTRAG_REFERENCE_SPLITS:-train validation",
             "vllm serve",
             "--max-model-len 8192",
             '--dtype "$MODEL_DTYPE"',
@@ -37,12 +37,10 @@ class RunMtragCalibrationCommandTests(TestCase):
             "--enable-cacheselect",
             "python -m benchmarks.run_mtrag_calibration",
             '--manifest-model "$MANIFEST_MODEL"',
-            "train-reference-calibration.json",
-            "validation-reference-calibration.json",
+            '$RESULT_DIR/$SPLIT-reference-calibration.json',
         ):
             with self.subTest(token=token):
                 self.assertIn(token, content)
-        self.assertNotIn("test-manifest.json", content)
 
     # Wire source verification, recording, execution, and artifact saving together.
     def test_saves_complete_calibration_artifact(self):

@@ -39,17 +39,20 @@ class PrepareMtragReferenceReviewTests(TestCase):
             root = Path(temporary_directory)
             train = root / "train.json"
             validation = root / "validation.json"
+            test = root / "test.json"
             _artifact(train, "train", "task-train")
             _artifact(validation, "validation", "task-validation")
+            _artifact(test, "test", "task-test")
 
-            review, key = prepare_mtrag_reference_review((train, validation))
+            review, key = prepare_mtrag_reference_review((train, validation, test))
 
-        self.assertEqual(review["row_count"], 2)
-        self.assertEqual(key["row_count"], 2)
+        self.assertEqual(review["row_count"], 3)
+        self.assertEqual(key["row_count"], 3)
         self.assertNotIn("task_id", review["rows"][0])
         self.assertNotIn("split", review["rows"][0])
         self.assertTrue(all(row["verdict"] == "" for row in review["rows"]))
         self.assertEqual({row["split"] for row in key["rows"]}, {
             "train",
             "validation",
+            "test",
         })

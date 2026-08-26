@@ -19,7 +19,7 @@ MTRAG_INPUT="${CACHESELECT_MTRAG_INPUT:-$STORAGE_ROOT/cacheselect-data/mtrag/RAG
 SPLIT_ROOT="${CACHESELECT_MTRAG_SPLIT_ROOT:-results/mtrag-natural-splits-v1}"
 START_TIMEOUT="${CACHESELECT_SERVER_START_TIMEOUT_SECONDS:-3600}"
 MAX_COMPLETION_TOKENS="${CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS:-384}"
-SPLITS=(train validation)
+read -r -a SPLITS <<<"${CACHESELECT_MTRAG_REFERENCE_SPLITS:-train validation}"
 
 if ! [[ "$START_TIMEOUT" =~ ^[1-9][0-9]*$ ]]; then
   echo "CACHESELECT_SERVER_START_TIMEOUT_SECONDS must be positive" >&2
@@ -29,6 +29,13 @@ if ! [[ "$MAX_COMPLETION_TOKENS" =~ ^[1-9][0-9]*$ ]]; then
   echo "CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS must be positive" >&2
   exit 1
 fi
+[[ "${#SPLITS[@]}" -gt 0 ]] || exit 1
+for SPLIT in "${SPLITS[@]}"; do
+  [[ "$SPLIT" == train || "$SPLIT" == validation || "$SPLIT" == test ]] || {
+    echo "Invalid MTRAG reference split: $SPLIT" >&2
+    exit 1
+  }
+done
 
 EXPERIMENT_ID="${SLURM_JOB_ID:?Run this file with sbatch}"
 PORT=$((30000 + (EXPERIMENT_ID % 1000)))
@@ -150,7 +157,7 @@ SERVER_PID=$!
 wait_for_server
 echo "vLLM is healthy pid=$SERVER_PID"
 
-# Record training and validation separately; the sealed test manifest is absent.
+# Record each explicitly requested frozen split separately.
 for SPLIT in "${SPLITS[@]}"; do
   python -m benchmarks.run_mtrag_calibration \
     --input "$MTRAG_INPUT" \
@@ -165,10 +172,11 @@ for SPLIT in "${SPLITS[@]}"; do
 done
 
 stop_server
-test -s "$RESULT_DIR/train-reference-calibration.json"
-test -s "$RESULT_DIR/validation-reference-calibration.json"
+for SPLIT in "${SPLITS[@]}"; do
+  test -s "$RESULT_DIR/$SPLIT-reference-calibration.json"
+done
 
-echo "MTRAG training and validation references completed successfully"
+echo "MTRAG reference splits completed successfully: ${SPLITS[*]}"
 echo "results=$RESULT_DIR"
 echo "request_logs=$REQUEST_LOG_DIR"
 echo "server_log=$SERVER_LOG"

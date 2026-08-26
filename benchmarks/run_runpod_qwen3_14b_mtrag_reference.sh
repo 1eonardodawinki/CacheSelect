@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Collect uncached MTRAG train/validation answers from Qwen3-14B on RunPod.
+# Collect uncached MTRAG answers from Qwen3-14B on RunPod.
 
 set -Eeuo pipefail
 
@@ -10,6 +10,7 @@ MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
 MANIFEST_MODEL="${CACHESELECT_MTRAG_MANIFEST_MODEL:-Qwen/Qwen2.5-1.5B-Instruct}"
 EXPAND_REFERENCES="${CACHESELECT_MTRAG_EXPAND_REFERENCES:-0}"
 REMAINING_REFERENCES="${CACHESELECT_MTRAG_REMAINING_REFERENCES:-0}"
+FULL_REFERENCES="${CACHESELECT_MTRAG_FULL_REFERENCES:-0}"
 EXPECTED_GPU="${CACHESELECT_EXPECTED_GPU_NAME:-NVIDIA A40}"
 MINIMUM_GPU_MEMORY_MIB="${CACHESELECT_MINIMUM_GPU_MEMORY_MIB:-45000}"
 EXPERIMENT_ID="${CACHESELECT_EXPERIMENT_ID:-$(date -u +%s)}"
@@ -23,6 +24,8 @@ WRAPPER_LOG="$SERVER_LOG_ROOT/runpod-$RUN_ID.out"
 SPLIT_ROOT="results/mtrag-natural-splits-v1"
 EXPECTED_TRAIN_COUNT=21
 EXPECTED_VALIDATION_COUNT=6
+REFERENCE_SPLITS=(train validation)
+MAX_COMPLETION_TOKENS=768
 
 [[ "$EXPAND_REFERENCES" == 0 || "$EXPAND_REFERENCES" == 1 ]] || {
   echo "CACHESELECT_MTRAG_EXPAND_REFERENCES must be 0 or 1" >&2
@@ -32,7 +35,11 @@ EXPECTED_VALIDATION_COUNT=6
   echo "CACHESELECT_MTRAG_REMAINING_REFERENCES must be 0 or 1" >&2
   exit 2
 }
-((EXPAND_REFERENCES + REMAINING_REFERENCES <= 1)) || {
+[[ "$FULL_REFERENCES" == 0 || "$FULL_REFERENCES" == 1 ]] || {
+  echo "CACHESELECT_MTRAG_FULL_REFERENCES must be 0 or 1" >&2
+  exit 2
+}
+((EXPAND_REFERENCES + REMAINING_REFERENCES + FULL_REFERENCES <= 1)) || {
   echo "Choose only one MTRAG reference expansion mode" >&2
   exit 2
 }
@@ -115,7 +122,7 @@ VLLM_SOURCE="$(python -c 'import vllm; print(vllm.__file__)')"
 }
 
 # Freeze 75 unseen tasks from exact Qwen3 prompt geometry before inference.
-if [[ "$EXPAND_REFERENCES" == 1 ]]; then
+if [[ "$EXPAND_REFERENCES" == 1 || "$FULL_REFERENCES" == 1 ]]; then
   COVERAGE="$RESULT_DIR/qwen3-mtrag-coverage.json"
   SPLIT_ROOT="$RESULT_DIR/manifests"
   EXPECTED_TRAIN_COUNT=60
@@ -131,14 +138,24 @@ if [[ "$EXPAND_REFERENCES" == 1 ]]; then
     --model "$MODEL" \
     --block-size 16 \
     --local-files-only
-  python -m benchmarks.freeze_mtrag_reference_expansion \
-    --coverage "$COVERAGE" \
-    --source-dataset "$MTRAG_INPUT" \
-    --existing-manifest results/mtrag-natural-splits-v1/train-manifest.json \
-    --existing-manifest results/mtrag-natural-splits-v1/validation-manifest.json \
-    --output-dir "$SPLIT_ROOT" \
-    --train-count "$EXPECTED_TRAIN_COUNT" \
-    --validation-count "$EXPECTED_VALIDATION_COUNT"
+  if [[ "$FULL_REFERENCES" == 1 ]]; then
+    REFERENCE_SPLITS=(train validation test)
+    MAX_COMPLETION_TOKENS=2048
+    python -m benchmarks.freeze_mtrag_reference_expansion \
+      --coverage "$COVERAGE" \
+      --source-dataset "$MTRAG_INPUT" \
+      --output-dir "$SPLIT_ROOT" \
+      --full-repacking-coverage
+  else
+    python -m benchmarks.freeze_mtrag_reference_expansion \
+      --coverage "$COVERAGE" \
+      --source-dataset "$MTRAG_INPUT" \
+      --existing-manifest results/mtrag-natural-splits-v1/train-manifest.json \
+      --existing-manifest results/mtrag-natural-splits-v1/validation-manifest.json \
+      --output-dir "$SPLIT_ROOT" \
+      --train-count "$EXPECTED_TRAIN_COUNT" \
+      --validation-count "$EXPECTED_VALIDATION_COUNT"
+  fi
 fi
 
 export SLURM_JOB_ID="$EXPERIMENT_ID"
@@ -150,31 +167,34 @@ export CACHESELECT_HF_OFFLINE="${CACHESELECT_HF_OFFLINE:-1}"
 export CACHESELECT_MTRAG_MODEL="$MODEL"
 export CACHESELECT_MTRAG_MANIFEST_MODEL="$MANIFEST_MODEL"
 export CACHESELECT_MODEL_DTYPE=bfloat16
-export CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS=768
+export CACHESELECT_MTRAG_MAX_COMPLETION_TOKENS="$MAX_COMPLETION_TOKENS"
 export CACHESELECT_MTRAG_INPUT="$MTRAG_INPUT"
 export CACHESELECT_MTRAG_SPLIT_ROOT="$SPLIT_ROOT"
+export CACHESELECT_MTRAG_REFERENCE_SPLITS="${REFERENCE_SPLITS[*]}"
 
 set -o pipefail
 bash benchmarks/run_mtrag_reference_splits.slurm 2>&1 | tee "$WRAPPER_LOG"
 
-TRAIN="$RESULT_DIR/train-reference-calibration.json"
-VALIDATION="$RESULT_DIR/validation-reference-calibration.json"
-test -s "$TRAIN"
-test -s "$VALIDATION"
+REFERENCE_FILES=()
+for SPLIT in "${REFERENCE_SPLITS[@]}"; do
+  REFERENCE_FILES+=("$RESULT_DIR/$SPLIT-reference-calibration.json")
+done
 
 # Reject missing, cached, truncated, or provenance-mismatched answers.
-python - \
-  "$TRAIN" "$VALIDATION" "$MODEL" "$MANIFEST_MODEL" \
-  "$EXPECTED_TRAIN_COUNT" "$EXPECTED_VALIDATION_COUNT" <<'PY'
+python - "$RESULT_DIR" "$SPLIT_ROOT" "$MODEL" "$MANIFEST_MODEL" \
+  "${REFERENCE_SPLITS[@]}" <<'PY'
 import json
 import sys
 
-expected_counts = {"train": int(sys.argv[5]), "validation": int(sys.argv[6])}
-for path, split in zip(sys.argv[1:3], expected_counts):
+result_dir, split_root, model, manifest_model = sys.argv[1:5]
+for split in sys.argv[5:]:
+    path = f"{result_dir}/{split}-reference-calibration.json"
+    manifest_path = f"{split_root}/{split}-manifest.json"
     artifact = json.load(open(path, encoding="utf-8"))
+    manifest = json.load(open(manifest_path, encoding="utf-8"))
     assert artifact["model"] == sys.argv[3]
     assert artifact["manifest_selection_model"] == sys.argv[4]
-    assert artifact["request_count"] == expected_counts[split]
+    assert artifact["request_count"] == manifest["task_count"]
     assert all(row["split"] == split for row in artifact["rows"])
     assert all(row["cached_tokens"] == 0 for row in artifact["rows"])
     assert all(row["finish_reason"] == "stop" for row in artifact["rows"])
@@ -183,7 +203,7 @@ PY
 
 # Prepare answers for a later blinded manual quality comparison.
 python -m benchmarks.prepare_mtrag_reference_review \
-  --input "$TRAIN" "$VALIDATION" \
+  --input "${REFERENCE_FILES[@]}" \
   --review-output "$RESULT_DIR/blinded-reference-review.json" \
   --key-output "$RESULT_DIR/blinded-reference-key.json"
 

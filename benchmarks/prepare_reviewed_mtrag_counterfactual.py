@@ -23,6 +23,7 @@ SELECTION_SEED = "cacheselect-qwen3-14b-mtrag-counterfactual-v1"
 REFERENCE_FILES = (
     "train-reference-calibration.json",
     "validation-reference-calibration.json",
+    "test-reference-calibration.json",
 )
 
 
@@ -73,8 +74,10 @@ def _accepted_review(directory: Path, model: str) -> tuple[str, int, list[dict],
         Path(name).name: digest
         for name, digest in (key.get("source_artifact_sha256") or {}).items()
     }
+    if not expected_hashes or not set(expected_hashes) <= set(REFERENCE_FILES):
+        raise ValueError("identity key references unexpected source artifacts")
     references, source_hash = {}, None
-    for filename in REFERENCE_FILES:
+    for filename in sorted(expected_hashes):
         path = directory / filename
         artifact = _read(path)
         current_hash = artifact.get("source_sha256")
@@ -90,9 +93,6 @@ def _accepted_review(directory: Path, model: str) -> tuple[str, int, list[dict],
         references.update(
             {(filename, task_id): row for task_id, row in _index(artifact, "task_id").items()}
         )
-    if set(expected_hashes) != set(REFERENCE_FILES):
-        raise ValueError("identity key references unexpected source artifacts")
-
     accepted = []
     for review_id in sorted(blinded):
         judgment, identity = judgments[review_id], identities[review_id]
