@@ -110,7 +110,7 @@ stop_server() {
   if [[ -n "$SERVER_PID" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
     kill -TERM -- "-$SERVER_PID" 2>/dev/null || true
     for _ in {1..30}; do
-      kill -0 "$SERVER_PID" 2>/dev/null || return
+      kill -0 "$SERVER_PID" 2>/dev/null || return 0
       sleep 1
     done
     kill -KILL -- "-$SERVER_PID" 2>/dev/null || true
