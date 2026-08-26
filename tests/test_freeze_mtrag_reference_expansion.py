@@ -25,6 +25,7 @@ def _row(split: DatasetSplit, collection: str, index: int) -> dict:
     return {
         "conversation_id": conversation,
         "collection": collection,
+        "previous_task_id": f"{conversation}<::>1",
         "current_task_id": f"{conversation}<::>2",
         "shared_document_ids": ["document"],
         "reuse_opportunity": {
@@ -156,6 +157,9 @@ class FreezeMtragReferenceExpansionTests(TestCase):
                 )
                 for split in DatasetSplit
             }
+            counterfactual = json.loads(
+                (root / "output" / "counterfactual-plan.json").read_text()
+            )
 
             self.assertEqual(plan["candidate_transitions"], 4)
             self.assertEqual(plan["executable_transitions"], 3)
@@ -169,3 +173,10 @@ class FreezeMtragReferenceExpansionTests(TestCase):
             {split.value: 1 for split in DatasetSplit},
         )
         self.assertTrue(all(row["repacking_enabled"] for row in manifests.values()))
+        self.assertEqual(counterfactual["transition_count"], 3)
+        self.assertEqual(counterfactual["total_target_blocks"], 3)
+        self.assertEqual(counterfactual["batch_count"], 3)
+        self.assertEqual(
+            counterfactual["reference_status"],
+            "generated_in_trial_pending_review",
+        )

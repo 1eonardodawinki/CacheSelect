@@ -10,11 +10,18 @@ from collections.abc import Mapping, Sequence
 from pathlib import Path
 
 from benchmarks.block_dataset import DatasetSplit
-from benchmarks.mtrag import mtrag_conversation_split, mtrag_source_sha256
+from benchmarks.mtrag import (
+    MTRAG_SPLIT_SEED,
+    mtrag_conversation_split,
+    mtrag_source_sha256,
+)
 from benchmarks.mtrag_reference_expansion import (
     select_mtrag_reference_expansion,
 )
 from benchmarks.mtrag_pilot import mtrag_testable_blocks
+from benchmarks.reviewed_mtrag_counterfactual import (
+    QWEN3_REVIEWED_REFERENCE_GATE,
+)
 
 
 # Read completed task identities without inspecting their model outputs.
@@ -149,7 +156,10 @@ def freeze_mtrag_full_reference_splits(
     coverage_path: Path,
     source_dataset_path: Path,
     output_dir: Path,
+    target_blocks_per_batch: int = 900,
 ) -> dict[str, object]:
+    if isinstance(target_blocks_per_batch, bool) or target_blocks_per_batch < 1:
+        raise ValueError("target blocks per batch must be positive")
     coverage = json.loads(coverage_path.read_text(encoding="utf-8"))
     source_sha256 = mtrag_source_sha256(source_dataset_path)
     rows = coverage.get("transitions")
@@ -164,6 +174,7 @@ def freeze_mtrag_full_reference_splits(
     executable_counts: Counter[DatasetSplit] = Counter()
     max_prompt_tokens = 0
     max_testable_blocks = 0
+    transitions = []
     block_size = coverage.get("block_size")
     if isinstance(block_size, bool) or not isinstance(block_size, int):
         raise ValueError("coverage block size is invalid")
@@ -183,7 +194,7 @@ def freeze_mtrag_full_reference_splits(
         if candidate_blocks:
             split = mtrag_conversation_split(conversation_id)
             raw_counts[split] += 1
-            _, testable, _ = mtrag_testable_blocks(
+            candidates, testable, excluded = mtrag_testable_blocks(
                 row,
                 block_size=block_size,
                 include_repacking=True,
@@ -193,6 +204,20 @@ def freeze_mtrag_full_reference_splits(
             executable_counts[split] += 1
             max_prompt_tokens = max(max_prompt_tokens, prompt_tokens)
             max_testable_blocks = max(max_testable_blocks, len(testable))
+            transitions.append(
+                {
+                    "split": split.value,
+                    "conversation_id": conversation_id,
+                    "collection": row["collection"],
+                    "previous_task_id": row["previous_task_id"],
+                    "current_task_id": row["current_task_id"],
+                    "shared_document_ids": row["shared_document_ids"],
+                    "candidate_block_indices": list(candidates),
+                    "testable_block_indices": list(testable),
+                    "target_block_indices": list(testable),
+                    "excluded_output_block_index": excluded,
+                }
+            )
 
     if sum(raw_counts.values()) != coverage.get("candidate_transition_count"):
         raise ValueError("coverage candidate transition count is inconsistent")
@@ -219,6 +244,70 @@ def freeze_mtrag_full_reference_splits(
         path.write_text(json.dumps(artifact, indent=2) + "\n", encoding="utf-8")
         paths[split.value] = str(path)
 
+    split_order = {split.value: index for index, split in enumerate(DatasetSplit)}
+    transitions.sort(
+        key=lambda row: (split_order[row["split"]], row["current_task_id"])
+    )
+    batches = []
+    start = blocks = count = 0
+    current_split = None
+    for index, row in enumerate(transitions):
+        row_blocks = len(row["target_block_indices"])
+        if count and (
+            blocks + row_blocks > target_blocks_per_batch
+            or row["split"] != current_split
+        ):
+            batches.append(
+                {
+                    "batch": len(batches) + 1,
+                    "split": current_split,
+                    "start_case": start + 1,
+                    "case_count": count,
+                    "target_block_count": blocks,
+                }
+            )
+            start, blocks, count = index, 0, 0
+        current_split = row["split"]
+        blocks += row_blocks
+        count += 1
+    batches.append(
+        {
+            "batch": len(batches) + 1,
+            "split": current_split,
+            "start_case": start + 1,
+            "case_count": count,
+            "target_block_count": blocks,
+        }
+    )
+    counterfactual_plan = {
+        "schema_version": 1,
+        "selection": "mtrag-audited-counterfactual-pilot",
+        "reference_status": "generated_in_trial_pending_review",
+        "quality_calibration_id": QWEN3_REVIEWED_REFERENCE_GATE.calibration_id,
+        "source_model": coverage.get("model"),
+        "source_prompt_template_version": coverage.get("prompt_template_version"),
+        "source_dataset_sha256": source_sha256,
+        "source_coverage_sha256": coverage_sha256,
+        "split_seed": MTRAG_SPLIT_SEED,
+        "block_size": block_size,
+        "max_target_blocks": None,
+        "repacking_enabled": True,
+        "transition_count": len(transitions),
+        "total_testable_blocks": sum(
+            len(row["testable_block_indices"]) for row in transitions
+        ),
+        "total_target_blocks": sum(
+            len(row["target_block_indices"]) for row in transitions
+        ),
+        "target_blocks_per_batch": target_blocks_per_batch,
+        "batch_count": len(batches),
+        "batches": batches,
+        "transitions": transitions,
+    }
+    (output_dir / "counterfactual-plan.json").write_text(
+        json.dumps(counterfactual_plan, indent=2) + "\n", encoding="utf-8"
+    )
+
     plan = {
         "schema_version": 1,
         "analysis": "mtrag-full-repacking-reference-plan",
@@ -236,6 +325,8 @@ def freeze_mtrag_full_reference_splits(
         "max_prompt_tokens": max_prompt_tokens,
         "max_testable_blocks": max_testable_blocks,
         "selector_test_status": "frozen_unscored",
+        "counterfactual_plan": str(output_dir / "counterfactual-plan.json"),
+        "counterfactual_batches": len(batches),
         "manifests": paths,
     }
     (output_dir / "full-reference-plan.json").write_text(
@@ -255,6 +346,7 @@ def main() -> None:
     parser.add_argument("--train-count", type=int, default=60)
     parser.add_argument("--validation-count", type=int, default=15)
     parser.add_argument("--full-repacking-coverage", action="store_true")
+    parser.add_argument("--target-blocks-per-batch", type=int, default=900)
     args = parser.parse_args()
     if args.full_repacking_coverage:
         if args.existing_manifest:
@@ -263,6 +355,7 @@ def main() -> None:
             coverage_path=args.coverage,
             source_dataset_path=args.source_dataset,
             output_dir=args.output_dir,
+            target_blocks_per_batch=args.target_blocks_per_batch,
         )
         print(
             f"Frozen all {plan['executable_transitions']} executable reference "
