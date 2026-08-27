@@ -113,6 +113,10 @@ def analyze_mtrag_coverage(
         "whole_source_candidate_transition_count": sum(
             opportunity["whole_source_block_count"] > 0 for opportunity in opportunities
         ),
+        "repacking_candidate_transition_count": sum(
+            opportunity["repacking_required_block_count"] > 0
+            for opportunity in opportunities
+        ),
         "candidate_block_count": sum(
             opportunity["candidate_block_count"] for opportunity in opportunities
         ),

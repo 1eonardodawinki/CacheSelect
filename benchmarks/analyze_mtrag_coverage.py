@@ -8,6 +8,7 @@ from pathlib import Path
 
 from transformers import AutoTokenizer
 
+from benchmarks.chatrag import load_chatrag_tasks
 from benchmarks.mtrag import load_mtrag_tasks, mtrag_source_sha256
 from benchmarks.mtrag_coverage import analyze_mtrag_coverage
 
@@ -17,6 +18,9 @@ def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--input-format", choices=("mtrag", "chatrag"), default="mtrag")
+    parser.add_argument("--subset", default="doc2dial")
+    parser.add_argument("--max-contexts", type=int, default=5)
     parser.add_argument(
         "--model",
         default="Qwen/Qwen2.5-1.5B-Instruct",
@@ -29,8 +33,8 @@ def _parse_args() -> argparse.Namespace:
         help="Fail instead of downloading a tokenizer missing from the local cache.",
     )
     args = parser.parse_args()
-    if args.block_size < 1:
-        parser.error("--block-size must be positive")
+    if args.block_size < 1 or args.max_contexts < 1:
+        parser.error("--block-size and --max-contexts must be positive")
     return args
 
 
@@ -41,7 +45,15 @@ def main() -> None:
         args.model,
         local_files_only=args.local_files_only,
     )
-    tasks = load_mtrag_tasks(args.input)
+    tasks = (
+        load_mtrag_tasks(args.input)
+        if args.input_format == "mtrag"
+        else load_chatrag_tasks(
+            args.input,
+            subset=args.subset,
+            max_contexts=args.max_contexts,
+        )
+    )
     result = analyze_mtrag_coverage(
         tasks,
         tokenizer=tokenizer,
@@ -54,12 +66,22 @@ def main() -> None:
         "model": args.model,
         "tokenizer_class": type(tokenizer).__name__,
     }
+    if args.input_format == "chatrag":
+        artifact.update(
+            analysis="chatrag-natural-block-coverage",
+            input_format="chatrag",
+            subset=args.subset,
+            max_contexts=args.max_contexts,
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(artifact, indent=2) + "\n",
         encoding="utf-8",
     )
-    print(f"Analyzed {result['transition_count']} MTRAG transitions")
+    print(
+        f"Analyzed {result['transition_count']} "
+        f"{args.input_format.upper()} transitions"
+    )
     print(
         "Found "
         f"{result['whole_source_candidate_transition_count']} transitions "
