@@ -10,17 +10,16 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from benchmarks.counterfactual_workflow import run_counterfactual_dataset_workflow
 from benchmarks.counterfactual_trial import (
     CounterfactualReferenceQualityError,
     _require_fresh_full_recompute,
 )
+from benchmarks.counterfactual_workflow import run_counterfactual_dataset_workflow
 from benchmarks.evaluation import compare_response_quality
 from benchmarks.mtrag_trace import MtragCounterfactualCase
 from benchmarks.run_vllm_baseline import _observe_request
 from benchmarks.schema import save_trace
 from observability.request_recorder import RequestRecorder
-
 
 COUNT_FIELDS = (
     "trial_count",
@@ -55,7 +54,11 @@ def run_mtrag_policy_cases(
         requests = {request.request_id: request for request in case.trace.requests}
         source = requests[transition.previous_request_id]
         edited = requests[transition.current_request_id]
-        approved_output = reference_outputs[edited.request_id]
+        approved_output = (
+            reference_outputs[edited.request_id]
+            if reference_outputs is not None
+            else None
+        )
         evaluation_id = uuid4().hex
         reference = replace(edited, request_id=f"{evaluation_id}:reference")
         donor = replace(source, request_id=f"{evaluation_id}:donor")
@@ -145,7 +148,9 @@ def run_mtrag_policy_cases(
                 "split": case.split.value,
                 "collection": case.collection,
                 "approved_reference_exact_match": (
-                    reference_observation.get("output_text") == approved_output
+                    None
+                    if approved_output is None
+                    else reference_observation.get("output_text") == approved_output
                 ),
                 "reference_output": reference_observation.get("output_text"),
                 "policy_output": policy_observation.get("output_text"),

@@ -7,6 +7,9 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 
+from benchmarks.block_dataset import DatasetSplit
+from benchmarks.chatrag import load_chatrag_tasks
+from benchmarks.chatrag_policy import build_chatrag_policy_cases
 from benchmarks.mtrag import load_mtrag_tasks, mtrag_source_sha256
 from benchmarks.mtrag_counterfactual import (
     run_mtrag_counterfactual_cases,
@@ -26,6 +29,8 @@ from observability.request_recorder import RequestRecorder, validate_ledger
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input", type=Path, required=True)
+    parser.add_argument("--input-format", choices=("mtrag", "chatrag"), default="mtrag")
+    parser.add_argument("--subset", default="doc2dial")
     parser.add_argument("--manifest", type=Path, required=True)
     approval = parser.add_mutually_exclusive_group(required=True)
     approval.add_argument("--audit", type=Path)
@@ -42,6 +47,11 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--start-case", type=int, default=1)
     parser.add_argument("--max-cases", type=int)
     parser.add_argument("--policy-evaluation", action="store_true")
+    parser.add_argument(
+        "--policy-split",
+        choices=("validation", "test"),
+        default="validation",
+    )
     parser.add_argument("--run-id", default=None)
     parser.add_argument("--request-log-dir", type=Path, default=None)
     args = parser.parse_args()
@@ -53,8 +63,16 @@ def _parse_args() -> argparse.Namespace:
         parser.error("--max-cases must be positive")
     if args.audit and not args.reference_artifact:
         parser.error("--audit requires --reference-artifact")
-    if args.live_references and args.policy_evaluation:
+    if (
+        args.live_references
+        and args.policy_evaluation
+        and args.input_format != "chatrag"
+    ):
         parser.error("live references cannot be used for policy evaluation")
+    if args.input_format == "chatrag" and not (
+        args.live_references and args.policy_evaluation
+    ):
+        parser.error("ChatRAG requires live-reference policy evaluation")
     return args
 
 
@@ -63,7 +81,31 @@ def main() -> None:
     args = _parse_args()
     manifest = json.loads(args.manifest.read_text(encoding="utf-8"))
     source_sha256 = mtrag_source_sha256(args.input)
-    if args.live_references:
+    if args.input_format == "chatrag":
+        if manifest.get("source_dataset_sha256") != source_sha256:
+            raise ValueError("ChatRAG source and policy manifest do not match")
+        max_contexts = manifest.get("max_contexts")
+        if isinstance(max_contexts, bool) or not isinstance(max_contexts, int):
+            raise ValueError("ChatRAG manifest has no valid context limit")
+        cases = build_chatrag_policy_cases(
+            load_chatrag_tasks(
+                args.input,
+                subset=args.subset,
+                max_contexts=max_contexts,
+            ),
+            manifest,
+            split=DatasetSplit(args.policy_split),
+            expected_model=args.model,
+        )
+        outputs = None
+        require_exact_reference = False
+        experiment = "qwen3-chatrag-external-policy"
+        approval_metadata = {
+            "reference_status": "generated_live",
+            "subset": args.subset,
+            "policy_split": args.policy_split,
+        }
+    elif args.live_references:
         rows = manifest.get("transitions")
         if (
             manifest.get("reference_status")
@@ -134,8 +176,9 @@ def main() -> None:
         experiment = "mtrag-counterfactual-pilot"
         approval_metadata = {"manual_audit": str(args.audit)}
     if args.policy_evaluation:
-        cases = tuple(case for case in cases if case.split.value == "validation")
-        experiment = "qwen3-reviewed-mtrag-natural-policy"
+        cases = tuple(case for case in cases if case.split.value == args.policy_split)
+        if args.input_format == "mtrag":
+            experiment = "qwen3-reviewed-mtrag-natural-policy"
     source_case_count = len(cases)
     if args.start_case > source_case_count:
         raise ValueError("--start-case exceeds the frozen MTRAG case count")
@@ -150,7 +193,7 @@ def main() -> None:
     recorder = RequestRecorder(
         run_id=run_id,
         model=args.model,
-        backend="vllm-mtrag-counterfactual",
+        backend=f"vllm-{args.input_format}-counterfactual",
         log_dir=args.request_log_dir,
         invocation_metadata={
             "experiment": experiment,
@@ -209,7 +252,7 @@ def main() -> None:
     trials = (
         "" if args.policy_evaluation else f" and {result['trial_count']} block trials"
     )
-    print(f"Completed {result['case_count']} MTRAG cases{trials}")
+    print(f"Completed {result['case_count']} {args.input_format.upper()} cases{trials}")
     print(f"Saved pilot summary to {summary_path}")
     print(f"Saved full request ledger to {ledger.path}")
 

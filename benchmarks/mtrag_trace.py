@@ -24,11 +24,14 @@ from benchmarks.schema import (
     WorkloadTrace,
 )
 
+
 # Build one request without exposing its answer or segments to vLLM.
 def build_mtrag_request_spec(
     task: MtragTask,
     *,
     quality_gate: ReferenceSimilarityGate,
+    workload: str = "mtrag_rag",
+    source_name: str = "IBM MTRAG",
 ) -> RequestSpec:
     if not task.target_text:
         raise ValueError("MTRAG request requires a reference answer")
@@ -54,7 +57,7 @@ def build_mtrag_request_spec(
     ]
     return RequestSpec(
         request_id=task.task_id,
-        workload="mtrag_rag",
+        workload=workload,
         sequence_index=task.turn,
         messages=render_mtrag_messages(task),
         segments=[
@@ -78,7 +81,7 @@ def build_mtrag_request_spec(
         ground_truth=RequestGroundTruth(
             expected_answer=task.target_text,
             requirements=[],
-            notes=(f"IBM MTRAG task {task.task_id} from collection {task.collection}."),
+            notes=(f"{source_name} task {task.task_id} from {task.collection}."),
             reference_similarity_gate=quality_gate,
         ),
         # Keep the completion budget for the answer rather than Qwen3 reasoning.
@@ -129,6 +132,9 @@ def build_mtrag_transition_trace(
     current_task: MtragTask,
     *,
     quality_gate: ReferenceSimilarityGate,
+    workload: str = "mtrag_rag",
+    source_name: str = "IBM MTRAG",
+    transition_prefix: str = "mtrag",
 ) -> WorkloadTrace:
     if previous_task.conversation_id != current_task.conversation_id:
         raise ValueError("MTRAG transition cannot cross conversations")
@@ -136,16 +142,26 @@ def build_mtrag_transition_trace(
         raise ValueError("MTRAG transition cannot cross collections")
     if current_task.turn != previous_task.turn + 1:
         raise ValueError("MTRAG transition tasks must be consecutive")
-    previous = build_mtrag_request_spec(previous_task, quality_gate=quality_gate)
-    current = build_mtrag_request_spec(current_task, quality_gate=quality_gate)
+    previous = build_mtrag_request_spec(
+        previous_task,
+        quality_gate=quality_gate,
+        workload=workload,
+        source_name=source_name,
+    )
+    current = build_mtrag_request_spec(
+        current_task,
+        quality_gate=quality_gate,
+        workload=workload,
+        source_name=source_name,
+    )
     transition_id = (
-        f"mtrag:{current_task.conversation_id}:"
+        f"{transition_prefix}:{current_task.conversation_id}:"
         f"{previous_task.turn}-to-{current_task.turn}"
     )
     return WorkloadTrace(
         trace_id=transition_id,
-        workload="mtrag_rag",
-        description="One natural adjacent IBM MTRAG request transition.",
+        workload=workload,
+        description=f"One natural adjacent {source_name} request transition.",
         requests=[previous, current],
         transitions=[
             RequestTransition(

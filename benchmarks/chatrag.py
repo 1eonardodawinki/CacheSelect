@@ -7,7 +7,25 @@ import json
 from pathlib import Path
 from typing import Any, Iterable
 
+from benchmarks.block_dataset import DatasetSplit
 from benchmarks.mtrag import MtragContext, MtragMessage, MtragTask
+
+CHATRAG_SPLIT_SEED = "cacheselect-chatrag-v1"
+
+
+def chatrag_conversation_split(conversation_id: str) -> DatasetSplit:
+    """Assign complete ChatRAG conversations to a frozen 60/20/20 split."""
+    if not conversation_id:
+        raise ValueError("conversation ID must not be empty")
+    digest = hashlib.sha256(
+        f"{CHATRAG_SPLIT_SEED}:{conversation_id}".encode()
+    ).hexdigest()
+    bucket = int(digest[:8], 16) % 100
+    if bucket < 60:
+        return DatasetSplit.TRAIN
+    if bucket < 80:
+        return DatasetSplit.VALIDATION
+    return DatasetSplit.TEST
 
 
 def _list(value: Any, field: str) -> list[Any]:
