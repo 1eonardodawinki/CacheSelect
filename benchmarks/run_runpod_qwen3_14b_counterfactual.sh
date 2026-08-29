@@ -15,6 +15,7 @@ FULL_DATASET="${CACHESELECT_FULL_MTRAG_COUNTERFACTUAL:-0}"
 START_BATCH="${CACHESELECT_COUNTERFACTUAL_START_BATCH:-1}"
 BLOCKS_PER_BATCH="${CACHESELECT_COUNTERFACTUAL_BLOCKS_PER_BATCH:-900}"
 EXCLUDE_PLAN="${CACHESELECT_COUNTERFACTUAL_EXCLUDE_PLAN:-$ROOT/benchmarks/mtrag_completed_transitions.json}"
+EXCLUDE_COMPLETED="${CACHESELECT_COUNTERFACTUAL_EXCLUDE_COMPLETED:-1}"
 MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
 MLP_EVALUATION="${CACHESELECT_MLP_EVALUATION:-0}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
@@ -54,6 +55,7 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
 [[ "$FULL_DATASET" == 0 || "$FULL_DATASET" == 1 ]] || exit 2
 [[ "$START_BATCH" =~ ^[1-9][0-9]*$ ]] || exit 2
 [[ "$BLOCKS_PER_BATCH" =~ ^[1-9][0-9]*$ ]] || exit 2
+[[ "$EXCLUDE_COMPLETED" == 0 || "$EXCLUDE_COMPLETED" == 1 ]] || exit 2
 [[ "$MLP_SMOKE" == 0 || "$MLP_SMOKE" == 1 ]] || exit 2
 [[ "$MLP_EVALUATION" == 0 || "$MLP_EVALUATION" == 1 ]] || exit 2
 [[ "$MLP_SMOKE" != 1 || "$MLP_EVALUATION" != 1 ]] || exit 2
@@ -84,7 +86,11 @@ export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
   exit 2
 }
 if [[ "$FULL_DATASET" == 1 ]]; then
-  test -s "$EXCLUDE_PLAN" || { echo "completed counterfactual plan not found: $EXCLUDE_PLAN" >&2; exit 2; }
+  EXCLUDE_ARGS=()
+  if [[ "$EXCLUDE_COMPLETED" == 1 ]]; then
+    test -s "$EXCLUDE_PLAN" || { echo "completed counterfactual plan not found: $EXCLUDE_PLAN" >&2; exit 2; }
+    EXCLUDE_ARGS+=(--exclude-plan "$EXCLUDE_PLAN")
+  fi
   COVERAGE="$INPUTS/qwen3-mtrag-coverage.json"
   mkdir -p "$INPUTS"
   python -m benchmarks.analyze_mtrag_coverage \
@@ -93,7 +99,7 @@ if [[ "$FULL_DATASET" == 1 ]]; then
   python -m benchmarks.freeze_mtrag_reference_expansion \
     --coverage "$COVERAGE" --source-dataset "$MTRAG" \
     --output-dir "$INPUTS" --full-repacking-coverage \
-    --exclude-plan "$EXCLUDE_PLAN" \
+    "${EXCLUDE_ARGS[@]}" \
     --target-blocks-per-batch "$BLOCKS_PER_BATCH"
 else
   test -s "$REFERENCES"
@@ -103,6 +109,7 @@ printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
   "$COMMIT" "$MODEL" "$GPU" "$PLATFORM" \
   >"$RESULT/metadata.env"
 printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
+printf 'max_cases=%s\n' "${MAX_CASES:-all}" >>"$RESULT/metadata.env"
 printf 'correct_kv_positions=%s\n' "$CORRECT_KV_POSITIONS" >>"$RESULT/metadata.env"
 if [[ "$MLP_EVALUATION" == 1 ]]; then
   cp "$MLP_MODEL" "$RESULT/mlp-model.json"
@@ -228,8 +235,23 @@ fi
 if [[ "$FULL_DATASET" == 1 ]]; then
   BATCH_COUNT="$(python -c 'import json,sys; print(json.load(open(sys.argv[1]))["batch_count"])' "$PLAN")"
   ((START_BATCH <= BATCH_COUNT)) || { echo "start batch exceeds $BATCH_COUNT" >&2; exit 2; }
+  CASES_LEFT="$MAX_CASES"
   while IFS=$'\t' read -r BATCH_INDEX BATCH_SPLIT BATCH_START BATCH_CASES BATCH_BLOCKS; do
     ((BATCH_INDEX >= START_BATCH)) || continue
+    if [[ -n "$CASES_LEFT" ]]; then
+      ((CASES_LEFT > 0)) || break
+      RUN_CASES=$((BATCH_CASES < CASES_LEFT ? BATCH_CASES : CASES_LEFT))
+      RUN_BLOCKS="$(python - "$PLAN" "$BATCH_START" "$RUN_CASES" <<'PY'
+import json, sys
+rows = json.load(open(sys.argv[1], encoding="utf-8"))["transitions"]
+start = int(sys.argv[2]) - 1
+print(sum(len(row["target_block_indices"]) for row in rows[start:start + int(sys.argv[3])]))
+PY
+)"
+    else
+      RUN_CASES="$BATCH_CASES"
+      RUN_BLOCKS="$BATCH_BLOCKS"
+    fi
     BATCH_TAG="$(printf '%02d' "$BATCH_INDEX")"
     BATCH_RUN_ID="$RUN_ID-batch-$BATCH_TAG"
     BATCH_RESULT="$STORAGE/cacheselect-results/$BATCH_RUN_ID"
@@ -243,11 +265,11 @@ if [[ "$FULL_DATASET" == 1 ]]; then
       --input "$MTRAG" --manifest "$PLAN" --live-references \
       --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
       --max-completion-tokens 2048 --timeout-seconds 900 \
-      --start-case "$BATCH_START" --max-cases "$BATCH_CASES" \
+      --start-case "$BATCH_START" --max-cases "$RUN_CASES" \
       --run-id "$BATCH_RUN_ID" --request-log-dir "$BATCH_RESULT/request-logs" \
       --output-dir "$BATCH_RESULT" --summary-output "$BATCH_RESULT/summary.json"
 
-    python - "$BATCH_RESULT/summary.json" "$BATCH_BLOCKS" "$MODEL" <<'PY'
+    python - "$BATCH_RESULT/summary.json" "$RUN_BLOCKS" "$MODEL" <<'PY'
 import json, pathlib, sys
 path = pathlib.Path(sys.argv[1])
 summary = json.loads(path.read_text(encoding="utf-8"))
@@ -294,7 +316,8 @@ PY
     BATCH_ARCHIVE="$STORAGE/$BATCH_RUN_ID-artifacts.tar.gz"
     tar -czf "$BATCH_ARCHIVE" -C "$STORAGE" \
       "cacheselect-results/$BATCH_RUN_ID"
-    echo "Completed batch $BATCH_INDEX/$BATCH_COUNT ($BATCH_BLOCKS blocks)"
+    [[ -z "$CASES_LEFT" ]] || CASES_LEFT=$((CASES_LEFT - RUN_CASES))
+    echo "Completed batch $BATCH_INDEX/$BATCH_COUNT ($RUN_BLOCKS blocks)"
     echo "archive=$BATCH_ARCHIVE"
     echo "archive_sha256=$(sha256sum "$BATCH_ARCHIVE" | cut -d ' ' -f 1)"
   done < <(python - "$PLAN" <<'PY'
@@ -304,6 +327,10 @@ for row in plan["batches"]:
     print(row["batch"], row["split"], row["start_case"], row["case_count"], row["target_block_count"], sep="\t")
 PY
   )
+  [[ -z "$CASES_LEFT" || "$CASES_LEFT" == 0 ]] || {
+    echo "$CASES_LEFT requested cases were not run" >&2
+    exit 2
+  }
   stop_server
   SERVER_PID=""
   echo "Completed all full-MTRAG batches from batch $START_BATCH"

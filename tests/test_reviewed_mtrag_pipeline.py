@@ -317,6 +317,7 @@ class ReviewedMtragPipelineTests(TestCase):
             "CACHESELECT_FULL_MTRAG_COUNTERFACTUAL",
             "CACHESELECT_COUNTERFACTUAL_START_BATCH",
             "CACHESELECT_COUNTERFACTUAL_BLOCKS_PER_BATCH",
+            "CACHESELECT_COUNTERFACTUAL_EXCLUDE_COMPLETED",
             "mtrag_completed_transitions.json",
             '--start-case "$START_CASE"',
             '--max-cases "$MAX_CASES"',
@@ -335,6 +336,22 @@ class ReviewedMtragPipelineTests(TestCase):
             "--max-completion-tokens 2048",
             "prepare_mtrag_counterfactual_review",
             "artifacts.tar.gz",
+        ):
+            with self.subTest(token=token):
+                self.assertIn(token, content)
+
+    def test_imperial_rope_training_launcher_contract(self):
+        script = Path(__file__).resolve().parents[1] / "benchmarks" / "run_imperial_qwen3_14b_rope_training_200.slurm"
+        subprocess.run(["bash", "-n", str(script)], check=True)
+        content = script.read_text(encoding="utf-8")
+        for token in (
+            "#SBATCH --partition=a40",
+            "#SBATCH --gres=gpu:nvidia_a40:1",
+            "CACHESELECT_COUNTERFACTUAL_MAX_CASES=200",
+            "CACHESELECT_COUNTERFACTUAL_EXCLUDE_COMPLETED=0",
+            "CACHESELECT_CORRECT_KV_POSITIONS=1",
+            "qwen3-mtrag-rope-training-200-v1",
+            "run_imperial_qwen3_14b_counterfactual.slurm",
         ):
             with self.subTest(token=token):
                 self.assertIn(token, content)
