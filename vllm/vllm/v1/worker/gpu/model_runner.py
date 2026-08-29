@@ -130,6 +130,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     build_partial_reuse_span_attention_metadata,
     build_partial_reuse_span_execution_steps,
     build_reused_token_indices,
+    correct_qwen3_kv_positions_inplace,
     create_repair_selector,
     execute_partial_reuse_span_steps,
     map_reused_tokens_to_batch_rows,
@@ -225,6 +226,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         )
         self.cacheselect_repack_partial_reuse = (
             self.cache_config.cacheselect_repack_partial_reuse
+        )
+        self.cacheselect_correct_kv_positions = (
+            self.cache_config.cacheselect_correct_kv_positions
         )
         self.pending_cacheselect_repair_metrics: dict[
             str, CacheSelectRepairMetrics
@@ -1162,6 +1166,9 @@ class GPUModelRunner(LoRAModelRunnerMixin):
         )
         block_copies = build_kv_cache_block_copies(aligned)
         if instructions:
+            block_size = self.cache_config.block_size
+            assert block_size is not None
+
             # Repaired rows overwrite copied values before they can be consumed.
             def copy_operation() -> None:
                 if repacked:
@@ -1185,6 +1192,24 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                         self.kv_caches,
                         self.kv_cache_config.num_blocks,
                         block_copies,
+                    )
+                if getattr(self, "cacheselect_correct_kv_positions", False):
+                    hf_config = self.model_config.hf_config
+                    rope_parameters = getattr(hf_config, "rope_parameters", None) or {}
+                    if (
+                        getattr(hf_config, "model_type", None) != "qwen3"
+                        or rope_parameters.get("rope_type", "default") != "default"
+                    ):
+                        raise RuntimeError(
+                            "CacheSelect position correction supports only "
+                            "standard Qwen3 RoPE"
+                        )
+                    correct_qwen3_kv_positions_inplace(
+                        self.kv_caches,
+                        instructions,
+                        block_size,
+                        self.model_config.get_head_size(),
+                        float(rope_parameters.get("rope_theta", 1_000_000)),
                     )
 
             _, copy_events = self._launch_timed_cacheselect_gpu_operation(

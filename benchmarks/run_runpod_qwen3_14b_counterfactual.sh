@@ -18,6 +18,7 @@ EXCLUDE_PLAN="${CACHESELECT_COUNTERFACTUAL_EXCLUDE_PLAN:-$ROOT/benchmarks/mtrag_
 MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
 MLP_EVALUATION="${CACHESELECT_MLP_EVALUATION:-0}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
+CORRECT_KV_POSITIONS="${CACHESELECT_CORRECT_KV_POSITIONS:-0}"
 DEFAULT_INPUTS=qwen3-mtrag-v1
 [[ "$FULL_DATASET" == 1 ]] && DEFAULT_INPUTS=qwen3-mtrag-full-v1
 INPUTS="${CACHESELECT_COUNTERFACTUAL_INPUT_ROOT:-$STORAGE/cacheselect-inputs/$DEFAULT_INPUTS}"
@@ -56,6 +57,7 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
 [[ "$MLP_SMOKE" == 0 || "$MLP_SMOKE" == 1 ]] || exit 2
 [[ "$MLP_EVALUATION" == 0 || "$MLP_EVALUATION" == 1 ]] || exit 2
 [[ "$MLP_SMOKE" != 1 || "$MLP_EVALUATION" != 1 ]] || exit 2
+[[ "$CORRECT_KV_POSITIONS" == 0 || "$CORRECT_KV_POSITIONS" == 1 ]] || exit 2
 [[ "$FULL_DATASET" != 1 || "$MLP_SMOKE$MLP_EVALUATION" == 00 ]] || exit 2
 if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 ]]; then
   test -s "$MLP_MODEL" || { echo "CACHESELECT_MLP_MODEL is required" >&2; exit 2; }
@@ -101,6 +103,7 @@ printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
   "$COMMIT" "$MODEL" "$GPU" "$PLATFORM" \
   >"$RESULT/metadata.env"
 printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
+printf 'correct_kv_positions=%s\n' "$CORRECT_KV_POSITIONS" >>"$RESULT/metadata.env"
 if [[ "$MLP_EVALUATION" == 1 ]]; then
   cp "$MLP_MODEL" "$RESULT/mlp-model.json"
 fi
@@ -134,6 +137,9 @@ if python -c 'import json,sys; sys.exit(not json.load(open(sys.argv[1])).get("re
 else
   REPACK_ARGS+=(--no-cacheselect-repack-partial-reuse)
 fi
+POSITION_ARGS=()
+[[ "$CORRECT_KV_POSITIONS" == 1 ]] \
+  && POSITION_ARGS+=(--cacheselect-correct-kv-positions)
 CASE_LIMIT_ARGS=()
 if [[ -n "$MAX_CASES" ]]; then
   [[ "$MAX_CASES" =~ ^[1-9][0-9]*$ ]] || exit 2
@@ -166,6 +172,7 @@ setsid vllm serve "$MODEL" \
   "${REPAIR_ARGS[@]}" \
   --cacheselect-execute-partial-reuse \
   "${REPACK_ARGS[@]}" \
+  "${POSITION_ARGS[@]}" \
   --no-enable-chunked-prefill --enforce-eager \
   --enable-prompt-tokens-details --enable-per-request-metrics \
   >"$SERVER_LOG" 2>&1 &
