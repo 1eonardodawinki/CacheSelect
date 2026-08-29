@@ -525,6 +525,9 @@ class EngineArgs:
     cacheselect_repack_partial_reuse: bool = (
         CacheConfig.cacheselect_repack_partial_reuse
     )
+    cacheselect_correct_kv_positions: bool = (
+        CacheConfig.cacheselect_correct_kv_positions
+    )
     gdn_delta_cache_capacity: int = CacheConfig.gdn_delta_cache_capacity
     gdn_delta_block_size: int = CacheConfig.gdn_delta_block_size
     gdn_delta_execution_mode: GDNDeltaExecutionMode = (
@@ -1217,6 +1220,10 @@ class EngineArgs:
         cache_group.add_argument(
             "--cacheselect-repack-partial-reuse",
             **cache_kwargs["cacheselect_repack_partial_reuse"],
+        )
+        cache_group.add_argument(
+            "--cacheselect-correct-kv-positions",
+            **cache_kwargs["cacheselect_correct_kv_positions"],
         )
         cache_group.add_argument(
             "--gdn-delta-cache-capacity",
@@ -1964,6 +1971,7 @@ class EngineArgs:
             cacheselect_mlp_model=self.cacheselect_mlp_model,
             cacheselect_execute_partial_reuse=(self.cacheselect_execute_partial_reuse),
             cacheselect_repack_partial_reuse=self.cacheselect_repack_partial_reuse,
+            cacheselect_correct_kv_positions=self.cacheselect_correct_kv_positions,
             gdn_delta_cache_capacity=self.gdn_delta_cache_capacity,
             gdn_delta_block_size=self.gdn_delta_block_size,
             gdn_delta_execution_mode=self.gdn_delta_execution_mode,

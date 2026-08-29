@@ -5,7 +5,7 @@ from argparse import ArgumentError
 
 import pytest
 
-from vllm.config import VllmConfig
+from vllm.config import CacheConfig, VllmConfig
 from vllm.engine.arg_utils import EngineArgs
 from vllm.usage.usage_lib import UsageContext
 from vllm.utils.argparse_utils import FlexibleArgumentParser
@@ -61,6 +61,7 @@ def test_cacheselect_from_cli():
     assert engine_args.cacheselect_mlp_model is None
     assert not engine_args.cacheselect_execute_partial_reuse
     assert engine_args.cacheselect_repack_partial_reuse
+    assert not engine_args.cacheselect_correct_kv_positions
     assert engine_args.gdn_delta_cache_capacity == 0
     assert engine_args.gdn_delta_block_size == 64
     assert engine_args.gdn_delta_execution_mode == "shadow"
@@ -89,6 +90,7 @@ def test_cacheselect_from_cli():
             "2",
             "--cacheselect-execute-partial-reuse",
             "--cacheselect-repack-partial-reuse",
+            "--cacheselect-correct-kv-positions",
             "--gdn-delta-cache-capacity",
             "8",
             "--gdn-delta-block-size",
@@ -105,12 +107,14 @@ def test_cacheselect_from_cli():
     assert engine_args.cacheselect_edit_radius == 2
     assert engine_args.cacheselect_execute_partial_reuse
     assert engine_args.cacheselect_repack_partial_reuse
+    assert engine_args.cacheselect_correct_kv_positions
     assert engine_args.gdn_delta_cache_capacity == 8
     assert engine_args.gdn_delta_block_size == 128
     assert engine_args.gdn_delta_execution_mode == "active"
     cache_config = engine_args.create_engine_config().cache_config
     assert cache_config.cacheselect_execute_partial_reuse
     assert cache_config.cacheselect_repack_partial_reuse
+    assert cache_config.cacheselect_correct_kv_positions
     assert cache_config.gdn_delta_cache_capacity == 8
     assert cache_config.gdn_delta_block_size == 128
     assert cache_config.prefix_match_unit is None
@@ -119,6 +123,11 @@ def test_cacheselect_from_cli():
     parser.exit_on_error = False
     with pytest.raises(ArgumentError):
         parser.parse_args(["--cacheselect-repair-selector", "invalid_selector"])
+
+
+def test_cacheselect_position_correction_requires_execution():
+    with pytest.raises(ValueError, match="position correction requires execution"):
+        CacheConfig(cacheselect_correct_kv_positions=True)
 
 
 @pytest.mark.skipif(_xxhash is None, reason="xxhash not installed")

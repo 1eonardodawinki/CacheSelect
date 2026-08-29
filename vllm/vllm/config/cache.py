@@ -112,6 +112,8 @@ class CacheConfig:
     cacheselect_repack_partial_reuse: bool = True
     """Allow exact token windows spanning two source KV blocks to be repacked
     into one target block whenever partial-reuse execution is enabled."""
+    cacheselect_correct_kv_positions: bool = False
+    """Apply relative Qwen3 RoPE correction after moving reused KV blocks."""
     gdn_delta_cache_capacity: int = Field(default=0, ge=0)
     """Maximum number of GDN block-delta operators cached per layer. Zero
     disables the experimental bounded sidecar."""
@@ -243,6 +245,7 @@ class CacheConfig:
             "cacheselect_mlp_model",
             "cacheselect_execute_partial_reuse",
             "cacheselect_repack_partial_reuse",
+            "cacheselect_correct_kv_positions",
             "gdn_delta_cache_capacity",
             "gdn_delta_block_size",
             "prefix_caching_hash_algo",
@@ -310,6 +313,17 @@ class CacheConfig:
             raise ValueError(
                 "CacheSelect partial-reuse execution requires CacheSelect to be enabled"
             )
+        return self
+
+    @model_validator(mode="after")
+    def _validate_cacheselect_position_correction_requires_execution(
+        self,
+    ) -> "CacheConfig":
+        if (
+            self.cacheselect_correct_kv_positions
+            and not self.cacheselect_execute_partial_reuse
+        ):
+            raise ValueError("CacheSelect position correction requires execution")
         return self
 
     @model_validator(mode="after")
