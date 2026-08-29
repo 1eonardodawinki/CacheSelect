@@ -56,6 +56,7 @@ class PartialReuseCopyInstruction:
     target_block_id: int
     target_block_index: int
     requires_repair: bool
+    source_block_index: int = 0
     source_block_ids: tuple[int, ...] = ()
     source_block_offset: int = 0
 
@@ -201,6 +202,7 @@ def build_partial_reuse_copy_instructions(
             target_block_id=candidate.target_block_id,
             target_block_index=candidate.target_block_index,
             requires_repair=candidate.requires_repair,
+            source_block_index=candidate.source_block_index,
             source_block_ids=candidate.source_block_ids,
             source_block_offset=candidate.source_block_offset,
         )
@@ -266,6 +268,68 @@ def repack_kv_cache_blocks_inplace(
                 dim=1,
             )
             cache[instruction.target_block_id].copy_(gathered)
+
+
+# Move already-rotated Qwen3 keys from their source to target token positions.
+def correct_qwen3_kv_positions_inplace(
+    kv_caches: Sequence[torch.Tensor | list[torch.Tensor]],
+    instructions: Sequence[PartialReuseCopyInstruction],
+    block_size: int,
+    head_size: int,
+    rope_theta: float,
+) -> None:
+    moved = tuple(
+        (
+            instruction,
+            instruction.target_block_index * block_size
+            - instruction.source_block_index * block_size
+            - instruction.source_block_offset,
+        )
+        for instruction in instructions
+        if instruction.target_block_index * block_size
+        != instruction.source_block_index * block_size + instruction.source_block_offset
+    )
+    if not moved:
+        return
+    if head_size < 2 or head_size % 2 or rope_theta <= 0:
+        raise ValueError("invalid Qwen3 RoPE parameters")
+    caches = tuple(kv_caches)
+    if not caches or any(
+        not isinstance(cache, torch.Tensor)
+        or cache.ndim != 4
+        or cache.shape[2] != block_size
+        or cache.shape[3] != 2 * head_size
+        or not cache.dtype.is_floating_point
+        for cache in caches
+    ):
+        raise ValueError("RoPE correction requires a floating-point Qwen3 KV cache")
+
+    device = caches[0].device
+    if any(cache.device != device for cache in caches):
+        raise ValueError("RoPE correction requires colocated KV caches")
+    target_ids = torch.tensor(
+        [instruction.target_block_id for instruction, _ in moved],
+        device=device,
+    )
+    deltas = torch.tensor(
+        [delta for _, delta in moved], device=device, dtype=torch.float32
+    )
+    inv_freq = rope_theta ** (
+        -torch.arange(0, head_size, 2, device=device, dtype=torch.float32) / head_size
+    )
+    angles = deltas[:, None] * inv_freq[None, :]
+    cos = angles.cos()[:, None, None, :]
+    sin = angles.sin()[:, None, None, :]
+    half = head_size // 2
+
+    for cache in caches:
+        keys = cache[target_ids, :, :, :head_size]
+        first = keys[..., :half].float()
+        second = keys[..., half:].float()
+        rotated = torch.cat(
+            (first * cos - second * sin, second * cos + first * sin), dim=-1
+        )
+        cache[target_ids, :, :, :head_size] = rotated.to(cache.dtype)
 
 
 # Record block copies that were actually submitted by the GPU worker.

@@ -40,6 +40,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     compact_partial_reuse_model_inputs,
     compact_partial_reuse_query_start_locations,
     compact_partial_reuse_slot_mappings,
+    correct_qwen3_kv_positions_inplace,
     create_repair_selector,
     execute_partial_reuse_span_steps,
     map_reused_tokens_to_batch_rows,
@@ -143,6 +144,7 @@ def test_build_partial_reuse_copy_instructions() -> None:
             target_block_id=63,
             target_block_index=5,
             requires_repair=True,
+            source_block_index=3,
         ),
     )
 
@@ -192,6 +194,41 @@ def test_repack_kv_cache_blocks_inplace() -> None:
         )
         assert torch.equal(cache[2], expected)
         assert torch.equal(cache[:2], original[:2])
+
+
+# Check that moved Qwen3 keys are re-rotated while values remain unchanged.
+def test_correct_qwen3_kv_positions_inplace() -> None:
+    cache = torch.zeros(4, 1, 2, 8)
+    cache[3, :, :, :4] = torch.tensor(
+        [[[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]]]
+    )
+    cache[3, :, :, 4:] = 9
+    original_keys = cache[3, :, :, :4].clone()
+    original_values = cache[3, :, :, 4:].clone()
+    instruction = PartialReuseCopyInstruction(
+        source_block_id=1,
+        target_block_id=3,
+        target_block_index=3,
+        requires_repair=False,
+        source_block_index=1,
+        source_block_offset=1,
+    )
+
+    correct_qwen3_kv_positions_inplace(
+        (cache,), (instruction,), block_size=2, head_size=4, rope_theta=100
+    )
+
+    angle = torch.tensor([3.0, 0.3])
+    first, second = original_keys.chunk(2, dim=-1)
+    expected = torch.cat(
+        (
+            first * angle.cos() - second * angle.sin(),
+            second * angle.cos() + first * angle.sin(),
+        ),
+        dim=-1,
+    )
+    assert torch.allclose(cache[3, :, :, :4], expected)
+    assert torch.equal(cache[3, :, :, 4:], original_values)
 
 
 # Check that a repacked instruction cannot enter the whole-page copy path.
