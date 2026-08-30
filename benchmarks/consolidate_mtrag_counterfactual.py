@@ -41,6 +41,7 @@ AUDIT_COLUMNS = (
 )
 SUPPORTED_EXPERIMENTS = {
     "mtrag-counterfactual-pilot",
+    "qwen3-live-reference-mtrag-counterfactual",
     "qwen3-reviewed-mtrag-counterfactual",
 }
 

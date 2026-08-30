@@ -107,7 +107,7 @@ class ConsolidateMtragCounterfactualTests(TestCase):
             root = Path(directory)
             case = _write_case(root, "reuse")
             summary = {
-                "experiment": "mtrag-counterfactual-pilot",
+                "experiment": "qwen3-live-reference-mtrag-counterfactual",
                 "case_count": 1,
                 **{name: case[name] for name in (
                     "trial_count",
