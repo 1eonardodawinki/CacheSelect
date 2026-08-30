@@ -60,7 +60,7 @@ def _judge(row: dict, model: str) -> dict:
         input=json.dumps(evidence, ensure_ascii=False),
         text_format=Judgment,
         reasoning={"effort": "low"},
-        max_output_tokens=512,
+        max_output_tokens=1024,
         store=False,
         prompt_cache_key="mtrag-blinded-semantic-review-v2-conservative",
     )
