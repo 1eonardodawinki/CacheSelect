@@ -254,7 +254,11 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         row.update(context)
 
     keys = [(row["transition_id"], str(row["candidate_block_index"])) for row in rows]
-    expected_rows = summary.get("trial_count") - abstention_count
+    expected_rows = (
+        summary.get("trial_count")
+        - summary.get("invalid_trials", 0)
+        - abstention_count
+    )
     if len(keys) != len(set(keys)) or len(rows) != expected_rows:
         raise ValueError("curated rows do not cover every resolved pilot trial")
     rows.sort(

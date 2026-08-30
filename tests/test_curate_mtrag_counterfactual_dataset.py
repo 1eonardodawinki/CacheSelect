@@ -86,7 +86,10 @@ def _write_result_fixture(root: Path) -> None:
     skipped = {"source_case_index": 1, "status": "skipped_reference_quality"}
     case.update(source_case_index=2, status="completed")
     (root / "summary.json").write_text(
-        json.dumps({"trial_count": 2, "cases": [skipped, case]}), encoding="utf-8"
+        json.dumps(
+            {"trial_count": 3, "invalid_trials": 1, "cases": [skipped, case]}
+        ),
+        encoding="utf-8",
     )
     row = {name: "0" for name in (*TRAINING_COLUMNS, *AUDIT_COLUMNS)}
     row.update(
@@ -162,7 +165,7 @@ class CurateMtragCounterfactualDatasetTests(TestCase):
             ) as source:
                 rows = list(csv.DictReader(source))
 
-        self.assertEqual(report["source_trial_count"], 2)
+        self.assertEqual(report["source_trial_count"], 3)
         self.assertEqual(report["row_count"], 1)
         self.assertEqual(report["abstained_trials"], 1)
         self.assertEqual(rows[0]["trial_id"], "exact-trial")
