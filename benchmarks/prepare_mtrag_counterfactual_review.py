@@ -1,4 +1,4 @@
-"""Prepare a blinded semantic review of abstained MTRAG block trials."""
+"""Prepare a blinded semantic review of valid abstained MTRAG block trials."""
 
 from __future__ import annotations
 
@@ -36,12 +36,23 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
     ledger_paths = tuple((result_dir / "request-logs").glob("*.jsonl"))
     if len(ledger_paths) != 1:
         raise ValueError("MTRAG result must contain exactly one request ledger")
-    if summary.get("invalid_trials") != 0:
-        raise ValueError("invalid trials cannot enter manual semantic review")
     trial_count = summary.get("trial_count")
+    invalid_count = summary.get("invalid_trials")
     abstained_count = summary.get("abstained_trials")
-    if not isinstance(trial_count, int) or not isinstance(abstained_count, int):
+    if not all(isinstance(value, int) for value in (trial_count, invalid_count, abstained_count)):
         raise ValueError("MTRAG result has invalid trial counts")
+    invalid_references = set()
+    rejected_trials = 0
+    for case in summary.get("cases", []):
+        if case.get("invalid_trials", 0):
+            if case.get("invalid_trials") != case.get("trial_count") or not case.get(
+                "discovery_id"
+            ):
+                raise ValueError("invalid MTRAG case is not wholly rejected")
+            invalid_references.add(f"{case['discovery_id']}:edited")
+            rejected_trials += case["invalid_trials"]
+    if rejected_trials != invalid_count:
+        raise ValueError("invalid trials do not match rejected reference cases")
 
     ledger_path = ledger_paths[0]
     ledger_sha256 = hashlib.sha256(ledger_path.read_bytes()).hexdigest()
@@ -89,6 +100,8 @@ def prepare_mtrag_counterfactual_review(result_dir: Path) -> dict[str, Any]:
         reference_id = reference_start.get("metadata", {}).get(
             "benchmark_request_id"
         )
+        if reference_id in invalid_references:
+            continue
         stability_start = stability_checks.get(reference_id)
         stability_done = (
             completed.get(stability_start["request_id"])

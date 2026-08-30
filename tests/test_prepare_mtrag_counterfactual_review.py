@@ -105,3 +105,53 @@ class PrepareMtragCounterfactualReviewTests(TestCase):
         )
         self.assertEqual(key["rows"][0]["trial_id"], "abstained-trial")
         self.assertEqual(key["rows"][0]["block_index"], 7)
+
+    def test_excludes_wholly_rejected_reference_cases(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            log_dir = root / "request-logs"
+            log_dir.mkdir()
+            invalid = _trial_events("invalid-trial", "bad", "changed", 1)
+            invalid[0]["metadata"] = {
+                "benchmark_request_id": "rejected:edited",
+                "counterfactual_role": "discovery_edit",
+            }
+            invalid[2]["metadata"][
+                "counterfactual_reference_request_id"
+            ] = "rejected:edited"
+            events = [
+                *invalid,
+                *_trial_events("valid-trial", "reference", "changed", 2),
+            ]
+            (log_dir / "requests.jsonl").write_text(
+                "\n".join(json.dumps(event) for event in events) + "\n",
+                encoding="utf-8",
+            )
+            (root / "summary.json").write_text(
+                json.dumps(
+                    {
+                        "trial_count": 2,
+                        "invalid_trials": 1,
+                        "abstained_trials": 1,
+                        "cases": [
+                            {
+                                "discovery_id": "rejected",
+                                "trial_count": 1,
+                                "invalid_trials": 1,
+                            },
+                            {
+                                "discovery_id": "valid",
+                                "trial_count": 1,
+                                "invalid_trials": 0,
+                            },
+                        ],
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            result = prepare_mtrag_counterfactual_review(root)
+            key = json.loads((root / "manual-review-key.json").read_text())
+
+        self.assertEqual(result["rows"], 1)
+        self.assertEqual(key["rows"][0]["trial_id"], "valid-trial")
