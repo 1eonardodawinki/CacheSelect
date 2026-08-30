@@ -11,21 +11,32 @@ from typing import Literal
 from openai import OpenAI
 from pydantic import BaseModel
 
-
 MODEL = "gpt-5.4-mini-2026-03-17"
-INSTRUCTIONS = """You are a conservative blinded research-data reviewer. Compare
-Answer A and Answer B against the expected answer. Judge factual correctness,
-completeness, relevance, and unsupported claims. Default to equivalent whenever
-both answers would be similarly useful to the user, including when differences are
-only wording, style, verbosity, minor detail, or both answers share the same flaw.
-Choose answer_a_better or answer_b_better only for a consequential difference in
-correctness or usefulness; never reward likely source wording or harmless extra
-detail. Choose unclear when the evidence is ambiguous or, if an independent normal
-answer is supplied, its meaning is incompatible with the comparison. Never infer
-which answer used cache reuse. Give one concise reason."""
+INSTRUCTIONS = """You are a strict, conservative blinded research-data reviewer.
+First apply this material-impact test: would replacing one answer with the other
+materially change the user's conclusion, action, safety, or understanding of the
+core answer? If not, material_difference must be false and the verdict must be
+equivalent. Equivalent is the default, including when both answers share a flaw.
+
+Do not prefer an answer merely because it is slightly cleaner, more concise,
+longer, more detailed, closer to the expected wording, or contains an optional
+fact the other omits. Ignore harmless tangents, minor unsupported details, small
+rounding differences, style, and verbosity. If your only reason would be “closer,”
+“slightly better,” or “less extra detail,” the verdict must be equivalent.
+
+Set material_difference true and choose answer_a_better or answer_b_better only
+for a concrete consequential difference such as a wrong entity or jurisdiction,
+a materially false claim, missing the central answer or required action, dangerous
+advice, or substantial irrelevance. Use the expected answer as evidence, not as a
+wording template. If both candidates answer an apparent question despite a
+mismatched expected answer, compare the candidates directly. Choose unclear only
+when a fair comparison is genuinely impossible. Never infer which answer used
+cache reuse. Give one concise reason naming the material issue, or stating why the
+answers are materially equivalent."""
 
 
 class Judgment(BaseModel):
+    material_difference: bool
     verdict: Literal[
         "equivalent", "answer_a_better", "answer_b_better", "unclear"
     ]
@@ -51,13 +62,16 @@ def _judge(row: dict, model: str) -> dict:
         reasoning={"effort": "low"},
         max_output_tokens=512,
         store=False,
-        prompt_cache_key="mtrag-blinded-semantic-review-v1",
+        prompt_cache_key="mtrag-blinded-semantic-review-v2-conservative",
     )
     parsed = response.output_parsed
     if parsed is None or not parsed.reason.strip():
         raise ValueError("OpenAI response did not contain a complete judgment")
+    if parsed.material_difference != (parsed.verdict not in {"equivalent", "unclear"}):
+        raise ValueError("OpenAI judgment has inconsistent materiality and verdict")
     return {
         "group_id": row["group_id"],
+        "material_difference": parsed.material_difference,
         "verdict": parsed.verdict,
         "reason": parsed.reason.strip(),
         "model": model,
@@ -105,21 +119,23 @@ def review(result_dir: Path, model: str, workers: int, limit: int | None) -> dic
         pending = pending[:limit]
 
     failures = []
-    with progress_path.open("a", encoding="utf-8") as sink:
-        with ThreadPoolExecutor(max_workers=workers) as executor:
-            futures = {executor.submit(_judge, row, model): row for row in pending}
-            for completed, future in enumerate(as_completed(futures), 1):
-                row = futures[future]
-                try:
-                    judgment = future.result()
-                except Exception as error:  # noqa: BLE001
-                    failures.append(f"{row['group_id']}: {error}")
-                    continue
-                judgments[judgment["group_id"]] = judgment
-                sink.write(json.dumps(judgment, ensure_ascii=False) + "\n")
-                sink.flush()
-                if completed % 25 == 0 or completed == len(pending):
-                    print(f"Reviewed {len(judgments)}/{len(rows)} groups", flush=True)
+    with (
+        progress_path.open("a", encoding="utf-8") as sink,
+        ThreadPoolExecutor(max_workers=workers) as executor,
+    ):
+        futures = {executor.submit(_judge, row, model): row for row in pending}
+        for completed, future in enumerate(as_completed(futures), 1):
+            row = futures[future]
+            try:
+                judgment = future.result()
+            except Exception as error:  # noqa: BLE001
+                failures.append(f"{row['group_id']}: {error}")
+                continue
+            judgments[judgment["group_id"]] = judgment
+            sink.write(json.dumps(judgment, ensure_ascii=False) + "\n")
+            sink.flush()
+            if completed % 25 == 0 or completed == len(pending):
+                print(f"Reviewed {len(judgments)}/{len(rows)} groups", flush=True)
 
     if len(judgments) == len(rows):
         _apply(compact, judgments, model)
