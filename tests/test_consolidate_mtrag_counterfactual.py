@@ -244,3 +244,11 @@ class ConsolidateMtragCounterfactualTests(TestCase):
                     output_path=root / "combined.csv",
                     report_path=root / "report.json",
                 )
+
+            report = consolidate_mtrag_counterfactual_results(
+                prefix,
+                output_path=root / "prefix.csv",
+                report_path=root / "prefix.json",
+                expected_case_count=1,
+            )
+            self.assertEqual(report["case_count"], 1)

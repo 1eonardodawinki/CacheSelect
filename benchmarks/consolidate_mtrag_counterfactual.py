@@ -14,7 +14,6 @@ from typing import Any
 from cacheselect.block_features import CandidateBlockFeatures
 from observability.request_recorder import validate_ledger
 
-
 COUNT_FIELDS = (
     "trial_count",
     "valid_training_rows",
@@ -54,7 +53,7 @@ def _count(record: dict[str, Any], name: str) -> int:
     return value
 
 
-# Load every completed case from one run, including an interrupted run without a summary.
+# Load completed cases from one run, including an interrupted run without a summary.
 def _load_run_cases(input_dir: Path) -> tuple[list[tuple[int, Path, dict]], int | None]:
     case_paths = sorted(
         input_dir.glob("case-*/summary.json"),
@@ -115,6 +114,8 @@ def _load_run_cases(input_dir: Path) -> tuple[list[tuple[int, Path, dict]], int 
 # Index source cases across runs and require complete, non-overlapping coverage.
 def _index_cases(
     input_dirs: Path | Sequence[Path],
+    *,
+    expected_case_count: int | None = None,
 ) -> tuple[tuple[Path, ...], dict[int, tuple[Path, dict]], int]:
     run_dirs = (input_dirs,) if isinstance(input_dirs, Path) else tuple(input_dirs)
     if not run_dirs:
@@ -131,7 +132,17 @@ def _index_cases(
             indexed_cases[source_index] = (case_dir, case)
     if len(source_counts) > 1:
         raise ValueError("MTRAG runs disagree on the source case count")
-    expected_count = next(iter(source_counts), max(indexed_cases))
+    source_count = next(iter(source_counts), max(indexed_cases))
+    expected_count = (
+        source_count if expected_case_count is None else expected_case_count
+    )
+    if (
+        not isinstance(expected_count, int)
+        or isinstance(expected_count, bool)
+        or expected_count < 1
+        or expected_count > source_count
+    ):
+        raise ValueError("expected case count exceeds the source plan")
     expected_indices = set(range(1, expected_count + 1))
     missing = sorted(expected_indices - indexed_cases.keys())
     if missing:
@@ -182,8 +193,11 @@ def consolidate_mtrag_counterfactual_results(
     *,
     output_path: Path,
     report_path: Path,
+    expected_case_count: int | None = None,
 ) -> dict[str, Any]:
-    run_dirs, indexed_cases, expected_count = _index_cases(input_dirs)
+    run_dirs, indexed_cases, expected_count = _index_cases(
+        input_dirs, expected_case_count=expected_case_count
+    )
 
     totals: Counter[str] = Counter()
     merged: list[dict[str, str | int]] = []
@@ -274,9 +288,14 @@ def consolidate_mtrag_counterfactual_results(
 
 # Assemble the merged dataset, summary, and ledgers expected by review and curation.
 def assemble_mtrag_counterfactual_results(
-    input_dirs: Sequence[Path], output_dir: Path
+    input_dirs: Sequence[Path],
+    output_dir: Path,
+    *,
+    expected_case_count: int | None = None,
 ) -> dict[str, Any]:
-    run_dirs, indexed_cases, expected_count = _index_cases(input_dirs)
+    run_dirs, indexed_cases, expected_count = _index_cases(
+        input_dirs, expected_case_count=expected_case_count
+    )
     if any(output_dir.resolve() == path.resolve() for path in run_dirs):
         raise ValueError("assembled output must be separate from its source runs")
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -284,6 +303,7 @@ def assemble_mtrag_counterfactual_results(
         run_dirs,
         output_path=output_dir / "mtrag-counterfactual-blocks.csv",
         report_path=output_dir / "consolidated-summary.json",
+        expected_case_count=expected_case_count,
     )
 
     ledger_dir = output_dir / "request-logs"
@@ -294,7 +314,9 @@ def assemble_mtrag_counterfactual_results(
             completed_cases, _ = _load_run_cases(run_dir)
             paths = tuple((run_dir / "request-logs").glob("*.jsonl"))
             if len(paths) != 1:
-                raise ValueError("each MTRAG run must contain exactly one request ledger")
+                raise ValueError(
+                    "each MTRAG run must contain exactly one request ledger"
+                )
             validation = validate_ledger(paths[0])
             if not validation.is_complete or validation.failed:
                 raise ValueError("MTRAG source request ledger is not fully successful")
@@ -346,17 +368,23 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--input-dir", type=Path, action="append", required=True)
     parser.add_argument("--output-dir", type=Path)
+    parser.add_argument("--expected-case-count", type=int)
     args = parser.parse_args()
     if len(args.input_dir) > 1 and args.output_dir is None:
         parser.error("multiple inputs require --output-dir")
     output_dir = args.output_dir or args.input_dir[0]
     if len(args.input_dir) > 1:
-        report = assemble_mtrag_counterfactual_results(args.input_dir, output_dir)
+        report = assemble_mtrag_counterfactual_results(
+            args.input_dir,
+            output_dir,
+            expected_case_count=args.expected_case_count,
+        )
     else:
         report = consolidate_mtrag_counterfactual_results(
             args.input_dir,
             output_path=output_dir / "mtrag-counterfactual-blocks.csv",
             report_path=output_dir / "consolidated-summary.json",
+            expected_case_count=args.expected_case_count,
         )
     print(
         f"Consolidated {report['valid_training_rows']} labels from "
