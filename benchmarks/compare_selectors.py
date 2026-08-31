@@ -9,14 +9,24 @@ import json
 from pathlib import Path
 
 import numpy as np
+from sklearn.model_selection import StratifiedGroupKFold
 
-from benchmarks.train_boosted_selector import train_boosted_selector
+from benchmarks.train_boosted_selector import boosted_model, train_boosted_selector
 from benchmarks.train_logistic_selector import (
+    baseline_metrics,
     evaluate_selector,
     load_selector_dataset,
+    logistic_model,
+    operating_points,
+    select_repair_threshold,
     train_logistic_selector,
 )
-from benchmarks.train_mlp_selector import train_mlp_selector
+from benchmarks.train_mlp_selector import (
+    _mlp_pipeline,
+    _training_groups,
+    balanced_binary_training_rows,
+    train_mlp_selector,
+)
 from cacheselect.selector_features import (
     BASELINE_FEATURE_SCHEMA,
     FEATURE_SCHEMAS,
@@ -78,6 +88,69 @@ def compare_validation_selectors(
             },
         },
         "baselines": logistic_validation["baselines"],
+    }
+
+
+def compare_cross_validated_selectors(
+    dataset_path: Path,
+    *,
+    minimum_repair_recall: float = 0.95,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
+    folds: int = 5,
+) -> dict[str, object]:
+    """Compare selectors using out-of-fold predictions from unseen conversations."""
+    features, labels = load_selector_dataset(
+        dataset_path,
+        feature_schema=feature_schema,
+        require_validation=False,
+    )["train"]
+    groups = _training_groups(dataset_path)
+    if len(groups) != len(labels):
+        raise ValueError("training groups and examples are misaligned")
+    models = {}
+    for name, factory, balance in (
+        ("logistic_regression", logistic_model, False),
+        ("hist_gradient_boosting", boosted_model, False),
+        ("mlp", lambda: _mlp_pipeline((8,)), True),
+    ):
+        probabilities = np.empty(len(labels))
+        splitter = StratifiedGroupKFold(
+            n_splits=folds, shuffle=True, random_state=0
+        )
+        for train, held_out in splitter.split(features, labels, groups):
+            training = (features[train], labels[train])
+            if balance:
+                training = balanced_binary_training_rows(*training)
+            model = factory()
+            model.fit(*training)
+            probabilities[held_out] = model.predict_proba(features[held_out])[:, 1]
+        threshold = select_repair_threshold(
+            labels,
+            probabilities,
+            minimum_repair_recall=minimum_repair_recall,
+        )
+        models[name] = {
+            "selected_threshold": threshold,
+            "metrics": evaluate_selector(
+                labels,
+                probabilities >= threshold,
+                repair_probabilities=probabilities,
+            ),
+            "operating_points": operating_points(labels, probabilities),
+        }
+    return {
+        "dataset": str(dataset_path),
+        "evaluation_split": "conversation_grouped_cross_validation",
+        "folds": folds,
+        "conversation_groups": len(set(groups)),
+        "test_split_evaluated": False,
+        "minimum_repair_recall": minimum_repair_recall,
+        "feature_schema": feature_schema.name,
+        "feature_names": list(feature_schema.feature_names),
+        "models": models,
+        "baselines": baseline_metrics(
+            features, labels, feature_schema=feature_schema
+        ),
     }
 
 
@@ -208,6 +281,8 @@ def main() -> None:
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--minimum-repair-recall", type=float, default=0.95)
     parser.add_argument("--evaluate-test", action="store_true")
+    parser.add_argument("--cross-validate", action="store_true")
+    parser.add_argument("--folds", type=int, default=5)
     parser.add_argument(
         "--selected-model",
         choices=("logistic_regression", "hist_gradient_boosting", "mlp"),
@@ -220,6 +295,8 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    if args.evaluate_test and args.cross_validate:
+        parser.error("choose either --evaluate-test or --cross-validate")
     if args.evaluate_test:
         if args.selected_model is None:
             parser.error("--evaluate-test requires --selected-model")
@@ -229,6 +306,13 @@ def main() -> None:
             minimum_repair_recall=args.minimum_repair_recall,
             feature_schema=selector_feature_schema(args.feature_schema),
             bootstrap_samples=args.bootstrap_samples,
+        )
+    elif args.cross_validate:
+        report = compare_cross_validated_selectors(
+            args.dataset,
+            minimum_repair_recall=args.minimum_repair_recall,
+            feature_schema=selector_feature_schema(args.feature_schema),
+            folds=args.folds,
         )
     else:
         report = compare_validation_selectors(

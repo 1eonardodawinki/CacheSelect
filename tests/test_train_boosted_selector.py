@@ -1,10 +1,12 @@
 from pathlib import Path
 from unittest import TestCase
+from unittest.mock import patch
 
 import numpy as np
 
 from benchmarks.compare_selectors import (
     _clustered_intervals,
+    compare_cross_validated_selectors,
     compare_validation_selectors,
 )
 from benchmarks.train_boosted_selector import train_boosted_selector
@@ -63,3 +65,29 @@ class BoostedSelectorTests(TestCase):
             mlp["metrics"]["selected_reuse_rate"],
             boosted["metrics"]["selected_reuse_rate"],
         )
+
+    def test_compares_grouped_out_of_fold_predictions(self):
+        labels = np.tile([0, 1], 10)
+        features = np.zeros((len(labels), 17))
+        features[:, :2] = np.column_stack((labels, np.arange(len(labels))))
+        groups = np.repeat(np.arange(10), 2)
+        with (
+            patch(
+                "benchmarks.compare_selectors.load_selector_dataset",
+                return_value={"train": (features, labels)},
+            ),
+            patch(
+                "benchmarks.compare_selectors._training_groups",
+                return_value=groups,
+            ),
+        ):
+            report = compare_cross_validated_selectors(
+                Path("unused.csv"), folds=2
+            )
+
+        self.assertEqual(report["conversation_groups"], 10)
+        self.assertEqual(report["folds"], 2)
+        self.assertFalse(report["test_split_evaluated"])
+        for result in report["models"].values():
+            self.assertEqual(result["metrics"]["examples"], 20)
+            self.assertGreaterEqual(result["metrics"]["repair_recall"], 0.95)

@@ -24,6 +24,22 @@ SPLITS = ("train", "validation", "test")
 SAFETY_RECALL_TARGETS = (0.90, 0.95, 0.99, 1.0)
 
 
+def logistic_model() -> Pipeline:
+    return Pipeline(
+        [
+            ("scale", StandardScaler()),
+            (
+                "classifier",
+                LogisticRegression(
+                    class_weight="balanced",
+                    max_iter=2000,
+                    random_state=0,
+                ),
+            ),
+        ]
+    )
+
+
 # Parse one serialized boolean without accepting arbitrary truthy strings.
 def _parse_boolean(value: str, *, field_name: str) -> float:
     if value == "True":
@@ -38,6 +54,7 @@ def load_selector_dataset(
     path: Path,
     *,
     feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
+    require_validation: bool = True,
 ) -> dict[str, tuple[np.ndarray, np.ndarray]]:
     grouped: dict[str, list[tuple[list[float], int]]] = {split: [] for split in SPLITS}
     with path.open(newline="") as input_file:
@@ -66,7 +83,7 @@ def load_selector_dataset(
     dataset = {}
     for split, examples in grouped.items():
         if not examples:
-            if split == "test":
+            if split == "test" or (split == "validation" and not require_validation):
                 continue
             raise ValueError(f"dataset split {split!r} is empty")
         feature_rows, labels = zip(*examples, strict=True)
@@ -198,19 +215,7 @@ def train_logistic_selector(
     dataset = load_selector_dataset(dataset_path, feature_schema=feature_schema)
     train_features, train_labels = dataset["train"]
     validation_features, validation_labels = dataset["validation"]
-    model = Pipeline(
-        [
-            ("scale", StandardScaler()),
-            (
-                "classifier",
-                LogisticRegression(
-                    class_weight="balanced",
-                    max_iter=2000,
-                    random_state=0,
-                ),
-            ),
-        ]
-    )
+    model = logistic_model()
     model.fit(train_features, train_labels)
     validation_probabilities = model.predict_proba(validation_features)[:, 1]
     threshold = select_repair_threshold(
