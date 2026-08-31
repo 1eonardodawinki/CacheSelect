@@ -234,7 +234,8 @@ if [[ "$CHATRAG_EVALUATION" == 1 ]]; then
     --manifest "$CHATRAG_MANIFEST" --live-references \
     --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
     --max-completion-tokens 2048 --timeout-seconds 900 \
-    --policy-evaluation --policy-split test --run-id "$RUN_ID" \
+    --policy-evaluation --policy-split test --start-case "$START_CASE" \
+    "${CASE_LIMIT_ARGS[@]}" --run-id "$RUN_ID" \
     --request-log-dir "$RESULT/request-logs" --output-dir "$RESULT" \
     --summary-output "$RESULT/summary.json"
   stop_server
