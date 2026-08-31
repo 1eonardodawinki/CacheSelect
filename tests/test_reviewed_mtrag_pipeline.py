@@ -25,7 +25,6 @@ from benchmarks.reviewed_mtrag_counterfactual import (
 )
 from benchmarks.run_mtrag_counterfactual_pilot import main as run_main
 
-
 MODEL = "Qwen/Qwen3-14B"
 SOURCE_HASH = "a" * 64
 
@@ -312,6 +311,9 @@ class ReviewedMtragPipelineTests(TestCase):
             "CACHESELECT_COUNTERFACTUAL_MAX_CASES",
             "CACHESELECT_MLP_SMOKE",
             "CACHESELECT_MLP_EVALUATION",
+            "CACHESELECT_CHATRAG_EVALUATION",
+            "CACHESELECT_CHATRAG_INPUT",
+            "CACHESELECT_CHATRAG_MANIFEST",
             "CACHESELECT_MLP_MODEL",
             "CACHESELECT_CORRECT_KV_POSITIONS",
             "CACHESELECT_FULL_MTRAG_COUNTERFACTUAL",
@@ -333,6 +335,8 @@ class ReviewedMtragPipelineTests(TestCase):
             "--live-references",
             "live-reference-calibration.json",
             "--policy-evaluation",
+            "--input-format chatrag",
+            "--policy-split test",
             "--max-completion-tokens 2048",
             "prepare_mtrag_counterfactual_review",
             "artifacts.tar.gz",

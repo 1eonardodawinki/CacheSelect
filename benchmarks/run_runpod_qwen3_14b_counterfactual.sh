@@ -18,6 +18,7 @@ EXCLUDE_PLAN="${CACHESELECT_COUNTERFACTUAL_EXCLUDE_PLAN:-$ROOT/benchmarks/mtrag_
 EXCLUDE_COMPLETED="${CACHESELECT_COUNTERFACTUAL_EXCLUDE_COMPLETED:-1}"
 MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
 MLP_EVALUATION="${CACHESELECT_MLP_EVALUATION:-0}"
+CHATRAG_EVALUATION="${CACHESELECT_CHATRAG_EVALUATION:-0}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
 CORRECT_KV_POSITIONS="${CACHESELECT_CORRECT_KV_POSITIONS:-0}"
 DEFAULT_INPUTS=qwen3-mtrag-v1
@@ -28,7 +29,11 @@ REFERENCES="${CACHESELECT_COUNTERFACTUAL_REFERENCES:-$INPUTS/references.json}"
 MTRAG="$STORAGE/cacheselect-data/mtrag/RAG.jsonl"
 MTRAG_SHA="5d5201da9fabd072fd8f6b8d051bfaafa7ef031e76722a4920c66e94cede1873"
 MTRAG_URL="https://raw.githubusercontent.com/IBM/mt-rag-benchmark/cc5b1d481b391181b89f7ced860308482e785463/mtrag-human/generation_tasks/RAG.jsonl"
-RUN_ID="qwen3-mtrag-counterfactual-${CACHESELECT_EXPERIMENT_ID:-$(date -u +%s)}"
+CHATRAG="${CACHESELECT_CHATRAG_INPUT:-$STORAGE/cacheselect-data/chatrag/doc2dial-test.json}"
+CHATRAG_MANIFEST="${CACHESELECT_CHATRAG_MANIFEST:-$STORAGE/cacheselect-inputs/chatrag-doc2dial-policy-v1/policy-manifest.json}"
+RUN_PREFIX=qwen3-mtrag-counterfactual
+[[ "$CHATRAG_EVALUATION" == 1 ]] && RUN_PREFIX=qwen3-chatrag-policy
+RUN_ID="$RUN_PREFIX-${CACHESELECT_EXPERIMENT_ID:-$(date -u +%s)}"
 RESULT="$STORAGE/cacheselect-results/$RUN_ID"
 SERVER_LOGS="$STORAGE/cacheselect-server-logs/$RUN_ID"
 SERVER_LOG="$SERVER_LOGS/vllm.log"
@@ -58,23 +63,29 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
 [[ "$EXCLUDE_COMPLETED" == 0 || "$EXCLUDE_COMPLETED" == 1 ]] || exit 2
 [[ "$MLP_SMOKE" == 0 || "$MLP_SMOKE" == 1 ]] || exit 2
 [[ "$MLP_EVALUATION" == 0 || "$MLP_EVALUATION" == 1 ]] || exit 2
-[[ "$MLP_SMOKE" != 1 || "$MLP_EVALUATION" != 1 ]] || exit 2
+[[ "$CHATRAG_EVALUATION" == 0 || "$CHATRAG_EVALUATION" == 1 ]] || exit 2
+[[ "$MLP_SMOKE$MLP_EVALUATION$CHATRAG_EVALUATION" != *1*1* ]] || exit 2
 [[ "$CORRECT_KV_POSITIONS" == 0 || "$CORRECT_KV_POSITIONS" == 1 ]] || exit 2
 [[ "$FULL_DATASET" != 1 || "$MLP_SMOKE$MLP_EVALUATION" == 00 ]] || exit 2
-if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 ]]; then
+[[ "$CHATRAG_EVALUATION" != 1 || "$FULL_DATASET$CORRECT_KV_POSITIONS" == 01 ]] || exit 2
+if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   test -s "$MLP_MODEL" || { echo "CACHESELECT_MLP_MODEL is required" >&2; exit 2; }
 fi
 
 mkdir -p "$(dirname "$MTRAG")" "$RESULT/request-logs" "$SERVER_LOGS" \
   "$STORAGE/hf-cache" "$STORAGE/tmp"
-if [[ ! -s "$MTRAG" ]]; then
-  curl --location --fail --retry 3 --output "$MTRAG.download" "$MTRAG_URL"
-  mv "$MTRAG.download" "$MTRAG"
+if [[ "$CHATRAG_EVALUATION" == 1 ]]; then
+  test -s "$CHATRAG" && test -s "$CHATRAG_MANIFEST"
+else
+  if [[ ! -s "$MTRAG" ]]; then
+    curl --location --fail --retry 3 --output "$MTRAG.download" "$MTRAG_URL"
+    mv "$MTRAG.download" "$MTRAG"
+  fi
+  [[ "$(sha256sum "$MTRAG" | cut -d ' ' -f 1)" == "$MTRAG_SHA" ]] || {
+    echo "MTRAG source hash mismatch" >&2
+    exit 2
+  }
 fi
-[[ "$(sha256sum "$MTRAG" | cut -d ' ' -f 1)" == "$MTRAG_SHA" ]] || {
-  echo "MTRAG source hash mismatch" >&2
-  exit 2
-}
 
 export PYTHONPATH="$ROOT:$ROOT/vllm${PYTHONPATH:+:$PYTHONPATH}"
 export HF_HOME="$STORAGE/hf-cache"
@@ -85,7 +96,9 @@ export TRANSFORMERS_OFFLINE="$HF_HUB_OFFLINE"
   echo "vLLM is not imported from this checkout" >&2
   exit 2
 }
-if [[ "$FULL_DATASET" == 1 ]]; then
+if [[ "$CHATRAG_EVALUATION" == 1 ]]; then
+  :
+elif [[ "$FULL_DATASET" == 1 ]]; then
   EXCLUDE_ARGS=()
   if [[ "$EXCLUDE_COMPLETED" == 1 ]]; then
     test -s "$EXCLUDE_PLAN" || { echo "completed counterfactual plan not found: $EXCLUDE_PLAN" >&2; exit 2; }
@@ -111,11 +124,12 @@ printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
 printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
 printf 'max_cases=%s\n' "${MAX_CASES:-all}" >>"$RESULT/metadata.env"
 printf 'correct_kv_positions=%s\n' "$CORRECT_KV_POSITIONS" >>"$RESULT/metadata.env"
-if [[ "$MLP_EVALUATION" == 1 ]]; then
+if [[ "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   cp "$MLP_MODEL" "$RESULT/mlp-model.json"
 fi
 
 # Validate either reviewed inputs or the frozen live-reference full plan.
+if [[ "$CHATRAG_EVALUATION" != 1 ]]; then
 python - "$PLAN" "$REFERENCES" "$MODEL" "$MTRAG_SHA" "$FULL_DATASET" <<'PY'
 import hashlib, json, sys
 
@@ -137,9 +151,10 @@ else:
     assert plan["source_reference_manifest_sha256"] == hashlib.sha256(open(sys.argv[2], "rb").read()).hexdigest()
     assert refs["accepted_task_count"] == plan["transition_count"]
 PY
+fi
 
 REPACK_ARGS=()
-if python -c 'import json,sys; sys.exit(not json.load(open(sys.argv[1])).get("repacking_enabled", False))' "$PLAN"; then
+if [[ "$CHATRAG_EVALUATION" == 1 ]] || python -c 'import json,sys; sys.exit(not json.load(open(sys.argv[1])).get("repacking_enabled", False))' "$PLAN"; then
   REPACK_ARGS+=(--cacheselect-repack-partial-reuse)
 else
   REPACK_ARGS+=(--no-cacheselect-repack-partial-reuse)
@@ -153,7 +168,7 @@ if [[ -n "$MAX_CASES" ]]; then
   CASE_LIMIT_ARGS+=(--max-cases "$MAX_CASES")
 fi
 REPAIR_ARGS=(--cacheselect-repair-selector full_block)
-if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 ]]; then
+if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   REPAIR_ARGS=(--cacheselect-repair-selector mlp --cacheselect-mlp-model "$MLP_MODEL")
 fi
 
@@ -202,6 +217,26 @@ if [[ "$MLP_SMOKE" == 1 ]]; then
     --output "$RESULT/summary.json" --record-count 40 \
     --max-completion-tokens 16 --timeout-seconds 900 \
     --validate-against-reference
+  stop_server
+  SERVER_PID=""
+  ARCHIVE="$STORAGE/$RUN_ID-artifacts.tar.gz"
+  tar -czf "$ARCHIVE" -C "$STORAGE" \
+    "cacheselect-results/$RUN_ID" "cacheselect-server-logs/$RUN_ID"
+  echo "Completed $RUN_ID"
+  echo "archive=$ARCHIVE"
+  echo "archive_sha256=$(sha256sum "$ARCHIVE" | cut -d ' ' -f 1)"
+  exit 0
+fi
+
+if [[ "$CHATRAG_EVALUATION" == 1 ]]; then
+  python -m benchmarks.run_mtrag_counterfactual_pilot \
+    --input "$CHATRAG" --input-format chatrag --subset doc2dial \
+    --manifest "$CHATRAG_MANIFEST" --live-references \
+    --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
+    --max-completion-tokens 2048 --timeout-seconds 900 \
+    --policy-evaluation --policy-split test --run-id "$RUN_ID" \
+    --request-log-dir "$RESULT/request-logs" --output-dir "$RESULT" \
+    --summary-output "$RESULT/summary.json"
   stop_server
   SERVER_PID=""
   ARCHIVE="$STORAGE/$RUN_ID-artifacts.tar.gz"
