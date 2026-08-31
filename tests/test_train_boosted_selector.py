@@ -1,11 +1,31 @@
 from pathlib import Path
 from unittest import TestCase
 
-from benchmarks.compare_selectors import compare_validation_selectors
+import numpy as np
+
+from benchmarks.compare_selectors import (
+    _clustered_intervals,
+    compare_validation_selectors,
+)
 from benchmarks.train_boosted_selector import train_boosted_selector
 
 
 class BoostedSelectorTests(TestCase):
+    # Resample whole conversations and keep the uncertainty calculation reproducible.
+    def test_clustered_intervals_are_deterministic(self):
+        labels = np.asarray([1, 0, 1, 0])
+        predicted = np.asarray([True, False, False, False])
+        groups = np.asarray(["a", "a", "b", "b"])
+
+        first = _clustered_intervals(labels, predicted, groups, samples=100)
+        second = _clustered_intervals(labels, predicted, groups, samples=100)
+
+        self.assertEqual(first, second)
+        self.assertEqual(
+            set(first),
+            {"repair_recall", "safe_reuse_precision", "selected_reuse_rate"},
+        )
+
     # Verify the tree model trains without inspecting or reporting the test split.
     def test_trains_at_the_requested_validation_recall(self):
         model, report = train_boosted_selector(

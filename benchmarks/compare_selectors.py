@@ -1,20 +1,28 @@
-"""Compare candidate-block selectors without opening the held-out test split."""
+"""Compare candidate-block selectors on validation or the held-out test split."""
 
 from __future__ import annotations
 
 import argparse
+import csv
+import hashlib
 import json
 from pathlib import Path
 
+import numpy as np
+
+from benchmarks.train_boosted_selector import train_boosted_selector
+from benchmarks.train_logistic_selector import (
+    evaluate_selector,
+    load_selector_dataset,
+    train_logistic_selector,
+)
+from benchmarks.train_mlp_selector import train_mlp_selector
 from cacheselect.selector_features import (
     BASELINE_FEATURE_SCHEMA,
     FEATURE_SCHEMAS,
     SelectorFeatureSchema,
     selector_feature_schema,
 )
-from benchmarks.train_boosted_selector import train_boosted_selector
-from benchmarks.train_logistic_selector import train_logistic_selector
-from benchmarks.train_mlp_selector import train_mlp_selector
 
 
 # Train all learned selectors and place their validation results side by side.
@@ -73,12 +81,138 @@ def compare_validation_selectors(
     }
 
 
+def _clustered_intervals(
+    labels: np.ndarray,
+    predicted_repair: np.ndarray,
+    groups: np.ndarray,
+    *,
+    samples: int = 10_000,
+    seed: int = 0,
+) -> dict[str, list[float]]:
+    """Bootstrap test metrics by conversation rather than by correlated block."""
+    unique_groups = np.unique(groups)
+    if len(unique_groups) < 2 or samples < 100:
+        raise ValueError("clustered bootstrap requires two groups and 100 samples")
+    indices = {group: np.flatnonzero(groups == group) for group in unique_groups}
+    generator = np.random.default_rng(seed)
+    values = {
+        name: []
+        for name in (
+            "repair_recall",
+            "safe_reuse_precision",
+            "selected_reuse_rate",
+        )
+    }
+    while len(values["repair_recall"]) < samples:
+        selected = generator.choice(unique_groups, len(unique_groups), replace=True)
+        sampled = np.concatenate([indices[group] for group in selected])
+        if not np.any(labels[sampled]):
+            continue
+        metrics = evaluate_selector(labels[sampled], predicted_repair[sampled])
+        for name, metric_values in values.items():
+            metric_values.append(float(metrics[name]))
+    return {
+        name: np.quantile(metric_values, (0.025, 0.975)).tolist()
+        for name, metric_values in values.items()
+    }
+
+
+def compare_heldout_selectors(
+    dataset_path: Path,
+    *,
+    selected_model: str,
+    minimum_repair_recall: float = 0.95,
+    feature_schema: SelectorFeatureSchema = BASELINE_FEATURE_SCHEMA,
+    bootstrap_samples: int = 10_000,
+) -> dict[str, object]:
+    """Evaluate frozen validation thresholds once on conversation-grouped test data."""
+    test_features, test_labels = load_selector_dataset(
+        dataset_path, feature_schema=feature_schema
+    )["test"]
+    with dataset_path.open(newline="", encoding="utf-8") as input_file:
+        test_rows = [
+            row for row in csv.DictReader(input_file) if row.get("split") == "test"
+        ]
+    if len(test_rows) != len(test_labels):
+        raise ValueError("test rows and feature rows are misaligned")
+    groups = np.asarray([row.get("mtrag_conversation_id", "") for row in test_rows])
+    if not np.all(groups):
+        raise ValueError("test rows require mtrag_conversation_id")
+
+    trainers = (
+        ("logistic_regression", train_logistic_selector),
+        ("hist_gradient_boosting", train_boosted_selector),
+        ("mlp", train_mlp_selector),
+    )
+    if selected_model not in {name for name, _ in trainers}:
+        raise ValueError(f"unknown selected model: {selected_model}")
+    models = {}
+    for model_name, trainer in trainers:
+        model, training = trainer(
+            dataset_path,
+            minimum_repair_recall=minimum_repair_recall,
+            feature_schema=feature_schema,
+        )
+        threshold = float(training["selected_threshold"])
+        probabilities = model.predict_proba(test_features)[:, 1]
+        predicted_repair = probabilities >= threshold
+        missed = np.flatnonzero((test_labels == 1) & ~predicted_repair)
+        models[model_name] = {
+            "frozen_validation_threshold": threshold,
+            "metrics": evaluate_selector(
+                test_labels,
+                predicted_repair,
+                repair_probabilities=probabilities,
+            ),
+            "conversation_bootstrap_95pct_intervals": _clustered_intervals(
+                test_labels,
+                predicted_repair,
+                groups,
+                samples=bootstrap_samples,
+            ),
+            "missed_repairs": [
+                {
+                    "trace_id": test_rows[index].get("trace_id"),
+                    "trial_id": test_rows[index].get("trial_id"),
+                    "candidate_block_index": int(
+                        test_rows[index]["candidate_block_index"]
+                    ),
+                    "repair_probability": float(probabilities[index]),
+                    "label_reason": test_rows[index].get("label_reason"),
+                    "review_reason": test_rows[index].get("review_reason"),
+                }
+                for index in missed
+            ],
+        }
+    return {
+        "schema_version": 1,
+        "analysis": "held-out-selector-comparison",
+        "dataset": str(dataset_path),
+        "dataset_sha256": hashlib.sha256(dataset_path.read_bytes()).hexdigest(),
+        "evaluation_split": "test",
+        "test_split_used_for_training_or_selection": False,
+        "selected_model_before_test": selected_model,
+        "minimum_validation_repair_recall": minimum_repair_recall,
+        "feature_schema": feature_schema.name,
+        "test_examples": len(test_labels),
+        "test_conversations": len(set(groups)),
+        "bootstrap_samples": bootstrap_samples,
+        "models": models,
+    }
+
+
 # Run the comparison and save one auditable JSON validation report.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--minimum-repair-recall", type=float, default=0.95)
+    parser.add_argument("--evaluate-test", action="store_true")
+    parser.add_argument(
+        "--selected-model",
+        choices=("logistic_regression", "hist_gradient_boosting", "mlp"),
+    )
+    parser.add_argument("--bootstrap-samples", type=int, default=10_000)
     parser.add_argument(
         "--feature-schema",
         choices=sorted(FEATURE_SCHEMAS),
@@ -86,11 +220,22 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    report = compare_validation_selectors(
-        args.dataset,
-        minimum_repair_recall=args.minimum_repair_recall,
-        feature_schema=selector_feature_schema(args.feature_schema),
-    )
+    if args.evaluate_test:
+        if args.selected_model is None:
+            parser.error("--evaluate-test requires --selected-model")
+        report = compare_heldout_selectors(
+            args.dataset,
+            selected_model=args.selected_model,
+            minimum_repair_recall=args.minimum_repair_recall,
+            feature_schema=selector_feature_schema(args.feature_schema),
+            bootstrap_samples=args.bootstrap_samples,
+        )
+    else:
+        report = compare_validation_selectors(
+            args.dataset,
+            minimum_repair_recall=args.minimum_repair_recall,
+            feature_schema=selector_feature_schema(args.feature_schema),
+        )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
     for model_name, result in report["models"].items():
@@ -99,7 +244,7 @@ def main() -> None:
             f"{model_name}: repair_recall={metrics['repair_recall']:.3f} "
             f"selected_reuse_rate={metrics['selected_reuse_rate']:.3f}"
         )
-    print(f"Saved validation comparison to {args.output}")
+    print(f"Saved {report['evaluation_split']} comparison to {args.output}")
 
 
 if __name__ == "__main__":
