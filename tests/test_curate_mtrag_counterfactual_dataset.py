@@ -9,9 +9,10 @@ from unittest.mock import patch
 
 from benchmarks.consolidate_mtrag_counterfactual import AUDIT_COLUMNS, TRAINING_COLUMNS
 from benchmarks.curate_mtrag_counterfactual_dataset import (
+    SELECTOR_SPLIT_SEED,
     curate_mtrag_counterfactual_dataset,
 )
-from benchmarks.mtrag import MTRAG_SPLIT_SEED, mtrag_conversation_split
+from benchmarks.mtrag import mtrag_conversation_split
 from cacheselect.block_features import CandidateBlockFeatures
 from cacheselect.context_features import CandidateContextFeatures
 
@@ -138,11 +139,15 @@ class CurateMtragCounterfactualDatasetTests(TestCase):
         self.assertEqual(report["reuse_labels"], 1)
         self.assertEqual(report["repair_labels"], 1)
         self.assertEqual(report["feature_schema"], "block-context-v2")
-        self.assertEqual(report["split_seed"], MTRAG_SPLIT_SEED)
+        self.assertEqual(report["split_seed"], SELECTOR_SPLIT_SEED)
         self.assertEqual(report["split_counts"], {"train": 2})
         self.assertEqual(
             {row["split"] for row in rows},
-            {mtrag_conversation_split("conversation-1").value},
+            {
+                mtrag_conversation_split(
+                    "conversation-1", seed=SELECTOR_SPLIT_SEED
+                ).value
+            },
         )
         self.assertEqual(rows[0]["adjudication"], "exact_output_match")
         self.assertEqual(rows[0]["matching_run_length_blocks"], "1")
