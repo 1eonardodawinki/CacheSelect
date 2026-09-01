@@ -68,6 +68,10 @@ class MlpSelectorTests(TestCase):
         self.assertEqual(len(artifact["layers"]), 2)
         self.assertEqual(artifact["layers"][0]["activation"], "relu")
         self.assertEqual(artifact["layers"][1]["activation"], "logistic")
+        self.assertEqual(
+            set(artifact["reuse_budget_thresholds"]),
+            {"0.05", "0.10", "0.25", "0.50", "0.75", "1.00"},
+        )
 
     def test_configures_hidden_layers(self):
         model, report = train_mlp_selector(

@@ -57,6 +57,10 @@ class BoostedSelectorTests(TestCase):
         self.assertEqual(
             set(boosted["operating_points"]), {"0.90", "0.95", "0.99", "1.00"}
         )
+        self.assertEqual(
+            set(boosted["reuse_budget_points"]),
+            {"0.05", "0.10", "0.25", "0.50", "0.75", "1.00"},
+        )
         self.assertGreater(
             boosted["metrics"]["selected_reuse_rate"],
             logistic["metrics"]["selected_reuse_rate"],
@@ -91,3 +95,4 @@ class BoostedSelectorTests(TestCase):
         for result in report["models"].values():
             self.assertEqual(result["metrics"]["examples"], 20)
             self.assertGreaterEqual(result["metrics"]["repair_recall"], 0.95)
+            self.assertEqual(result["reuse_budget_points"]["1.00"]["actual_reuse_rate"], 1.0)

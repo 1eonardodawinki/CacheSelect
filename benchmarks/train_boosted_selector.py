@@ -10,6 +10,7 @@ from benchmarks.train_logistic_selector import (
     evaluate_selector,
     load_selector_dataset,
     operating_points,
+    reuse_budget_points,
     select_repair_threshold,
 )
 from cacheselect.selector_features import (
@@ -71,6 +72,10 @@ def train_boosted_selector(
                 repair_probabilities=validation_probabilities,
             ),
             "operating_points": operating_points(
+                validation_labels,
+                validation_probabilities,
+            ),
+            "reuse_budget_points": reuse_budget_points(
                 validation_labels,
                 validation_probabilities,
             ),

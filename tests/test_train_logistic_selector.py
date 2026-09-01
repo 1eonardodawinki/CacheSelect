@@ -11,8 +11,11 @@ from cacheselect.selector_features import (
 )
 from benchmarks.train_logistic_selector import (
     evaluate_selector,
+    export_logistic_selector,
     load_selector_dataset,
+    reuse_budget_points,
     select_repair_threshold,
+    train_logistic_selector,
 )
 
 
@@ -86,3 +89,32 @@ class LogisticSelectorTests(TestCase):
         self.assertEqual(metrics["missed_repair"], 1)
         self.assertEqual(metrics["safe_reuse"], 2)
         self.assertAlmostEqual(metrics["safe_reuse_precision"], 2 / 3)
+
+    def test_ranks_lowest_repair_scores_first(self):
+        points = reuse_budget_points(
+            np.asarray([0, 1, 0, 1]),
+            np.asarray([0.1, 0.2, 0.3, 0.4]),
+        )
+
+        self.assertEqual(
+            set(points), {"0.05", "0.10", "0.25", "0.50", "0.75", "1.00"}
+        )
+        self.assertEqual(points["0.25"]["actual_reuse_rate"], 0.25)
+        self.assertEqual(points["0.25"]["unsafe_reuse_rate"], 0.0)
+        self.assertEqual(points["0.50"]["unsafe_reuse_rate"], 0.5)
+        self.assertEqual(points["1.00"]["actual_reuse_rate"], 1.0)
+
+    def test_exports_logistic_model_for_runtime(self):
+        model, report = train_logistic_selector(
+            Path("results/block-dataset-v1/candidate-blocks.csv")
+        )
+        with TemporaryDirectory() as directory:
+            output = Path(directory) / "logistic.json"
+            artifact = export_logistic_selector(model, report, output)
+
+        self.assertEqual(len(artifact["layers"]), 1)
+        self.assertEqual(artifact["layers"][0]["activation"], "logistic")
+        self.assertEqual(
+            set(artifact["reuse_budget_thresholds"]),
+            {"0.05", "0.10", "0.25", "0.50", "0.75", "1.00"},
+        )

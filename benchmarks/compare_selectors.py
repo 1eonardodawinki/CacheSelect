@@ -18,6 +18,7 @@ from benchmarks.train_logistic_selector import (
     load_selector_dataset,
     logistic_model,
     operating_points,
+    reuse_budget_points,
     select_repair_threshold,
     train_logistic_selector,
 )
@@ -72,12 +73,14 @@ def compare_validation_selectors(
                 "selected_threshold": logistic["selected_threshold"],
                 "metrics": logistic_validation["logistic_regression"],
                 "operating_points": logistic_validation["operating_points"],
+                "reuse_budget_points": logistic_validation["reuse_budget_points"],
             },
             "hist_gradient_boosting": {
                 "selected_threshold": boosted["selected_threshold"],
                 "hyperparameters": boosted["hyperparameters"],
                 "metrics": boosted_validation["hist_gradient_boosting"],
                 "operating_points": boosted_validation["operating_points"],
+                "reuse_budget_points": boosted_validation["reuse_budget_points"],
             },
             "mlp": {
                 "selected_threshold": mlp["selected_threshold"],
@@ -85,6 +88,7 @@ def compare_validation_selectors(
                 "training": mlp["training"],
                 "metrics": mlp_validation["mlp"],
                 "operating_points": mlp_validation["operating_points"],
+                "reuse_budget_points": mlp_validation["reuse_budget_points"],
             },
         },
         "baselines": logistic_validation["baselines"],
@@ -137,6 +141,7 @@ def compare_cross_validated_selectors(
                 repair_probabilities=probabilities,
             ),
             "operating_points": operating_points(labels, probabilities),
+            "reuse_budget_points": reuse_budget_points(labels, probabilities),
         }
     return {
         "dataset": str(dataset_path),
@@ -243,6 +248,18 @@ def compare_heldout_selectors(
                 groups,
                 samples=bootstrap_samples,
             ),
+            "reuse_budget_points": {
+                target: {
+                    "frozen_validation_threshold": point["threshold"],
+                    **evaluate_selector(
+                        test_labels,
+                        probabilities >= point["threshold"],
+                    ),
+                }
+                for target, point in training["validation"][
+                    "reuse_budget_points"
+                ].items()
+            },
             "missed_repairs": [
                 {
                     "trace_id": test_rows[index].get("trace_id"),

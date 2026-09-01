@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +23,7 @@ from cacheselect.selector_features import (
 
 SPLITS = ("train", "validation", "test")
 SAFETY_RECALL_TARGETS = (0.90, 0.95, 0.99, 1.0)
+REUSE_BUDGETS = (0.05, 0.10, 0.25, 0.50, 0.75, 1.0)
 
 
 def logistic_model() -> Pipeline:
@@ -204,6 +206,37 @@ def operating_points(
     return points
 
 
+# Rank blocks by repair score and report safety at fixed reuse budgets.
+def reuse_budget_points(
+    labels: np.ndarray,
+    repair_probabilities: np.ndarray,
+) -> dict[str, dict[str, float | int]]:
+    if (
+        labels.ndim != 1
+        or repair_probabilities.ndim != 1
+        or len(labels) != len(repair_probabilities)
+        or not len(labels)
+        or not np.all(np.isfinite(repair_probabilities))
+    ):
+        raise ValueError("reuse-budget inputs must be aligned finite vectors")
+    ordered = np.argsort(repair_probabilities, kind="stable")
+    points = {}
+    for target in REUSE_BUDGETS:
+        count = math.ceil(target * len(labels))
+        boundary = repair_probabilities[ordered[count - 1]]
+        threshold = float(np.nextafter(boundary, np.inf))
+        metrics = evaluate_selector(labels, repair_probabilities >= threshold)
+        reused = metrics["safe_reuse"] + metrics["missed_repair"]
+        points[f"{target:.2f}"] = {
+            "target_reuse_rate": target,
+            "threshold": threshold,
+            "actual_reuse_rate": reused / len(labels),
+            "unsafe_reuse_rate": metrics["missed_repair"] / reused,
+            **metrics,
+        }
+    return points
+
+
 # Train on one split and select the operating threshold only on validation.
 def train_logistic_selector(
     dataset_path: Path,
@@ -254,6 +287,10 @@ def train_logistic_selector(
                 validation_labels,
                 validation_probabilities,
             ),
+            "reuse_budget_points": reuse_budget_points(
+                validation_labels,
+                validation_probabilities,
+            ),
         },
     }
     if evaluate_test:
@@ -274,11 +311,49 @@ def train_logistic_selector(
     return model, report
 
 
+# Export logistic regression through the existing one-layer runtime format.
+def export_logistic_selector(
+    model: Pipeline,
+    report: dict[str, object],
+    output_path: Path,
+) -> dict[str, object]:
+    scaler = model.named_steps["scale"]
+    classifier = model.named_steps["classifier"]
+    artifact = {
+        "schema_version": 1,
+        "model_type": "standard_scaler_mlp_binary_repair_selector",
+        "feature_schema": report["feature_schema"],
+        "feature_names": report["feature_names"],
+        "selected_repair_threshold": report["selected_threshold"],
+        "reuse_budget_thresholds": {
+            target: point["threshold"]
+            for target, point in report["validation"][
+                "reuse_budget_points"
+            ].items()
+        },
+        "standardizer": {
+            "mean": scaler.mean_.tolist(),
+            "scale": scaler.scale_.tolist(),
+        },
+        "layers": [
+            {
+                "weights": classifier.coef_.T.tolist(),
+                "bias": classifier.intercept_.tolist(),
+                "activation": "logistic",
+            }
+        ],
+    }
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(artifact, indent=2) + "\n")
+    return artifact
+
+
 # Train the baseline and write its JSON report without persisting the model yet.
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--runtime-output", type=Path)
     parser.add_argument("--minimum-repair-recall", type=float, default=0.95)
     parser.add_argument("--evaluate-test", action="store_true")
     parser.add_argument(
@@ -288,7 +363,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    _, report = train_logistic_selector(
+    model, report = train_logistic_selector(
         args.dataset,
         minimum_repair_recall=args.minimum_repair_recall,
         evaluate_test=args.evaluate_test,
@@ -296,6 +371,8 @@ def main() -> None:
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n")
+    if args.runtime_output:
+        export_logistic_selector(model, report, args.runtime_output)
     validation = report["validation"]["logistic_regression"]
     print(f"Selected repair threshold: {report['selected_threshold']:.6f}")
     print(f"Validation repair recall: {validation['repair_recall']:.3f}")

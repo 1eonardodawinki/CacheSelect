@@ -20,6 +20,7 @@ from benchmarks.train_logistic_selector import (
     evaluate_selector,
     load_selector_dataset,
     operating_points,
+    reuse_budget_points,
     select_repair_threshold,
 )
 
@@ -139,6 +140,10 @@ def train_mlp_selector(
                 validation_labels,
                 validation_probabilities,
             ),
+            "reuse_budget_points": reuse_budget_points(
+                validation_labels,
+                validation_probabilities,
+            ),
         },
     }
     return model, report
@@ -163,6 +168,12 @@ def export_mlp_selector(
         "operating_point_thresholds": {
             target: values["threshold"]
             for target, values in report["validation"]["operating_points"].items()
+        },
+        "reuse_budget_thresholds": {
+            target: values["threshold"]
+            for target, values in report["validation"][
+                "reuse_budget_points"
+            ].items()
         },
         "standardizer": {
             "mean": scaler.mean_.tolist(),
