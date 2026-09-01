@@ -16,6 +16,8 @@ def _write_result(root: Path, target: float, selected: int) -> Path:
             "quality_passed": quality,
             "exact_output_match": exact,
             "requires_manual_review": not exact,
+            "reference_ttft_ms": 3.0,
+            "policy_ttft_ms": 2.0,
             "reference_wall_seconds": 2.0,
             "policy_wall_seconds": 1.0,
         }
@@ -76,3 +78,14 @@ class AnalyzePolicyReuseSweepTests(TestCase):
 
             with self.assertRaisesRegex(ValueError, "same transitions"):
                 analyze_policy_reuse_sweep([first, second])
+
+    def test_compares_cache_policy_with_native_apc(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = _write_result(root, 0.1, 8)
+            baseline = _write_result(root, 0.0, 0)
+            report = analyze_policy_reuse_sweep([policy], baseline)
+
+        self.assertEqual(report["native_apc"]["semantic_error_rate"], 0.5)
+        self.assertEqual(report["points"][0]["ttft_speedup_vs_native_apc"], 1.0)
+        self.assertEqual(report["points"][0]["wall_speedup_vs_native_apc"], 1.0)
