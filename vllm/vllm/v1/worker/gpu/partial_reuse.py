@@ -210,6 +210,22 @@ def build_partial_reuse_copy_instructions(
     )
 
 
+def filter_partial_reuse_copy_instructions(
+    instructions: Sequence[PartialReuseCopyInstruction],
+    reused_token_indices: Sequence[int],
+    block_size: int,
+) -> tuple[PartialReuseCopyInstruction, ...]:
+    """Drop copies for blocks that the repair policy fully recomputes."""
+    if block_size < 1:
+        raise ValueError("block_size must be positive")
+    reused_blocks = {token_index // block_size for token_index in reused_token_indices}
+    return tuple(
+        instruction
+        for instruction in instructions
+        if instruction.target_block_index in reused_blocks
+    )
+
+
 # Convert CacheSelect instructions into vLLM's physical block-copy format.
 def build_kv_cache_block_copies(
     instructions: Sequence[PartialReuseCopyInstruction],

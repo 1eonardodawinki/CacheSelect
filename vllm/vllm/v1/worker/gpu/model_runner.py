@@ -133,6 +133,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     correct_qwen3_kv_positions_inplace,
     create_repair_selector,
     execute_partial_reuse_span_steps,
+    filter_partial_reuse_copy_instructions,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
     record_compacted_batch_construction,
@@ -979,6 +980,10 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 and plan is not None
                 else None
             )
+            if reused_token_indices is not None and plan is not None:
+                copy_instructions = filter_partial_reuse_copy_instructions(
+                    copy_instructions, reused_token_indices, plan.block_size
+                )
 
             prompt_len = len(new_req_data.prompt_token_ids)
             sampling_params = new_req_data.sampling_params

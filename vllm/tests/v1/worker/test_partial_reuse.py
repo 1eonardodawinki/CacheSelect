@@ -43,6 +43,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     correct_qwen3_kv_positions_inplace,
     create_repair_selector,
     execute_partial_reuse_span_steps,
+    filter_partial_reuse_copy_instructions,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
     record_compacted_batch_construction,
@@ -319,6 +320,9 @@ def test_build_counterfactual_repair_instructions() -> None:
         34,
         35,
     )
+    assert filter_partial_reuse_copy_instructions(
+        copies, (32, 33, 34, 35), block_size=4
+    ) == (copies[1],)
     with pytest.raises(ValueError, match="exactly one resolved candidate"):
         build_counterfactual_repair_instructions(
             candidates, block_size=4, reused_target_block_index=7
