@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from benchmarks.consolidate_mtrag_counterfactual import AUDIT_COLUMNS, TRAINING_COLUMNS
+from benchmarks.mtrag import MTRAG_SPLIT_SEED, mtrag_conversation_split
 from benchmarks.prepare_mtrag_counterfactual_review import _load_ledger
 from cacheselect.block_features import extract_candidate_block_features
 from cacheselect.context_features import extract_candidate_context_features
@@ -243,6 +244,9 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         )
 
     for row in rows:
+        row["split"] = mtrag_conversation_split(
+            row["mtrag_conversation_id"]
+        ).value
         context, transition_id = _context_feature(
             row["trial_id"],
             int(row["candidate_block_index"]),
@@ -280,6 +284,7 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         writer.writerows(rows)
 
     counts = Counter(row["decision"] for row in rows)
+    split_counts = Counter(row["split"] for row in rows)
     report = {
         "schema_version": 1,
         "dataset": "mtrag-curated-counterfactual-blocks",
@@ -296,6 +301,8 @@ def curate_mtrag_counterfactual_dataset(result_dir: Path) -> dict[str, Any]:
         "abstained_trials": abstention_count,
         "reuse_labels": counts["reuse"],
         "repair_labels": counts["repair"],
+        "split_seed": MTRAG_SPLIT_SEED,
+        "split_counts": dict(sorted(split_counts.items())),
         "output_dataset": str(output_path),
     }
     (result_dir / "mtrag-curated-summary.json").write_text(
