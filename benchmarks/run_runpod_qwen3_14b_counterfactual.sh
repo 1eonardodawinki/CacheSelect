@@ -19,6 +19,8 @@ EXCLUDE_COMPLETED="${CACHESELECT_COUNTERFACTUAL_EXCLUDE_COMPLETED:-1}"
 MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
 MLP_EVALUATION="${CACHESELECT_MLP_EVALUATION:-0}"
 CHATRAG_EVALUATION="${CACHESELECT_CHATRAG_EVALUATION:-0}"
+NATIVE_APC_EVALUATION="${CACHESELECT_NATIVE_APC_EVALUATION:-0}"
+POLICY_SPLIT="${CACHESELECT_POLICY_SPLIT:-validation}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
 CORRECT_KV_POSITIONS="${CACHESELECT_CORRECT_KV_POSITIONS:-0}"
 DEFAULT_INPUTS=qwen3-mtrag-v1
@@ -33,6 +35,8 @@ CHATRAG="${CACHESELECT_CHATRAG_INPUT:-$STORAGE/cacheselect-data/chatrag/doc2dial
 CHATRAG_MANIFEST="${CACHESELECT_CHATRAG_MANIFEST:-$STORAGE/cacheselect-inputs/chatrag-doc2dial-policy-v1/policy-manifest.json}"
 RUN_PREFIX=qwen3-mtrag-counterfactual
 [[ "$CHATRAG_EVALUATION" == 1 ]] && RUN_PREFIX=qwen3-chatrag-policy
+[[ "$MLP_EVALUATION" == 1 ]] && RUN_PREFIX=qwen3-mtrag-policy
+[[ "$NATIVE_APC_EVALUATION" == 1 ]] && RUN_PREFIX=qwen3-mtrag-native-apc
 RUN_ID="$RUN_PREFIX-${CACHESELECT_EXPERIMENT_ID:-$(date -u +%s)}"
 RESULT="$STORAGE/cacheselect-results/$RUN_ID"
 SERVER_LOGS="$STORAGE/cacheselect-server-logs/$RUN_ID"
@@ -64,9 +68,11 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
 [[ "$MLP_SMOKE" == 0 || "$MLP_SMOKE" == 1 ]] || exit 2
 [[ "$MLP_EVALUATION" == 0 || "$MLP_EVALUATION" == 1 ]] || exit 2
 [[ "$CHATRAG_EVALUATION" == 0 || "$CHATRAG_EVALUATION" == 1 ]] || exit 2
-[[ "$MLP_SMOKE$MLP_EVALUATION$CHATRAG_EVALUATION" != *1*1* ]] || exit 2
+[[ "$NATIVE_APC_EVALUATION" == 0 || "$NATIVE_APC_EVALUATION" == 1 ]] || exit 2
+[[ "$POLICY_SPLIT" == validation || "$POLICY_SPLIT" == test ]] || exit 2
+[[ "$MLP_SMOKE$MLP_EVALUATION$CHATRAG_EVALUATION$NATIVE_APC_EVALUATION" != *1*1* ]] || exit 2
 [[ "$CORRECT_KV_POSITIONS" == 0 || "$CORRECT_KV_POSITIONS" == 1 ]] || exit 2
-[[ "$FULL_DATASET" != 1 || "$MLP_SMOKE$MLP_EVALUATION" == 00 ]] || exit 2
+[[ "$FULL_DATASET" != 1 || "$MLP_SMOKE$MLP_EVALUATION$NATIVE_APC_EVALUATION" == 000 ]] || exit 2
 [[ "$CHATRAG_EVALUATION" != 1 || "$FULL_DATASET$CORRECT_KV_POSITIONS" == 01 ]] || exit 2
 if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   test -s "$MLP_MODEL" || { echo "CACHESELECT_MLP_MODEL is required" >&2; exit 2; }
@@ -124,6 +130,8 @@ printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
 printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
 printf 'max_cases=%s\n' "${MAX_CASES:-all}" >>"$RESULT/metadata.env"
 printf 'correct_kv_positions=%s\n' "$CORRECT_KV_POSITIONS" >>"$RESULT/metadata.env"
+printf 'policy_split=%s\n' "$POLICY_SPLIT" >>"$RESULT/metadata.env"
+printf 'native_apc_evaluation=%s\n' "$NATIVE_APC_EVALUATION" >>"$RESULT/metadata.env"
 if [[ "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   cp "$MLP_MODEL" "$RESULT/mlp-model.json"
 fi
@@ -171,6 +179,16 @@ REPAIR_ARGS=(--cacheselect-repair-selector full_block)
 if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   REPAIR_ARGS=(--cacheselect-repair-selector mlp --cacheselect-mlp-model "$MLP_MODEL")
 fi
+CACHESELECT_ARGS=()
+if [[ "$NATIVE_APC_EVALUATION" != 1 ]]; then
+  CACHESELECT_ARGS=(
+    --enable-cacheselect
+    "${REPAIR_ARGS[@]}"
+    --cacheselect-execute-partial-reuse
+    "${REPACK_ARGS[@]}"
+    "${POSITION_ARGS[@]}"
+  )
+fi
 
 SERVER_PID=""
 stop_server() {
@@ -190,11 +208,8 @@ setsid vllm serve "$MODEL" \
   --host 127.0.0.1 --port "$PORT" --dtype bfloat16 \
   --max-model-len 8192 --max-num-seqs 1 --max-num-batched-tokens 8192 \
   --gpu-memory-utilization 0.90 --block-size 16 \
-  --enable-prefix-caching --enable-cacheselect \
-  "${REPAIR_ARGS[@]}" \
-  --cacheselect-execute-partial-reuse \
-  "${REPACK_ARGS[@]}" \
-  "${POSITION_ARGS[@]}" \
+  --enable-prefix-caching \
+  "${CACHESELECT_ARGS[@]}" \
   --no-enable-chunked-prefill --enforce-eager \
   --enable-prompt-tokens-details --enable-per-request-metrics \
   >"$SERVER_LOG" 2>&1 &
@@ -249,12 +264,15 @@ if [[ "$CHATRAG_EVALUATION" == 1 ]]; then
   exit 0
 fi
 
-if [[ "$MLP_EVALUATION" == 1 ]]; then
+if [[ "$MLP_EVALUATION" == 1 || "$NATIVE_APC_EVALUATION" == 1 ]]; then
+  POLICY_ARGS=()
+  [[ "$NATIVE_APC_EVALUATION" == 1 ]] && POLICY_ARGS+=(--native-apc-policy)
   python -m benchmarks.run_mtrag_counterfactual_pilot \
     --input "$MTRAG" --manifest "$PLAN" --references "$REFERENCES" \
     --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
     --max-completion-tokens 2048 --timeout-seconds 900 \
-    --policy-evaluation --run-id "$RUN_ID" \
+    --policy-evaluation --policy-split "$POLICY_SPLIT" \
+    "${POLICY_ARGS[@]}" --run-id "$RUN_ID" \
     --request-log-dir "$RESULT/request-logs" --output-dir "$RESULT" \
     --summary-output "$RESULT/summary.json"
   stop_server
