@@ -106,6 +106,55 @@ class MtragCounterfactualTests(TestCase):
         self.assertEqual(result["selected_reuse_tokens"], 16)
         self.assertEqual(result["aggregate_ttft_speedup"], 2.0)
 
+    def test_runs_native_apc_without_cacheselect_metrics(self):
+        ground_truth = RequestGroundTruth(expected_answer="answer", requirements=[])
+        source = RequestSpec("source", "mtrag", 1, [], [], ground_truth)
+        edited = RequestSpec("task-1", "mtrag", 2, [], [], ground_truth)
+        transition = SimpleNamespace(
+            transition_id="transition-1",
+            previous_request_id="source",
+            current_request_id="task-1",
+        )
+        case = SimpleNamespace(
+            trace=SimpleNamespace(
+                trace_id="trace-1",
+                requests=[source, edited],
+                transitions=[transition],
+            ),
+            split=DatasetSplit.TEST,
+            collection="collection",
+        )
+        observation = {
+            "cached_tokens": 0,
+            "server_metrics": {"time_to_first_token_ms": 50.0},
+            "output_text": "answer",
+            "finish_reason": "stop",
+            "quality": {"mode": "requirements", "passed": True},
+            "client_wall_seconds": 0.5,
+        }
+        with patch(
+            "benchmarks.mtrag_counterfactual._observe_request",
+            side_effect=[observation, observation, {**observation, "cached_tokens": 16}],
+        ) as observe:
+            result = run_mtrag_policy_cases(
+                (case,),
+                reference_outputs={"task-1": "answer"},
+                url="http://server/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=128,
+                api_key=None,
+                timeout_seconds=300.0,
+                recorder=SimpleNamespace(path=Path("requests.jsonl")),
+                cacheselect_enabled=False,
+            )
+
+        self.assertTrue(
+            all(not call.kwargs["require_cacheselect_metrics"] for call in observe.call_args_list)
+        )
+        self.assertTrue(all(not call.kwargs["vllm_xargs"] for call in observe.call_args_list))
+        self.assertEqual(result["policy"], "native_apc")
+        self.assertEqual(result["executed_cached_tokens"], 16)
+
     # Run cases in order while forwarding their frozen plans and audited outputs.
     def test_runs_frozen_cases_through_existing_workflow(self):
         cases = (_case(1), _case(2))

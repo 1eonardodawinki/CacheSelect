@@ -43,6 +43,7 @@ def run_mtrag_policy_cases(
     api_key: str | None,
     timeout_seconds: float,
     recorder: RequestRecorder,
+    cacheselect_enabled: bool = True,
 ) -> dict[str, Any]:
     if not cases:
         raise ValueError("MTRAG policy evaluation contains no cases")
@@ -77,8 +78,8 @@ def run_mtrag_policy_cases(
                     "mtrag_policy_evaluation_id": evaluation_id,
                     "mtrag_policy_role": role,
                 },
-                require_cacheselect_metrics=True,
-                vllm_xargs=xargs,
+                require_cacheselect_metrics=cacheselect_enabled,
+                vllm_xargs=xargs if cacheselect_enabled else {},
                 cache_salt=salt,
             )
 
@@ -89,7 +90,10 @@ def run_mtrag_policy_cases(
             {"cacheselect_request_id": reference.request_id},
             max_completion_tokens,
         )
-        _require_fresh_full_recompute(reference_observation, "policy reference")
+        if cacheselect_enabled:
+            _require_fresh_full_recompute(reference_observation, "policy reference")
+        elif reference_observation.get("cached_tokens") != 0:
+            raise RuntimeError("native APC reference was not a fresh recompute")
         donor_observation = observe(
             donor,
             "donor",
@@ -97,7 +101,10 @@ def run_mtrag_policy_cases(
             {"cacheselect_request_id": donor.request_id},
             1,
         )
-        _require_fresh_full_recompute(donor_observation, "policy donor")
+        if cacheselect_enabled:
+            _require_fresh_full_recompute(donor_observation, "policy donor")
+        elif donor_observation.get("cached_tokens") != 0:
+            raise RuntimeError("native APC donor was not a fresh recompute")
         policy_observation = observe(
             policy,
             "policy",
@@ -115,10 +122,14 @@ def run_mtrag_policy_cases(
         selected_reuse_tokens = int(
             metrics.get("cacheselect_skipped_repair_tokens") or 0
         )
-        if candidate_tokens != repair_tokens + selected_reuse_tokens:
-            raise RuntimeError("MLP repair accounting is inconsistent")
-        if candidate_tokens and metrics.get("cacheselect_repair_selector") != "mlp":
-            raise RuntimeError("MTRAG policy evaluation did not use the MLP")
+        if cacheselect_enabled:
+            if candidate_tokens != repair_tokens + selected_reuse_tokens:
+                raise RuntimeError("MLP repair accounting is inconsistent")
+            if (
+                candidate_tokens
+                and metrics.get("cacheselect_repair_selector") != "mlp"
+            ):
+                raise RuntimeError("MTRAG policy evaluation did not use the MLP")
         comparison = compare_response_quality(
             reference_observation["quality"],
             policy_observation["quality"],
@@ -170,7 +181,11 @@ def run_mtrag_policy_cases(
                 "reuse_executed": bool(
                     metrics.get("cacheselect_compacted_batch_executed")
                 ),
-                "execution_reason": metrics.get("cacheselect_execution_reason"),
+                "execution_reason": (
+                    metrics.get("cacheselect_execution_reason")
+                    if cacheselect_enabled
+                    else "native_apc"
+                ),
                 "reference_ttft_ms": reference_ttft,
                 "policy_ttft_ms": policy_ttft,
                 "ttft_speedup": reference_ttft / policy_ttft,
@@ -187,6 +202,7 @@ def run_mtrag_policy_cases(
     return {
         "schema_version": 1,
         "experiment": "mtrag-natural-policy-evaluation",
+        "policy": "cacheselect" if cacheselect_enabled else "native_apc",
         "case_count": len(rows),
         "valid_reference_count": len(valid_rows),
         "exact_output_matches": sum(row["exact_output_match"] for row in valid_rows),

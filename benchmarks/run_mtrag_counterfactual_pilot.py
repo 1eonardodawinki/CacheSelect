@@ -47,6 +47,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--start-case", type=int, default=1)
     parser.add_argument("--max-cases", type=int)
     parser.add_argument("--policy-evaluation", action="store_true")
+    parser.add_argument("--native-apc-policy", action="store_true")
     parser.add_argument(
         "--policy-split",
         choices=("validation", "test"),
@@ -73,6 +74,8 @@ def _parse_args() -> argparse.Namespace:
         args.live_references and args.policy_evaluation
     ):
         parser.error("ChatRAG requires live-reference policy evaluation")
+    if args.native_apc_policy and not args.policy_evaluation:
+        parser.error("native APC requires policy evaluation")
     return args
 
 
@@ -178,7 +181,11 @@ def main() -> None:
     if args.policy_evaluation:
         cases = tuple(case for case in cases if case.split.value == args.policy_split)
         if args.input_format == "mtrag":
-            experiment = "qwen3-reviewed-mtrag-natural-policy"
+            experiment = (
+                "qwen3-native-apc-policy"
+                if args.native_apc_policy
+                else "qwen3-reviewed-mtrag-natural-policy"
+            )
     source_case_count = len(cases)
     if args.start_case > source_case_count:
         raise ValueError("--start-case exceeds the frozen MTRAG case count")
@@ -218,6 +225,8 @@ def main() -> None:
         "timeout_seconds": args.timeout_seconds,
         "recorder": recorder,
     }
+    if args.policy_evaluation:
+        runner_args["cacheselect_enabled"] = not args.native_apc_policy
     if not args.policy_evaluation:
         runner_args.update(
             {
