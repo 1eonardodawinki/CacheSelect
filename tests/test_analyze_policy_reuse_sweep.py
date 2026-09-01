@@ -89,3 +89,23 @@ class AnalyzePolicyReuseSweepTests(TestCase):
         self.assertEqual(report["native_apc"]["semantic_error_rate"], 0.5)
         self.assertEqual(report["points"][0]["ttft_speedup_vs_native_apc"], 1.0)
         self.assertEqual(report["points"][0]["wall_speedup_vs_native_apc"], 1.0)
+
+    def test_adds_complete_semantic_audit_without_replacing_automatic_metrics(self):
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            policy = _write_result(root, 0.1, 8)
+            baseline = _write_result(root, 0.0, 0)
+            audit = {
+                "default_verdict": "pass",
+                "reviewed_transition_ids": ["a", "b"],
+                "failed_transition_ids_by_condition": {
+                    "native-apc": [],
+                    "reuse-010": ["b"],
+                },
+            }
+            report = analyze_policy_reuse_sweep([policy], baseline, audit)
+
+        point = report["points"][0]
+        self.assertEqual(point["semantic_error_rate"], 0.5)
+        self.assertEqual(point["audited_semantic_error_rate"], 0.5)
+        self.assertEqual(report["native_apc"]["audited_semantic_error_rate"], 0.0)

@@ -55,9 +55,37 @@ def _summarize(summary: dict[str, Any], result_dir: Path) -> dict[str, Any]:
     }
 
 
+def _apply_semantic_audit(
+    report: dict[str, Any], audit: dict[str, Any], case_ids: tuple[str, ...]
+) -> None:
+    if audit.get("default_verdict") != "pass":
+        raise ValueError("semantic audit default verdict must be pass")
+    if tuple(sorted(audit.get("reviewed_transition_ids", ()))) != case_ids:
+        raise ValueError("semantic audit does not cover the matched transitions")
+    failures = audit.get("failed_transition_ids_by_condition")
+    if not isinstance(failures, dict):
+        raise ValueError("semantic audit failures must be an object")
+    conditions = {"native-apc": report["native_apc"]} if report["native_apc"] else {}
+    conditions.update(
+        (f"reuse-{point['target_reuse_rate'] * 100:03.0f}", point)
+        for point in report["points"]
+    )
+    if set(failures) != set(conditions):
+        raise ValueError("semantic audit conditions do not match the sweep")
+    for name, summary in conditions.items():
+        failed = tuple(sorted(failures[name]))
+        if not set(failed).issubset(case_ids):
+            raise ValueError(f"semantic audit contains an unknown transition: {name}")
+        summary["audited_semantic_error_count"] = len(failed)
+        summary["audited_semantic_error_rate"] = len(failed) / len(case_ids)
+        summary["audited_failed_transition_ids"] = failed
+    report["semantic_audit"] = audit
+
+
 def analyze_policy_reuse_sweep(
     result_dirs: list[Path],
     baseline_result_dir: Path | None = None,
+    semantic_audit: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     if not result_dirs:
         raise ValueError("provide at least one policy result directory")
@@ -105,31 +133,40 @@ def analyze_policy_reuse_sweep(
                 if point["policy_wall_seconds"]
                 else None
             )
-    return {
+    report = {
         "schema_version": 1,
         "analysis": "end-to-end-reuse-budget-sweep",
         "matched_case_count": len(expected_cases or ()),
         "native_apc": baseline,
         "points": points,
     }
+    if semantic_audit is not None:
+        _apply_semantic_audit(report, semantic_audit, expected_cases or ())
+    return report
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--result-dir", action="append", type=Path, required=True)
     parser.add_argument("--baseline-result-dir", type=Path)
+    parser.add_argument("--semantic-audit", type=Path)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     report = analyze_policy_reuse_sweep(
-        args.result_dir, baseline_result_dir=args.baseline_result_dir
+        args.result_dir,
+        baseline_result_dir=args.baseline_result_dir,
+        semantic_audit=_read(args.semantic_audit) if args.semantic_audit else None,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     for point in report["points"]:
+        error_rate = point.get(
+            "audited_semantic_error_rate", point["semantic_error_rate"]
+        )
         print(
             f"reuse={point['target_reuse_rate']:.0%} "
             f"actual={point['selected_reuse_share']:.1%} "
-            f"error={point['semantic_error_rate']:.1%} "
+            f"error={error_rate:.1%} "
             f"ttft={point['aggregate_ttft_speedup']:.3f}x"
         )
     print(f"Saved {args.output}")
