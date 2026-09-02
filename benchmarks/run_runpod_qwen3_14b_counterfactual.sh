@@ -41,6 +41,8 @@ RUN_PREFIX=qwen3-mtrag-counterfactual
 [[ "$CHATRAG_EVALUATION" == 1 ]] && RUN_PREFIX=qwen3-chatrag-policy
 [[ "$MLP_EVALUATION" == 1 ]] && RUN_PREFIX=qwen3-mtrag-policy
 [[ "$NATIVE_APC_EVALUATION" == 1 ]] && RUN_PREFIX=qwen3-mtrag-native-apc
+[[ "$CHATRAG_EVALUATION$NATIVE_APC_EVALUATION" == 11 ]] \
+  && RUN_PREFIX=qwen3-chatrag-native-apc
 RUN_ID="$RUN_PREFIX-${CACHESELECT_EXPERIMENT_ID:-$(date -u +%s)}"
 RESULT="$STORAGE/cacheselect-results/$RUN_ID"
 SERVER_LOGS="$STORAGE/cacheselect-server-logs/$RUN_ID"
@@ -74,7 +76,8 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
 [[ "$CHATRAG_EVALUATION" == 0 || "$CHATRAG_EVALUATION" == 1 ]] || exit 2
 [[ "$NATIVE_APC_EVALUATION" == 0 || "$NATIVE_APC_EVALUATION" == 1 ]] || exit 2
 [[ "$POLICY_SPLIT" == validation || "$POLICY_SPLIT" == test ]] || exit 2
-[[ "$MLP_SMOKE$MLP_EVALUATION$CHATRAG_EVALUATION$NATIVE_APC_EVALUATION" != *1*1* ]] || exit 2
+MODE_COUNT=$((MLP_SMOKE + MLP_EVALUATION + CHATRAG_EVALUATION + NATIVE_APC_EVALUATION))
+[[ "$MODE_COUNT" -le 1 || "$MODE_COUNT$CHATRAG_EVALUATION$NATIVE_APC_EVALUATION" == 211 ]] || exit 2
 [[ "$CORRECT_KV_POSITIONS" == 0 || "$CORRECT_KV_POSITIONS" == 1 ]] || exit 2
 [[ "$MIN_REUSE_SPAN_BLOCKS" =~ ^[1-9][0-9]*$ ]] || exit 2
 [[ "$FULL_DATASET" != 1 || "$MLP_SMOKE$MLP_EVALUATION$NATIVE_APC_EVALUATION" == 000 ]] || exit 2
@@ -232,6 +235,8 @@ for _ in {1..1800}; do
 done
 curl --fail --silent "http://127.0.0.1:$PORT/health" >/dev/null
 
+POLICY_ARGS=()
+[[ "$NATIVE_APC_EVALUATION" == 1 ]] && POLICY_ARGS+=(--native-apc-policy)
 if [[ "$MLP_SMOKE" == 1 ]]; then
   python -m benchmarks.run_hybrid_apc_baseline \
     --base-url "http://127.0.0.1:$PORT" --model "$MODEL" \
@@ -257,7 +262,7 @@ if [[ "$CHATRAG_EVALUATION" == 1 ]]; then
     --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
     --max-completion-tokens 2048 --timeout-seconds 900 \
     --policy-evaluation --policy-split test --start-case "$START_CASE" \
-    "${CASE_LIMIT_ARGS[@]}" --run-id "$RUN_ID" \
+    "${POLICY_ARGS[@]}" "${CASE_LIMIT_ARGS[@]}" --run-id "$RUN_ID" \
     --request-log-dir "$RESULT/request-logs" --output-dir "$RESULT" \
     --summary-output "$RESULT/summary.json"
   stop_server
@@ -272,8 +277,6 @@ if [[ "$CHATRAG_EVALUATION" == 1 ]]; then
 fi
 
 if [[ "$MLP_EVALUATION" == 1 || "$NATIVE_APC_EVALUATION" == 1 ]]; then
-  POLICY_ARGS=()
-  [[ "$NATIVE_APC_EVALUATION" == 1 ]] && POLICY_ARGS+=(--native-apc-policy)
   python -m benchmarks.run_mtrag_counterfactual_pilot \
     --input "$MTRAG" --manifest "$PLAN" --references "$REFERENCES" \
     --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
