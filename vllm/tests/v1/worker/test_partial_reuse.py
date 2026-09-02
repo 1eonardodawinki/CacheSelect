@@ -176,26 +176,39 @@ def test_repack_kv_cache_blocks_inplace() -> None:
     caches = []
     originals = []
     for layer in range(2):
-        cache = torch.arange(4 * 2 * 4).reshape(4, 2, 4, 1) + layer * 100
+        cache = torch.arange(6 * 2 * 4).reshape(6, 2, 4, 1) + layer * 100
         caches.append(cache)
         originals.append(cache.clone())
-    instruction = PartialReuseCopyInstruction(
-        source_block_id=0,
-        source_block_ids=(0, 1),
-        source_block_offset=2,
-        target_block_id=2,
-        target_block_index=3,
-        requires_repair=False,
+    instructions = (
+        PartialReuseCopyInstruction(
+            source_block_id=0,
+            source_block_ids=(0, 1),
+            source_block_offset=2,
+            target_block_id=4,
+            target_block_index=3,
+            requires_repair=False,
+        ),
+        PartialReuseCopyInstruction(
+            source_block_id=2,
+            source_block_ids=(2, 3),
+            source_block_offset=1,
+            target_block_id=5,
+            target_block_index=4,
+            requires_repair=False,
+        ),
     )
 
-    repack_kv_cache_blocks_inplace(caches, (instruction,), block_size=4)
+    repack_kv_cache_blocks_inplace(caches, instructions, block_size=4)
 
     for cache, original in zip(caches, originals, strict=True):
-        expected = torch.cat(
-            (original[0, :, 2:, :], original[1, :, :2, :]), dim=1
+        expected = torch.stack(
+            (
+                torch.cat((original[0, :, 2:, :], original[1, :, :2, :]), dim=1),
+                torch.cat((original[2, :, 1:, :], original[3, :, :1, :]), dim=1),
+            )
         )
-        assert torch.equal(cache[2], expected)
-        assert torch.equal(cache[:2], original[:2])
+        assert torch.equal(cache[4:], expected)
+        assert torch.equal(cache[:4], original[:4])
 
 
 # Check that moved Qwen3 keys are re-rotated while values remain unchanged.

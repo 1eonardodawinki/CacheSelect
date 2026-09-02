@@ -275,15 +275,33 @@ def repack_kv_cache_blocks_inplace(
         ):
             raise ValueError("invalid KV repacking instruction")
 
+    device = caches[0].device
+    source_ids = torch.tensor(
+        [instruction.physical_source_block_ids for instruction in instructions],
+        device=device,
+    )
+    offsets = torch.tensor(
+        [instruction.source_block_offset for instruction in instructions],
+        device=device,
+    )
+    target_ids = torch.tensor(
+        [instruction.target_block_id for instruction in instructions],
+        device=device,
+    )
+    source_positions = offsets[:, None] + torch.arange(block_size, device=device)
+    source_blocks = torch.where(
+        source_positions < block_size, source_ids[:, :1], source_ids[:, 1:]
+    )
+    source_positions.remainder_(block_size)
+
     for cache in caches:
-        for instruction in instructions:
-            first, second = instruction.physical_source_block_ids
-            offset = instruction.source_block_offset
-            gathered = torch.cat(
-                (cache[first, :, offset:, :], cache[second, :, :offset, :]),
-                dim=1,
+        blocks, positions, targets = source_blocks, source_positions, target_ids
+        if cache.device != device:
+            blocks, positions, targets = (
+                index.to(cache.device) for index in (blocks, positions, targets)
             )
-            cache[instruction.target_block_id].copy_(gathered)
+        gathered = cache[blocks, :, positions, :].permute(0, 2, 1, 3)
+        cache.index_copy_(0, targets, gathered)
 
 
 # Move already-rotated Qwen3 keys from their source to target token positions.
