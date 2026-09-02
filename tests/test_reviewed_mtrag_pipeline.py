@@ -301,6 +301,7 @@ class ReviewedMtragPipelineTests(TestCase):
         script = Path(__file__).resolve().parents[1] / "benchmarks" / "run_runpod_qwen3_14b_counterfactual.sh"
         subprocess.run(["bash", "-n", str(script)], check=True)
         content = script.read_text(encoding="utf-8")
+        self.assertIn('[[ "$CHATRAG_EVALUATION" == 1 ]] || test -s "$PLAN"', content)
         for token in (
             "Qwen/Qwen3-14B",
             '== *"A40"*',

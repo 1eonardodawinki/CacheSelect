@@ -131,7 +131,7 @@ elif [[ "$FULL_DATASET" == 1 ]]; then
 else
   test -s "$REFERENCES"
 fi
-test -s "$PLAN"
+[[ "$CHATRAG_EVALUATION" == 1 ]] || test -s "$PLAN"
 printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
   "$COMMIT" "$MODEL" "$GPU" "$PLATFORM" \
   >"$RESULT/metadata.env"
