@@ -41,6 +41,7 @@ def _summarize(summary: dict[str, Any], result_dir: Path) -> dict[str, Any]:
         ),
         "candidate_tokens": int(summary["candidate_tokens"]),
         "selected_reuse_tokens": int(summary["selected_reuse_tokens"]),
+        "executed_reuse_tokens": int(summary.get("executed_reuse_tokens", 0)),
         "selected_reuse_share": float(summary["selected_reuse_share"]),
         "executed_cached_tokens": int(summary["executed_cached_tokens"]),
         "aggregate_ttft_speedup": (

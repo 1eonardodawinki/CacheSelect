@@ -513,6 +513,32 @@ def build_reused_token_indices(
     return tuple(sorted(candidate_tokens - repair_tokens))
 
 
+# Recompute short reuse islands when splitting the model forward costs more.
+def filter_short_reuse_spans(
+    reused_token_indices: Sequence[int],
+    block_size: int,
+    minimum_span_blocks: int,
+) -> tuple[int, ...]:
+    if block_size < 1 or minimum_span_blocks < 1:
+        raise ValueError("block size and minimum span must be positive")
+    indices = tuple(reused_token_indices)
+    if indices != tuple(sorted(set(indices))):
+        raise ValueError("reused token indices must be sorted and unique")
+    if minimum_span_blocks == 1 or not indices:
+        return indices
+
+    minimum_tokens = minimum_span_blocks * block_size
+    retained: list[int] = []
+    run_start = 0
+    for run_end in range(1, len(indices) + 1):
+        if run_end < len(indices) and indices[run_end] == indices[run_end - 1] + 1:
+            continue
+        if run_end - run_start >= minimum_tokens:
+            retained.extend(indices[run_start:run_end])
+        run_start = run_end
+    return tuple(retained)
+
+
 # Translate reusable prompt positions into rows of one flattened input batch.
 def map_reused_tokens_to_batch_rows(
     req_ids: Sequence[str],

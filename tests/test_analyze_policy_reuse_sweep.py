@@ -29,6 +29,7 @@ def _write_result(root: Path, target: float, selected: int) -> Path:
                 "cases": cases,
                 "candidate_tokens": 100,
                 "selected_reuse_tokens": selected,
+                "executed_reuse_tokens": selected // 2,
                 "selected_reuse_share": selected / 100,
                 "executed_cached_tokens": selected,
                 "aggregate_ttft_speedup": 1.5,
@@ -65,6 +66,7 @@ class AnalyzePolicyReuseSweepTests(TestCase):
         self.assertEqual(point["semantic_error_rate"], 0.5)
         self.assertEqual(point["exact_match_rate"], 0.5)
         self.assertEqual(point["aggregate_wall_speedup"], 2.0)
+        self.assertEqual(point["executed_reuse_tokens"], 4)
 
     def test_rejects_unmatched_cases(self):
         with TemporaryDirectory() as directory:

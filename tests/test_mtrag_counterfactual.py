@@ -77,6 +77,7 @@ class MtragCounterfactualTests(TestCase):
                 "cacheselect_candidate_tokens": 32,
                 "cacheselect_repair_tokens": 16,
                 "cacheselect_skipped_repair_tokens": 16,
+                "cacheselect_reused_batch_rows": 16,
                 "cacheselect_compacted_batch_executed": True,
                 "cacheselect_execution_reason": "eligible",
                 "time_to_first_token_ms": 50.0,
@@ -104,6 +105,7 @@ class MtragCounterfactualTests(TestCase):
         self.assertEqual(result["exact_output_matches"], 1)
         self.assertEqual(result["quality_passes"], 1)
         self.assertEqual(result["selected_reuse_tokens"], 16)
+        self.assertEqual(result["executed_reuse_tokens"], 16)
         self.assertEqual(result["aggregate_ttft_speedup"], 2.0)
 
     def test_runs_native_apc_without_cacheselect_metrics(self):

@@ -17,5 +17,6 @@ class PolicySweepSlurmTests(TestCase):
         self.assertIn("CACHESELECT_POLICY_SPLIT=validation", content)
         self.assertIn("cacheselect-inputs/qwen3-mtrag-v3", content)
         self.assertIn("CACHESELECT_CORRECT_KV_POSITIONS=1", content)
+        self.assertIn("CACHESELECT_MIN_REUSE_SPAN_BLOCKS", content)
         self.assertIn("for BUDGET in 005 010 025 050 075 100", content)
         self.assertIn("analyze_policy_reuse_sweep", content)

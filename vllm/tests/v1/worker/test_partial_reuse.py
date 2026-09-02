@@ -44,6 +44,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     create_repair_selector,
     execute_partial_reuse_span_steps,
     filter_partial_reuse_copy_instructions,
+    filter_short_reuse_spans,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
     record_compacted_batch_construction,
@@ -386,6 +387,21 @@ def test_map_reused_tokens_to_batch_rows() -> None:
     )
 
     assert rows == {"rag": tuple(range(68, 100))}
+
+
+# Check that only consecutive reuse spans reaching the measured minimum remain.
+def test_filter_short_reuse_spans() -> None:
+    indices = (*range(0, 8), *range(16, 48), *range(64, 128))
+
+    assert filter_short_reuse_spans(indices, 8, 4) == (
+        *range(16, 48),
+        *range(64, 128),
+    )
+    assert filter_short_reuse_spans(indices, 8, 8) == tuple(range(64, 128))
+    assert filter_short_reuse_spans(indices, 8, 1) == indices
+
+    with pytest.raises(ValueError, match="sorted and unique"):
+        filter_short_reuse_spans((1, 0), 8, 1)
 
 
 # Check that the narrow first execution scope accepts a simple prefill batch.

@@ -175,6 +175,9 @@ def run_mtrag_policy_cases(
                 "candidate_tokens": candidate_tokens,
                 "repair_tokens": repair_tokens,
                 "selected_reuse_tokens": selected_reuse_tokens,
+                "executed_reuse_tokens": int(
+                    metrics.get("cacheselect_reused_batch_rows") or 0
+                ),
                 "executed_cached_tokens": int(
                     policy_observation.get("cached_tokens") or 0
                 ),
@@ -210,6 +213,9 @@ def run_mtrag_policy_cases(
         "manual_review_cases": sum(row["requires_manual_review"] for row in rows),
         "candidate_tokens": candidate_tokens,
         "selected_reuse_tokens": selected_tokens,
+        "executed_reuse_tokens": sum(
+            row["executed_reuse_tokens"] for row in rows
+        ),
         "executed_cached_tokens": sum(row["executed_cached_tokens"] for row in rows),
         "selected_reuse_share": (
             selected_tokens / candidate_tokens if candidate_tokens else 0.0

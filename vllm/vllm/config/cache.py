@@ -112,6 +112,9 @@ class CacheConfig:
     cacheselect_repack_partial_reuse: bool = True
     """Allow exact token windows spanning two source KV blocks to be repacked
     into one target block whenever partial-reuse execution is enabled."""
+    cacheselect_min_reuse_span_blocks: int = Field(default=1, ge=1)
+    """Minimum consecutive block-equivalent span worth reusing. Shorter
+    selected spans are recomputed to avoid extra model-forward calls."""
     cacheselect_correct_kv_positions: bool = False
     """Apply relative Qwen3 RoPE correction after moving reused KV blocks."""
     gdn_delta_cache_capacity: int = Field(default=0, ge=0)
@@ -245,6 +248,7 @@ class CacheConfig:
             "cacheselect_mlp_model",
             "cacheselect_execute_partial_reuse",
             "cacheselect_repack_partial_reuse",
+            "cacheselect_min_reuse_span_blocks",
             "cacheselect_correct_kv_positions",
             "gdn_delta_cache_capacity",
             "gdn_delta_block_size",

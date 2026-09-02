@@ -134,6 +134,7 @@ from vllm.v1.worker.gpu.partial_reuse import (
     create_repair_selector,
     execute_partial_reuse_span_steps,
     filter_partial_reuse_copy_instructions,
+    filter_short_reuse_spans,
     map_reused_tokens_to_batch_rows,
     record_batch_execution_decision,
     record_compacted_batch_construction,
@@ -981,6 +982,11 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 else None
             )
             if reused_token_indices is not None and plan is not None:
+                reused_token_indices = filter_short_reuse_spans(
+                    reused_token_indices,
+                    plan.block_size,
+                    self.cache_config.cacheselect_min_reuse_span_blocks,
+                )
                 copy_instructions = filter_partial_reuse_copy_instructions(
                     copy_instructions, reused_token_indices, plan.block_size
                 )
