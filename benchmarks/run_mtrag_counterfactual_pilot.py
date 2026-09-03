@@ -48,6 +48,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--max-cases", type=int)
     parser.add_argument("--policy-evaluation", action="store_true")
     parser.add_argument("--native-apc-policy", action="store_true")
+    parser.add_argument("--auto-source", action="store_true")
     parser.add_argument(
         "--policy-split",
         choices=("validation", "test"),
@@ -76,6 +77,8 @@ def _parse_args() -> argparse.Namespace:
         parser.error("ChatRAG requires live-reference policy evaluation")
     if args.native_apc_policy and not args.policy_evaluation:
         parser.error("native APC requires policy evaluation")
+    if args.native_apc_policy and args.auto_source:
+        parser.error("native APC cannot use automatic CacheSelect sources")
     return args
 
 
@@ -227,6 +230,7 @@ def main() -> None:
     }
     if args.policy_evaluation:
         runner_args["cacheselect_enabled"] = not args.native_apc_policy
+        runner_args["auto_source"] = args.auto_source
     if not args.policy_evaluation:
         runner_args.update(
             {

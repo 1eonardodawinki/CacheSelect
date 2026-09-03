@@ -108,6 +108,30 @@ class MtragCounterfactualTests(TestCase):
         self.assertEqual(result["executed_reuse_tokens"], 16)
         self.assertEqual(result["aggregate_ttft_speedup"], 2.0)
 
+        with patch(
+            "benchmarks.mtrag_counterfactual._observe_request",
+            side_effect=[fresh, fresh, active],
+        ) as auto_observe:
+            run_mtrag_policy_cases(
+                (case,),
+                reference_outputs={"task-1": "answer"},
+                url="http://server/v1/chat/completions",
+                model="test-model",
+                max_completion_tokens=128,
+                api_key=None,
+                timeout_seconds=300.0,
+                recorder=SimpleNamespace(path=Path("requests.jsonl")),
+                auto_source=True,
+            )
+        donor_args = auto_observe.call_args_list[1].kwargs["vllm_xargs"]
+        policy_args = auto_observe.call_args_list[2].kwargs["vllm_xargs"]
+        self.assertEqual(
+            donor_args["cacheselect_session_id"],
+            policy_args["cacheselect_session_id"],
+        )
+        self.assertEqual(policy_args["cacheselect_auto_source"], 1)
+        self.assertNotIn("cacheselect_source_request_id", policy_args)
+
     def test_runs_native_apc_without_cacheselect_metrics(self):
         ground_truth = RequestGroundTruth(expected_answer="answer", requirements=[])
         source = RequestSpec("source", "mtrag", 1, [], [], ground_truth)

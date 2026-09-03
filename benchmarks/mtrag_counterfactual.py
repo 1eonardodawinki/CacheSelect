@@ -44,6 +44,7 @@ def run_mtrag_policy_cases(
     timeout_seconds: float,
     recorder: RequestRecorder,
     cacheselect_enabled: bool = True,
+    auto_source: bool = False,
 ) -> dict[str, Any]:
     if not cases:
         raise ValueError("MTRAG policy evaluation contains no cases")
@@ -98,7 +99,14 @@ def run_mtrag_policy_cases(
             donor,
             "donor",
             f"{evaluation_id}:reuse",
-            {"cacheselect_request_id": donor.request_id},
+            {
+                "cacheselect_request_id": donor.request_id,
+                **(
+                    {"cacheselect_session_id": evaluation_id}
+                    if auto_source
+                    else {}
+                ),
+            },
             1,
         )
         if cacheselect_enabled:
@@ -111,12 +119,20 @@ def run_mtrag_policy_cases(
             f"{evaluation_id}:reuse",
             {
                 "cacheselect_request_id": policy.request_id,
-                "cacheselect_source_request_id": donor.request_id,
+                **(
+                    {
+                        "cacheselect_session_id": evaluation_id,
+                        "cacheselect_auto_source": 1,
+                    }
+                    if auto_source
+                    else {"cacheselect_source_request_id": donor.request_id}
+                ),
                 "cacheselect_transition_id": transition.transition_id,
             },
             max_completion_tokens,
         )
         metrics = policy_observation.get("server_metrics") or {}
+        reuse_plan = metrics.get("cacheselect_partial_reuse_plan") or {}
         candidate_tokens = int(metrics.get("cacheselect_candidate_tokens") or 0)
         repair_tokens = int(metrics.get("cacheselect_repair_tokens") or 0)
         selected_reuse_tokens = int(
@@ -189,6 +205,13 @@ def run_mtrag_policy_cases(
                     if cacheselect_enabled
                     else "native_apc"
                 ),
+                "source_selection": reuse_plan.get("source_selection"),
+                "selected_source_request_id": reuse_plan.get("source_request_id"),
+                "automatic_source_correct": (
+                    reuse_plan.get("source_request_id") == donor.request_id
+                    if auto_source
+                    else None
+                ),
                 "reference_ttft_ms": reference_ttft,
                 "policy_ttft_ms": policy_ttft,
                 "ttft_speedup": reference_ttft / policy_ttft,
@@ -206,6 +229,13 @@ def run_mtrag_policy_cases(
         "schema_version": 1,
         "experiment": "mtrag-natural-policy-evaluation",
         "policy": "cacheselect" if cacheselect_enabled else "native_apc",
+        "automatic_source": auto_source,
+        "automatic_source_matches": sum(
+            row["automatic_source_correct"] is True for row in rows
+        ),
+        "automatic_source_misses": sum(
+            row["automatic_source_correct"] is False for row in rows
+        ),
         "case_count": len(rows),
         "valid_reference_count": len(valid_rows),
         "exact_output_matches": sum(row["exact_output_match"] for row in valid_rows),
