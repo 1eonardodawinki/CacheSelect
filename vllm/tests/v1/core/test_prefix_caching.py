@@ -410,6 +410,8 @@ def test_cacheselect_request_metadata_is_read_from_sampling_params(block_index):
         extra_args={
             "cacheselect_request_id": "target",
             "cacheselect_source_request_id": "source",
+            "cacheselect_session_id": "chat",
+            "cacheselect_auto_source": 1,
             "cacheselect_transition_id": "source-to-target",
             "cacheselect_counterfactual_reuse_block_index": block_index,
         },
@@ -417,6 +419,8 @@ def test_cacheselect_request_metadata_is_read_from_sampling_params(block_index):
 
     assert request.cacheselect_request_id == "target"
     assert request.cacheselect_source_request_id == "source"
+    assert request.cacheselect_session_id == "chat"
+    assert request.cacheselect_auto_source is True
     assert request.cacheselect_transition_id == "source-to-target"
     assert request.cacheselect_counterfactual_reuse_block_index == 11
 
@@ -429,6 +433,18 @@ def test_cacheselect_request_metadata_rejects_non_string_ids():
             16,
             sha256,
             extra_args={"cacheselect_source_request_id": 3},
+        )
+
+
+@pytest.mark.parametrize("value", [-1, 2, "true", 1.5])
+def test_cacheselect_request_metadata_rejects_invalid_auto_source(value):
+    with pytest.raises(ValueError, match="cacheselect_auto_source"):
+        make_request(
+            "target",
+            [1, 2, 3],
+            16,
+            sha256,
+            extra_args={"cacheselect_auto_source": value},
         )
 
 

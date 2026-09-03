@@ -80,6 +80,16 @@ def _parse_counterfactual_reuse_block_index(value: Any) -> int | None:
     return block_index
 
 
+def _parse_cacheselect_auto_source(value: Any) -> bool:
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, int) and value in (0, 1):
+        return bool(value)
+    raise ValueError("cacheselect_auto_source must be 0 or 1")
+
+
 class Request:
     # Initialize one engine request and validate optional CacheSelect metadata.
     def __init__(
@@ -129,6 +139,9 @@ class Request:
         self.ec_transfer_params: dict[str, Any] | None = None
         self.cacheselect_request_id: str | None = None
         self.cacheselect_source_request_id: str | None = None
+        self.cacheselect_session_id: str | None = None
+        self.cacheselect_auto_source = False
+        self.cacheselect_source_selection = "explicit"
         self.cacheselect_transition_id: str | None = None
         self.cacheselect_counterfactual_reuse_block_index: int | None = None
 
@@ -155,12 +168,16 @@ class Request:
                         "cacheselect_source_request_id",
                         "cacheselect_source_request_id",
                     ),
+                    ("cacheselect_session_id", "cacheselect_session_id"),
                     ("cacheselect_transition_id", "cacheselect_transition_id"),
                 ):
                     value = extra_args.get(key)
                     if value is not None and not isinstance(value, str):
                         raise ValueError(f"{key} must be a string")
                     setattr(self, attribute, value)
+                self.cacheselect_auto_source = _parse_cacheselect_auto_source(
+                    extra_args.get("cacheselect_auto_source")
+                )
                 self.cacheselect_counterfactual_reuse_block_index = (
                     _parse_counterfactual_reuse_block_index(
                         extra_args.get(

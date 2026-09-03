@@ -26,7 +26,9 @@ class FakeCachedBlockMap:
 class FakeBlockPool:
     # Create a small pool whose reference counts behave like BlockPool.
     def __init__(self, block_id: int, resident: bool = True) -> None:
-        self.blocks = [SimpleNamespace(block_id=index, ref_cnt=0) for index in range(8)]
+        self.blocks = [
+            SimpleNamespace(block_id=index, ref_cnt=0) for index in range(64)
+        ]
         self.block = self.blocks[block_id]
         self.cached_block_hash_to_block = FakeCachedBlockMap(resident)
 
@@ -81,6 +83,51 @@ def make_locator_and_plan(resident: bool = True):
     return locator, pool, plan
 
 
+def add_source(
+    locator: AlignedBlockReuseLocator,
+    request_id: str,
+    token_ids: tuple[int, ...],
+    session_id: str | None = None,
+) -> None:
+    blocks = tuple(
+        SourceBlock(
+            block_index=index,
+            token_ids=token_ids[start : start + locator.block_size],
+            block_id=index,
+            block_hash=object(),
+        )
+        for index, start in enumerate(
+            range(0, len(token_ids) - locator.block_size + 1, locator.block_size)
+        )
+    )
+    locator._sources[request_id] = SourceRequestIndex(
+        request_id=request_id,
+        cache_salt=None,
+        lora_adapter_id=None,
+        blocks=blocks,
+        prompt_token_ids=token_ids,
+        session_id=session_id,
+        fingerprint=locator._fingerprint(token_ids),
+    )
+    if session_id is not None:
+        locator._session_sources[session_id] = request_id
+
+
+def auto_request(token_ids: tuple[int, ...], **metadata) -> SimpleNamespace:
+    return SimpleNamespace(
+        cacheselect_source_request_id=metadata.get("source_id"),
+        cacheselect_request_id="target",
+        cacheselect_session_id=metadata.get("session_id"),
+        cacheselect_auto_source=metadata.get("auto", False),
+        cacheselect_transition_id=None,
+        cacheselect_counterfactual_reuse_block_index=None,
+        request_id="target",
+        cache_salt=None,
+        lora_request=None,
+        prompt_token_ids=token_ids,
+    )
+
+
 # Check that duplicate candidates acquire and release only one block reference.
 def test_retain_and_release_unique_resident_sources() -> None:
     locator, pool, plan = make_locator_and_plan()
@@ -92,6 +139,66 @@ def test_retain_and_release_unique_resident_sources() -> None:
 
     locator.release_sources(retained)
     assert pool.block.ref_cnt == 0
+
+
+def test_session_selects_latest_source_without_explicit_id() -> None:
+    locator = AlignedBlockReuseLocator(FakeBlockPool(7), block_size=4)
+    source_tokens = tuple(range(64))
+    add_source(locator, "source", source_tokens, session_id="chat")
+    target = auto_request(
+        source_tokens[:4] + (90, 91, 92, 93) + source_tokens[8:],
+        session_id="chat",
+    )
+
+    plan = locator.locate(target, native_cached_tokens=4)
+
+    assert plan is not None
+    assert plan.source_request_id == "source"
+    assert plan.source_selection == "session"
+    assert target.cacheselect_source_request_id == "source"
+
+
+def test_fingerprint_selection_is_opt_in_and_ignores_recency() -> None:
+    locator = AlignedBlockReuseLocator(FakeBlockPool(7), block_size=4)
+    source_tokens = tuple(range(64))
+    add_source(locator, "related", source_tokens)
+    add_source(locator, "newer-unrelated", tuple(range(1000, 1064)))
+    target_tokens = source_tokens[:4] + (90, 91, 92, 93) + source_tokens[8:]
+    target = auto_request(target_tokens)
+
+    assert locator.locate(target, native_cached_tokens=4) is None
+    target.cacheselect_auto_source = True
+    plan = locator.locate(target, native_cached_tokens=4)
+
+    assert plan is not None
+    assert plan.source_request_id == "related"
+    assert plan.source_selection == "fingerprint"
+    assert plan.candidate_block_count == 14
+
+
+def test_index_records_session_and_fingerprint() -> None:
+    locator = AlignedBlockReuseLocator(FakeBlockPool(7), block_size=4)
+    token_ids = list(range(32))
+    request = SimpleNamespace(
+        prompt_token_ids=token_ids,
+        block_hashes=[bytes([index]) for index in range(8)],
+        cacheselect_request_id="source",
+        cacheselect_session_id="chat",
+        request_id="source",
+        cache_salt=None,
+        lora_request=None,
+    )
+    blocks = [
+        SimpleNamespace(is_null=False, block_hash=object(), block_id=index)
+        for index in range(8)
+    ]
+
+    locator.index(request, blocks)
+
+    source = locator._sources["source"]
+    assert source.session_id == "chat"
+    assert source.fingerprint == locator._fingerprint(token_ids)
+    assert locator._session_sources == {"chat": "source"}
 
 
 # Check that a stale source mapping is not retained after revalidation fails.

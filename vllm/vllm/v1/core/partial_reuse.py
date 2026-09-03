@@ -8,6 +8,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from collections.abc import Collection, Sequence
 from dataclasses import asdict, dataclass, replace
+from heapq import nsmallest
 from typing import TYPE_CHECKING, Any
 
 from vllm.v1.core.kv_cache_utils import resolve_block_hashes
@@ -16,6 +17,12 @@ if TYPE_CHECKING:
     from vllm.v1.core.block_pool import BlockPool
     from vllm.v1.core.kv_cache_utils import BlockHashWithGroupId, KVCacheBlock
     from vllm.v1.request import Request
+
+
+_FINGERPRINT_WINDOW_TOKENS = 8
+_FINGERPRINT_SIZE = 64
+_AUTO_SOURCE_SEARCH_LIMIT = 64
+_AUTO_SOURCE_MIN_SHARED = 4
 
 
 @dataclass(frozen=True)
@@ -34,6 +41,8 @@ class SourceRequestIndex:
     lora_adapter_id: int | None
     blocks: tuple[SourceBlock, ...]
     prompt_token_ids: tuple[int, ...] = ()
+    session_id: str | None = None
+    fingerprint: frozenset[int] = frozenset()
 
 
 @dataclass(frozen=True)
@@ -85,6 +94,7 @@ class PartialReusePlan:
     block_size: int
     native_cached_tokens: int
     reason: str
+    source_selection: str = "explicit"
     counterfactual_reuse_block_index: int | None = None
     candidates: tuple[PartialReuseCandidate, ...] = ()
 
@@ -178,6 +188,7 @@ class AlignedBlockReuseLocator:
         self.allow_repacking = allow_repacking
         self.collect_selector_features = collect_selector_features
         self._sources: OrderedDict[str, SourceRequestIndex] = OrderedDict()
+        self._session_sources: dict[str, str] = {}
 
     @staticmethod
     def _lora_adapter_id(request: Request) -> int | None:
@@ -218,16 +229,33 @@ class AlignedBlockReuseLocator:
             )
 
         request_id = request.cacheselect_request_id or request.request_id
+        previous = self._sources.get(request_id)
+        if (
+            previous is not None
+            and previous.session_id is not None
+            and self._session_sources.get(previous.session_id) == request_id
+        ):
+            self._session_sources.pop(previous.session_id)
+        session_id = getattr(request, "cacheselect_session_id", None)
         self._sources[request_id] = SourceRequestIndex(
             request_id=request_id,
             cache_salt=request.cache_salt,
             lora_adapter_id=self._lora_adapter_id(request),
             blocks=tuple(indexed_blocks),
             prompt_token_ids=tuple(prompt_token_ids),
+            session_id=session_id,
+            fingerprint=self._fingerprint(prompt_token_ids),
         )
         self._sources.move_to_end(request_id)
+        if session_id is not None:
+            self._session_sources[session_id] = request_id
         while len(self._sources) > self.max_source_requests:
-            self._sources.popitem(last=False)
+            evicted_id, evicted = self._sources.popitem(last=False)
+            if (
+                evicted.session_id is not None
+                and self._session_sources.get(evicted.session_id) == evicted_id
+            ):
+                self._session_sources.pop(evicted.session_id)
 
     def locate(
         self,
@@ -235,18 +263,36 @@ class AlignedBlockReuseLocator:
         native_cached_tokens: int,
     ) -> PartialReusePlan | None:
         source_request_id = request.cacheselect_source_request_id
+        source_selection = getattr(
+            request, "cacheselect_source_selection", "explicit"
+        )
         if source_request_id is None:
-            return None
+            automatic_source = self._automatic_source(
+                request, native_cached_tokens
+            )
+            if automatic_source is None:
+                return None
+            source_request_id, source_selection = automatic_source
+            request.cacheselect_source_request_id = source_request_id
+            request.cacheselect_source_selection = source_selection
 
         source = self._sources.get(source_request_id)
         if source is None:
-            return self._plan(request, native_cached_tokens, "source_not_indexed")
+            return self._plan(
+                request, native_cached_tokens, "source_not_indexed", source_selection
+            )
         if source.cache_salt != request.cache_salt:
-            return self._plan(request, native_cached_tokens, "cache_salt_mismatch")
+            return self._plan(
+                request, native_cached_tokens, "cache_salt_mismatch", source_selection
+            )
         if source.lora_adapter_id != self._lora_adapter_id(request):
-            return self._plan(request, native_cached_tokens, "lora_mismatch")
+            return self._plan(
+                request, native_cached_tokens, "lora_mismatch", source_selection
+            )
         if request.prompt_token_ids is None:
-            return self._plan(request, native_cached_tokens, "token_ids_unavailable")
+            return self._plan(
+                request, native_cached_tokens, "token_ids_unavailable", source_selection
+            )
 
         by_content = self._source_windows_by_content(source)
 
@@ -302,7 +348,68 @@ class AlignedBlockReuseLocator:
                 if candidates
                 else "no_aligned_candidates"
             ),
+            source_selection=source_selection,
             candidates=annotated_candidates,
+        )
+
+    @staticmethod
+    def _fingerprint(token_ids: Sequence[int]) -> frozenset[int]:
+        width = _FINGERPRINT_WINDOW_TOKENS
+        if len(token_ids) < width:
+            return frozenset()
+        hashes = {
+            hash(tuple(token_ids[start : start + width]))
+            for start in range(len(token_ids) - width + 1)
+        }
+        return frozenset(nsmallest(_FINGERPRINT_SIZE, hashes))
+
+    def _automatic_source(
+        self, request: Request, native_cached_tokens: int
+    ) -> tuple[str, str] | None:
+        session_id = getattr(request, "cacheselect_session_id", None)
+        if session_id is not None:
+            source_id = self._session_sources.get(session_id)
+            source = self._sources.get(source_id) if source_id is not None else None
+            if source is not None and self._is_compatible_resident(request, source):
+                return source_id, "session"
+            if not getattr(request, "cacheselect_auto_source", False):
+                return None
+        elif not getattr(request, "cacheselect_auto_source", False):
+            return None
+
+        prompt_token_ids = request.prompt_token_ids
+        if prompt_token_ids is None:
+            return None
+        target = self._fingerprint(prompt_token_ids[native_cached_tokens:])
+        if len(target) < _AUTO_SOURCE_MIN_SHARED:
+            return None
+
+        target_request_id = request.cacheselect_request_id or request.request_id
+        best_source_id = None
+        best_shared = _AUTO_SOURCE_MIN_SHARED - 1
+        for offset, source_id in enumerate(reversed(self._sources)):
+            if offset >= _AUTO_SOURCE_SEARCH_LIMIT:
+                break
+            source = self._sources[source_id]
+            if (
+                source_id == target_request_id
+                or not self._is_compatible_resident(request, source)
+            ):
+                continue
+            shared = len(target.intersection(source.fingerprint))
+            if shared > best_shared:
+                best_source_id, best_shared = source_id, shared
+        if best_source_id is None:
+            return None
+        return best_source_id, "fingerprint"
+
+    def _is_compatible_resident(
+        self, request: Request, source: SourceRequestIndex
+    ) -> bool:
+        return (
+            source.cache_salt == request.cache_salt
+            and source.lora_adapter_id == self._lora_adapter_id(request)
+            and any(self._is_resident(block) for block in source.blocks)
         )
 
     # Reuse the training feature contract instead of duplicating its formulas.
@@ -490,6 +597,7 @@ class AlignedBlockReuseLocator:
         request: Request,
         native_cached_tokens: int,
         reason: str,
+        source_selection: str = "explicit",
         candidates: tuple[PartialReuseCandidate, ...] = (),
     ) -> PartialReusePlan:
         source_request_id = request.cacheselect_source_request_id
@@ -501,6 +609,7 @@ class AlignedBlockReuseLocator:
             block_size=self.block_size,
             native_cached_tokens=native_cached_tokens,
             reason=reason,
+            source_selection=source_selection,
             counterfactual_reuse_block_index=(
                 request.cacheselect_counterfactual_reuse_block_index
             ),
@@ -553,3 +662,4 @@ class AlignedBlockReuseLocator:
 
     def clear(self) -> None:
         self._sources.clear()
+        self._session_sources.clear()
