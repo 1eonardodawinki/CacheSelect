@@ -331,6 +331,18 @@ class AlignedBlockReuseLocator:
         annotated_candidates = self._annotate_change_geometry(
             tuple(candidates), first_target_block, num_full_blocks
         )
+        if (
+            not annotated_candidates
+            and source_selection == "session"
+            and getattr(request, "cacheselect_auto_source", False)
+        ):
+            fallback_id = self._fingerprint_source(
+                request, native_cached_tokens, exclude=source_request_id
+            )
+            if fallback_id is not None:
+                request.cacheselect_source_request_id = fallback_id
+                request.cacheselect_source_selection = "fingerprint"
+                return self.locate(request, native_cached_tokens)
         if self.collect_selector_features and annotated_candidates:
             annotated_candidates = self._attach_selector_features(
                 source.prompt_token_ids,
@@ -377,6 +389,15 @@ class AlignedBlockReuseLocator:
         elif not getattr(request, "cacheselect_auto_source", False):
             return None
 
+        source_id = self._fingerprint_source(request, native_cached_tokens)
+        return (source_id, "fingerprint") if source_id is not None else None
+
+    def _fingerprint_source(
+        self,
+        request: Request,
+        native_cached_tokens: int,
+        exclude: str | None = None,
+    ) -> str | None:
         prompt_token_ids = request.prompt_token_ids
         if prompt_token_ids is None:
             return None
@@ -392,7 +413,7 @@ class AlignedBlockReuseLocator:
                 break
             source = self._sources[source_id]
             if (
-                source_id == target_request_id
+                source_id in (target_request_id, exclude)
                 or not self._is_compatible_resident(request, source)
             ):
                 continue
@@ -401,7 +422,7 @@ class AlignedBlockReuseLocator:
                 best_source_id, best_shared = source_id, shared
         if best_source_id is None:
             return None
-        return best_source_id, "fingerprint"
+        return best_source_id
 
     def _is_compatible_resident(
         self, request: Request, source: SourceRequestIndex

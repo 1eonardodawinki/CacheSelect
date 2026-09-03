@@ -158,6 +158,25 @@ def test_session_selects_latest_source_without_explicit_id() -> None:
     assert target.cacheselect_source_request_id == "source"
 
 
+def test_session_falls_back_to_fingerprint_when_latest_has_no_candidates() -> None:
+    locator = AlignedBlockReuseLocator(FakeBlockPool(7), block_size=4)
+    related_tokens = tuple(range(64))
+    add_source(locator, "related", related_tokens)
+    add_source(locator, "latest", tuple(range(1000, 1064)), session_id="chat")
+    target = auto_request(
+        related_tokens[:4] + (90, 91, 92, 93) + related_tokens[8:],
+        session_id="chat",
+        auto=True,
+    )
+
+    plan = locator.locate(target, native_cached_tokens=4)
+
+    assert plan is not None
+    assert plan.source_request_id == "related"
+    assert plan.source_selection == "fingerprint"
+    assert plan.candidate_block_count == 14
+
+
 def test_fingerprint_selection_is_opt_in_and_ignores_recency() -> None:
     locator = AlignedBlockReuseLocator(FakeBlockPool(7), block_size=4)
     source_tokens = tuple(range(64))
