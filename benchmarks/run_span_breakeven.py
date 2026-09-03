@@ -11,10 +11,20 @@ from typing import Any
 from benchmarks.run_vllm_baseline import _post_json
 
 
-def _prompts(gap_blocks: int, flank_blocks: int, block_size: int) -> tuple[list[int], list[int]]:
+def _prompts(
+    gap_blocks: int,
+    flank_blocks: int,
+    block_size: int,
+    source_offset_tokens: int = 0,
+) -> tuple[list[int], list[int]]:
     flank = flank_blocks * block_size
     gap = list(range(1000, 1000 + gap_blocks * block_size))
-    return [100] * flank + gap + [102] * flank, [101] * flank + gap + [103] * flank
+    return (
+        [100] * (flank + source_offset_tokens)
+        + gap
+        + [102] * (flank - source_offset_tokens),
+        [101] * flank + gap + [103] * flank,
+    )
 
 
 def _request(
@@ -81,14 +91,22 @@ def summarize(rows: list[dict[str, Any]]) -> dict[str, Any]:
     }
 
 
-def run(base_url: str, model: str, gaps: tuple[int, ...], flank: int, size: int, repetitions: int) -> dict[str, Any]:
-    _, warmup = _prompts(1, flank, size)
+def run(
+    base_url: str,
+    model: str,
+    gaps: tuple[int, ...],
+    flank: int,
+    size: int,
+    repetitions: int,
+    source_offset_tokens: int = 0,
+) -> dict[str, Any]:
+    _, warmup = _prompts(1, flank, size, source_offset_tokens)
     for index in range(2):
         _request(base_url, model, warmup, f"warmup-{index}", f"warmup-{index}")
 
     rows = []
     for gap in gaps:
-        source, target = _prompts(gap, flank, size)
+        source, target = _prompts(gap, flank, size, source_offset_tokens)
         for repetition in range(repetitions):
             tag = f"gap-{gap}-rep-{repetition}"
             merged = None
@@ -140,6 +158,7 @@ def run(base_url: str, model: str, gaps: tuple[int, ...], flank: int, size: int,
         "model": model,
         "block_size": size,
         "flank_blocks": flank,
+        "source_offset_tokens": source_offset_tokens,
         "gap_blocks": list(gaps),
         "repetitions": repetitions,
         "all_outputs_exact": all(row["output_exact"] for row in rows),
@@ -155,11 +174,14 @@ def main() -> None:
     parser.add_argument("--gap-blocks", nargs="+", type=int, default=[1, 2, 4, 8, 16])
     parser.add_argument("--flank-blocks", type=int, default=16)
     parser.add_argument("--block-size", type=int, default=16)
+    parser.add_argument("--source-offset-tokens", type=int, default=0)
     parser.add_argument("--repetitions", type=int, default=7)
     parser.add_argument("--output", type=Path, required=True)
     args = parser.parse_args()
     if min((*args.gap_blocks, args.flank_blocks, args.block_size, args.repetitions)) < 1:
         parser.error("all counts must be positive")
+    if not 0 <= args.source_offset_tokens < args.block_size:
+        parser.error("source offset must be smaller than one block")
     result = run(
         args.base_url,
         args.model,
@@ -167,6 +189,7 @@ def main() -> None:
         args.flank_blocks,
         args.block_size,
         args.repetitions,
+        args.source_offset_tokens,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(result, indent=2) + "\n", encoding="utf-8")

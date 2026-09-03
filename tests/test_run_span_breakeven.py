@@ -20,6 +20,21 @@ class SpanBreakEvenTest(unittest.TestCase):
             [3, 4],
         )
 
+    def test_can_shift_source_gap_to_require_repacking(self) -> None:
+        source, target = _prompts(2, 3, 16, source_offset_tokens=8)
+
+        self.assertEqual(len(source), len(target))
+        opportunity = analyze_reuse_opportunity(
+            source, target, native_cached_tokens=0, block_size=16
+        )
+        self.assertEqual(
+            [block.previous_starts for block in opportunity.candidate_blocks],
+            [(56,), (72,)],
+        )
+        self.assertTrue(
+            all(block.requires_repacking for block in opportunity.candidate_blocks)
+        )
+
     def test_reports_first_median_split_win(self) -> None:
         rows = [
             {
