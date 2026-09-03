@@ -20,6 +20,7 @@ MLP_SMOKE="${CACHESELECT_MLP_SMOKE:-0}"
 MLP_EVALUATION="${CACHESELECT_MLP_EVALUATION:-0}"
 CHATRAG_EVALUATION="${CACHESELECT_CHATRAG_EVALUATION:-0}"
 NATIVE_APC_EVALUATION="${CACHESELECT_NATIVE_APC_EVALUATION:-0}"
+POLICY_WARMUP="${CACHESELECT_POLICY_WARMUP:-0}"
 POLICY_SPLIT="${CACHESELECT_POLICY_SPLIT:-validation}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
 CORRECT_KV_POSITIONS="${CACHESELECT_CORRECT_KV_POSITIONS:-0}"
@@ -77,6 +78,7 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
 [[ "$MLP_EVALUATION" == 0 || "$MLP_EVALUATION" == 1 ]] || exit 2
 [[ "$CHATRAG_EVALUATION" == 0 || "$CHATRAG_EVALUATION" == 1 ]] || exit 2
 [[ "$NATIVE_APC_EVALUATION" == 0 || "$NATIVE_APC_EVALUATION" == 1 ]] || exit 2
+[[ "$POLICY_WARMUP" == 0 || "$POLICY_WARMUP" == 1 ]] || exit 2
 [[ "$POLICY_SPLIT" == validation || "$POLICY_SPLIT" == test ]] || exit 2
 MODE_COUNT=$((MLP_SMOKE + MLP_EVALUATION + CHATRAG_EVALUATION + NATIVE_APC_EVALUATION))
 [[ "$MODE_COUNT" -le 1 || "$MODE_COUNT$CHATRAG_EVALUATION$NATIVE_APC_EVALUATION" == 211 ]] || exit 2
@@ -85,6 +87,7 @@ MODE_COUNT=$((MLP_SMOKE + MLP_EVALUATION + CHATRAG_EVALUATION + NATIVE_APC_EVALU
 [[ "$MIN_REPACKED_REUSE_SPAN_BLOCKS" =~ ^[1-9][0-9]*$ ]] || exit 2
 [[ "$FULL_DATASET" != 1 || "$MLP_SMOKE$MLP_EVALUATION$NATIVE_APC_EVALUATION" == 000 ]] || exit 2
 [[ "$CHATRAG_EVALUATION" != 1 || "$FULL_DATASET$CORRECT_KV_POSITIONS" == 01 ]] || exit 2
+[[ "$POLICY_WARMUP" != 1 || "$CHATRAG_EVALUATION$NATIVE_APC_EVALUATION" == 10 ]] || exit 2
 if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   test -s "$MLP_MODEL" || { echo "CACHESELECT_MLP_MODEL is required" >&2; exit 2; }
 fi
@@ -146,6 +149,7 @@ printf 'min_repacked_reuse_span_blocks=%s\n' \
   "$MIN_REPACKED_REUSE_SPAN_BLOCKS" >>"$RESULT/metadata.env"
 printf 'policy_split=%s\n' "$POLICY_SPLIT" >>"$RESULT/metadata.env"
 printf 'native_apc_evaluation=%s\n' "$NATIVE_APC_EVALUATION" >>"$RESULT/metadata.env"
+printf 'policy_warmup=%s\n' "$POLICY_WARMUP" >>"$RESULT/metadata.env"
 if [[ "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   cp "$MLP_MODEL" "$RESULT/mlp-model.json"
 fi
@@ -240,6 +244,16 @@ for _ in {1..1800}; do
   sleep 2
 done
 curl --fail --silent "http://127.0.0.1:$PORT/health" >/dev/null
+
+if [[ "$POLICY_WARMUP" == 1 ]]; then
+  mkdir -p "$RESULT/warmup-request-logs"
+  python -m benchmarks.run_hybrid_apc_baseline \
+    --base-url "http://127.0.0.1:$PORT" --model "$MODEL" \
+    --run-id "$RUN_ID-warmup" \
+    --request-log-dir "$RESULT/warmup-request-logs" \
+    --output "$RESULT/warmup-summary.json" --record-count 80 \
+    --max-completion-tokens 1 --timeout-seconds 900
+fi
 
 POLICY_ARGS=()
 [[ "$NATIVE_APC_EVALUATION" == 1 ]] && POLICY_ARGS+=(--native-apc-policy)
