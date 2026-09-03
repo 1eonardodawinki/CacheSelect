@@ -982,10 +982,19 @@ class GPUModelRunner(LoRAModelRunnerMixin):
                 else None
             )
             if reused_token_indices is not None and plan is not None:
+                assert copy_instructions is not None
                 reused_token_indices = filter_short_reuse_spans(
                     reused_token_indices,
                     plan.block_size,
                     self.cache_config.cacheselect_min_reuse_span_blocks,
+                    repacked_block_indices=tuple(
+                        instruction.target_block_index
+                        for instruction in copy_instructions
+                        if instruction.requires_repacking
+                    ),
+                    minimum_repacked_span_blocks=(
+                        self.cache_config.cacheselect_min_repacked_reuse_span_blocks
+                    ),
                 )
                 copy_instructions = filter_partial_reuse_copy_instructions(
                     copy_instructions, reused_token_indices, plan.block_size

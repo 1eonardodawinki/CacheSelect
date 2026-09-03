@@ -62,6 +62,7 @@ def test_cacheselect_from_cli():
     assert not engine_args.cacheselect_execute_partial_reuse
     assert engine_args.cacheselect_repack_partial_reuse
     assert engine_args.cacheselect_min_reuse_span_blocks == 1
+    assert engine_args.cacheselect_min_repacked_reuse_span_blocks is None
     assert not engine_args.cacheselect_correct_kv_positions
     assert engine_args.gdn_delta_cache_capacity == 0
     assert engine_args.gdn_delta_block_size == 64
@@ -93,6 +94,8 @@ def test_cacheselect_from_cli():
             "--cacheselect-repack-partial-reuse",
             "--cacheselect-min-reuse-span-blocks",
             "8",
+            "--cacheselect-min-repacked-reuse-span-blocks",
+            "16",
             "--cacheselect-correct-kv-positions",
             "--gdn-delta-cache-capacity",
             "8",
@@ -111,6 +114,7 @@ def test_cacheselect_from_cli():
     assert engine_args.cacheselect_execute_partial_reuse
     assert engine_args.cacheselect_repack_partial_reuse
     assert engine_args.cacheselect_min_reuse_span_blocks == 8
+    assert engine_args.cacheselect_min_repacked_reuse_span_blocks == 16
     assert engine_args.cacheselect_correct_kv_positions
     assert engine_args.gdn_delta_cache_capacity == 8
     assert engine_args.gdn_delta_block_size == 128
@@ -119,6 +123,7 @@ def test_cacheselect_from_cli():
     assert cache_config.cacheselect_execute_partial_reuse
     assert cache_config.cacheselect_repack_partial_reuse
     assert cache_config.cacheselect_min_reuse_span_blocks == 8
+    assert cache_config.cacheselect_min_repacked_reuse_span_blocks == 16
     assert cache_config.cacheselect_correct_kv_positions
     assert cache_config.gdn_delta_cache_capacity == 8
     assert cache_config.gdn_delta_block_size == 128

@@ -24,8 +24,10 @@ POLICY_SPLIT="${CACHESELECT_POLICY_SPLIT:-validation}"
 MLP_MODEL="${CACHESELECT_MLP_MODEL:-}"
 CORRECT_KV_POSITIONS="${CACHESELECT_CORRECT_KV_POSITIONS:-0}"
 MIN_REUSE_SPAN_BLOCKS="${CACHESELECT_MIN_REUSE_SPAN_BLOCKS:-1}"
+MIN_REPACKED_REUSE_SPAN_BLOCKS="${CACHESELECT_MIN_REPACKED_REUSE_SPAN_BLOCKS:-$MIN_REUSE_SPAN_BLOCKS}"
 if [[ "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
   MIN_REUSE_SPAN_BLOCKS="${CACHESELECT_MIN_REUSE_SPAN_BLOCKS:-8}"
+  MIN_REPACKED_REUSE_SPAN_BLOCKS="${CACHESELECT_MIN_REPACKED_REUSE_SPAN_BLOCKS:-16}"
 fi
 DEFAULT_INPUTS=qwen3-mtrag-v1
 [[ "$FULL_DATASET" == 1 ]] && DEFAULT_INPUTS=qwen3-mtrag-full-v1
@@ -80,6 +82,7 @@ MODE_COUNT=$((MLP_SMOKE + MLP_EVALUATION + CHATRAG_EVALUATION + NATIVE_APC_EVALU
 [[ "$MODE_COUNT" -le 1 || "$MODE_COUNT$CHATRAG_EVALUATION$NATIVE_APC_EVALUATION" == 211 ]] || exit 2
 [[ "$CORRECT_KV_POSITIONS" == 0 || "$CORRECT_KV_POSITIONS" == 1 ]] || exit 2
 [[ "$MIN_REUSE_SPAN_BLOCKS" =~ ^[1-9][0-9]*$ ]] || exit 2
+[[ "$MIN_REPACKED_REUSE_SPAN_BLOCKS" =~ ^[1-9][0-9]*$ ]] || exit 2
 [[ "$FULL_DATASET" != 1 || "$MLP_SMOKE$MLP_EVALUATION$NATIVE_APC_EVALUATION" == 000 ]] || exit 2
 [[ "$CHATRAG_EVALUATION" != 1 || "$FULL_DATASET$CORRECT_KV_POSITIONS" == 01 ]] || exit 2
 if [[ "$MLP_SMOKE" == 1 || "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
@@ -139,6 +142,8 @@ printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
 printf 'max_cases=%s\n' "${MAX_CASES:-all}" >>"$RESULT/metadata.env"
 printf 'correct_kv_positions=%s\n' "$CORRECT_KV_POSITIONS" >>"$RESULT/metadata.env"
 printf 'min_reuse_span_blocks=%s\n' "$MIN_REUSE_SPAN_BLOCKS" >>"$RESULT/metadata.env"
+printf 'min_repacked_reuse_span_blocks=%s\n' \
+  "$MIN_REPACKED_REUSE_SPAN_BLOCKS" >>"$RESULT/metadata.env"
 printf 'policy_split=%s\n' "$POLICY_SPLIT" >>"$RESULT/metadata.env"
 printf 'native_apc_evaluation=%s\n' "$NATIVE_APC_EVALUATION" >>"$RESULT/metadata.env"
 if [[ "$MLP_EVALUATION" == 1 || "$CHATRAG_EVALUATION" == 1 ]]; then
@@ -195,6 +200,7 @@ if [[ "$NATIVE_APC_EVALUATION" != 1 ]]; then
     "${REPAIR_ARGS[@]}"
     --cacheselect-execute-partial-reuse
     --cacheselect-min-reuse-span-blocks "$MIN_REUSE_SPAN_BLOCKS"
+    --cacheselect-min-repacked-reuse-span-blocks "$MIN_REPACKED_REUSE_SPAN_BLOCKS"
     "${REPACK_ARGS[@]}"
     "${POSITION_ARGS[@]}"
   )

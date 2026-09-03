@@ -228,6 +228,7 @@ def test_cache_config_hash_ignores_kv_cache_sizing_knobs():
             cacheselect_execute_partial_reuse=True,
             cacheselect_repack_partial_reuse=False,
             cacheselect_min_reuse_span_blocks=8,
+            cacheselect_min_repacked_reuse_span_blocks=16,
         ).compute_hash()
         == base_hash
     )

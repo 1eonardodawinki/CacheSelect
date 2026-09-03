@@ -417,6 +417,18 @@ def test_filter_short_reuse_spans() -> None:
         filter_short_reuse_spans((1, 0), 8, 1)
 
 
+def test_filter_short_repacked_reuse_spans_separately() -> None:
+    indices = (*range(0, 32), *range(64, 96), *range(128, 192))
+
+    assert filter_short_reuse_spans(
+        indices,
+        8,
+        4,
+        repacked_block_indices=(8, 16),
+        minimum_repacked_span_blocks=8,
+    ) == (*range(0, 32), *range(128, 192))
+
+
 # Check that the narrow first execution scope accepts a simple prefill batch.
 def test_assess_partial_reuse_batch_accepts_supported_prefill() -> None:
     decision = assess_partial_reuse_batch(

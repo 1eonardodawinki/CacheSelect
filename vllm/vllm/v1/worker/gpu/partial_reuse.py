@@ -536,22 +536,39 @@ def filter_short_reuse_spans(
     reused_token_indices: Sequence[int],
     block_size: int,
     minimum_span_blocks: int,
+    *,
+    repacked_block_indices: Sequence[int] = (),
+    minimum_repacked_span_blocks: int | None = None,
 ) -> tuple[int, ...]:
-    if block_size < 1 or minimum_span_blocks < 1:
-        raise ValueError("block size and minimum span must be positive")
+    repacked_minimum = (
+        minimum_span_blocks
+        if minimum_repacked_span_blocks is None
+        else minimum_repacked_span_blocks
+    )
+    if block_size < 1 or min(minimum_span_blocks, repacked_minimum) < 1:
+        raise ValueError("block size and minimum spans must be positive")
+    repacked_blocks = set(repacked_block_indices)
+    if any(block_index < 0 for block_index in repacked_blocks):
+        raise ValueError("repacked block indices must be non-negative")
     indices = tuple(reused_token_indices)
     if indices != tuple(sorted(set(indices))):
         raise ValueError("reused token indices must be sorted and unique")
-    if minimum_span_blocks == 1 or not indices:
+    if not indices or (minimum_span_blocks == 1 and repacked_minimum == 1):
         return indices
 
-    minimum_tokens = minimum_span_blocks * block_size
     retained: list[int] = []
     run_start = 0
     for run_end in range(1, len(indices) + 1):
         if run_end < len(indices) and indices[run_end] == indices[run_end - 1] + 1:
             continue
-        if run_end - run_start >= minimum_tokens:
+        first_block = indices[run_start] // block_size
+        last_block = indices[run_end - 1] // block_size
+        run_minimum = (
+            repacked_minimum
+            if not repacked_blocks.isdisjoint(range(first_block, last_block + 1))
+            else minimum_span_blocks
+        )
+        if run_end - run_start >= run_minimum * block_size:
             retained.extend(indices[run_start:run_end])
         run_start = run_end
     return tuple(retained)

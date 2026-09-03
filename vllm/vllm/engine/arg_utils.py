@@ -528,6 +528,9 @@ class EngineArgs:
     cacheselect_min_reuse_span_blocks: int = (
         CacheConfig.cacheselect_min_reuse_span_blocks
     )
+    cacheselect_min_repacked_reuse_span_blocks: int | None = (
+        CacheConfig.cacheselect_min_repacked_reuse_span_blocks
+    )
     cacheselect_correct_kv_positions: bool = (
         CacheConfig.cacheselect_correct_kv_positions
     )
@@ -1227,6 +1230,10 @@ class EngineArgs:
         cache_group.add_argument(
             "--cacheselect-min-reuse-span-blocks",
             **cache_kwargs["cacheselect_min_reuse_span_blocks"],
+        )
+        cache_group.add_argument(
+            "--cacheselect-min-repacked-reuse-span-blocks",
+            **cache_kwargs["cacheselect_min_repacked_reuse_span_blocks"],
         )
         cache_group.add_argument(
             "--cacheselect-correct-kv-positions",
@@ -1980,6 +1987,9 @@ class EngineArgs:
             cacheselect_repack_partial_reuse=self.cacheselect_repack_partial_reuse,
             cacheselect_min_reuse_span_blocks=(
                 self.cacheselect_min_reuse_span_blocks
+            ),
+            cacheselect_min_repacked_reuse_span_blocks=(
+                self.cacheselect_min_repacked_reuse_span_blocks
             ),
             cacheselect_correct_kv_positions=self.cacheselect_correct_kv_positions,
             gdn_delta_cache_capacity=self.gdn_delta_cache_capacity,
