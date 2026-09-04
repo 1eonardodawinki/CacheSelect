@@ -81,7 +81,7 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
 [[ "$NATIVE_APC_EVALUATION" == 0 || "$NATIVE_APC_EVALUATION" == 1 ]] || exit 2
 [[ "$POLICY_WARMUP" == 0 || "$POLICY_WARMUP" == 1 ]] || exit 2
 [[ "$AUTO_SOURCE" == 0 || "$AUTO_SOURCE" == 1 ]] || exit 2
-[[ "$POLICY_SPLIT" == validation || "$POLICY_SPLIT" == test ]] || exit 2
+[[ "$POLICY_SPLIT" == train || "$POLICY_SPLIT" == validation || "$POLICY_SPLIT" == test ]] || exit 2
 MODE_COUNT=$((MLP_SMOKE + MLP_EVALUATION + CHATRAG_EVALUATION + NATIVE_APC_EVALUATION))
 [[ "$MODE_COUNT" -le 1 || "$MODE_COUNT$CHATRAG_EVALUATION$NATIVE_APC_EVALUATION" == 211 ]] || exit 2
 [[ "$CORRECT_KV_POSITIONS" == 0 || "$CORRECT_KV_POSITIONS" == 1 ]] || exit 2
@@ -286,7 +286,7 @@ if [[ "$CHATRAG_EVALUATION" == 1 ]]; then
     --manifest "$CHATRAG_MANIFEST" --live-references \
     --model "$MODEL" --base-url "http://127.0.0.1:$PORT" \
     --max-completion-tokens 2048 --timeout-seconds 900 \
-    --policy-evaluation --policy-split test --start-case "$START_CASE" \
+    --policy-evaluation --policy-split "$POLICY_SPLIT" --start-case "$START_CASE" \
     "${POLICY_ARGS[@]}" "${CASE_LIMIT_ARGS[@]}" --run-id "$RUN_ID" \
     --request-log-dir "$RESULT/request-logs" --output-dir "$RESULT" \
     --summary-output "$RESULT/summary.json"

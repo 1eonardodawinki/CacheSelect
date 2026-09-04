@@ -348,7 +348,7 @@ class ReviewedMtragPipelineTests(TestCase):
             "--native-apc-policy",
             "--auto-source",
             "--input-format chatrag",
-            "--policy-split test",
+            '--policy-split "$POLICY_SPLIT"',
             "--max-completion-tokens 2048",
             "prepare_mtrag_counterfactual_review",
             "artifacts.tar.gz",

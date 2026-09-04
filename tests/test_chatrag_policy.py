@@ -96,11 +96,12 @@ class ChatRagPolicyTests(TestCase):
                 "--manifest", str(manifest_path),
                 "--live-references",
                 "--policy-evaluation",
+                "--policy-split", "train",
                 "--model", "test-model",
                 "--output-dir", str(root / "output"),
                 "--summary-output", str(summary_path),
             ]
-            case = SimpleNamespace(split=DatasetSplit.VALIDATION)
+            case = SimpleNamespace(split=DatasetSplit.TRAIN)
             recorder = SimpleNamespace(path=root / "requests.jsonl")
             ledger = SimpleNamespace(
                 is_complete=True,
@@ -122,4 +123,4 @@ class ChatRagPolicyTests(TestCase):
             summary = json.loads(summary_path.read_text())
 
         self.assertIsNone(run.call_args.kwargs["reference_outputs"])
-        self.assertEqual(summary["policy_split"], "validation")
+        self.assertEqual(summary["policy_split"], "train")

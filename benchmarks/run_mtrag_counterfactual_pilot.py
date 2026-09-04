@@ -51,7 +51,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--auto-source", action="store_true")
     parser.add_argument(
         "--policy-split",
-        choices=("validation", "test"),
+        choices=("train", "validation", "test"),
         default="validation",
     )
     parser.add_argument("--run-id", default=None)
