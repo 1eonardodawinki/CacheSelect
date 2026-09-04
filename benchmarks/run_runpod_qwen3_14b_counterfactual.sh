@@ -8,6 +8,7 @@ VENV="${CACHESELECT_VENV_ROOT:-/workspace/cacheselect-env-cu130}"
 STORAGE="${CACHESELECT_STORAGE_ROOT:-/workspace}"
 PLATFORM="${CACHESELECT_EXECUTION_PLATFORM:-runpod-a40}"
 MODEL="${CACHESELECT_MTRAG_MODEL:-Qwen/Qwen3-14B}"
+MAX_MODEL_LEN="${CACHESELECT_MAX_MODEL_LEN:-8192}"
 PORT="${CACHESELECT_SERVER_PORT:-8000}"
 START_CASE="${CACHESELECT_COUNTERFACTUAL_START_CASE:-1}"
 MAX_CASES="${CACHESELECT_COUNTERFACTUAL_MAX_CASES:-}"
@@ -71,6 +72,7 @@ GPU="$(nvidia-smi --query-gpu=name --format=csv,noheader | head -n 1)"
   echo "CACHESELECT_COUNTERFACTUAL_START_CASE must be positive" >&2
   exit 2
 }
+[[ "$MAX_MODEL_LEN" =~ ^[1-9][0-9]*$ ]] || exit 2
 [[ "$FULL_DATASET" == 0 || "$FULL_DATASET" == 1 ]] || exit 2
 [[ "$START_BATCH" =~ ^[1-9][0-9]*$ ]] || exit 2
 [[ "$BLOCKS_PER_BATCH" =~ ^[1-9][0-9]*$ ]] || exit 2
@@ -146,6 +148,7 @@ printf 'project_commit=%s\nmodel=%s\ngpu=%s\nexecution_platform=%s\n' \
   >"$RESULT/metadata.env"
 printf 'start_case=%s\n' "$START_CASE" >>"$RESULT/metadata.env"
 printf 'max_cases=%s\n' "${MAX_CASES:-all}" >>"$RESULT/metadata.env"
+printf 'max_model_len=%s\n' "$MAX_MODEL_LEN" >>"$RESULT/metadata.env"
 printf 'correct_kv_positions=%s\n' "$CORRECT_KV_POSITIONS" >>"$RESULT/metadata.env"
 printf 'min_reuse_span_blocks=%s\n' "$MIN_REUSE_SPAN_BLOCKS" >>"$RESULT/metadata.env"
 printf 'min_repacked_reuse_span_blocks=%s\n' \
@@ -230,7 +233,7 @@ trap stop_server EXIT INT TERM
 
 setsid vllm serve "$MODEL" \
   --host 127.0.0.1 --port "$PORT" --dtype bfloat16 \
-  --max-model-len 8192 --max-num-seqs 1 --max-num-batched-tokens 8192 \
+  --max-model-len "$MAX_MODEL_LEN" --max-num-seqs 1 --max-num-batched-tokens "$MAX_MODEL_LEN" \
   --gpu-memory-utilization 0.90 --block-size 16 \
   --enable-prefix-caching \
   "${CACHESELECT_ARGS[@]}" \

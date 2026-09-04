@@ -310,6 +310,7 @@ class ReviewedMtragPipelineTests(TestCase):
             'summary["trial_count"] + summary["skipped_target_blocks"]',
             "CACHESELECT_COUNTERFACTUAL_START_CASE",
             "CACHESELECT_COUNTERFACTUAL_MAX_CASES",
+            "CACHESELECT_MAX_MODEL_LEN",
             "CACHESELECT_MLP_SMOKE",
             "CACHESELECT_MLP_EVALUATION",
             "CACHESELECT_CHATRAG_EVALUATION",
