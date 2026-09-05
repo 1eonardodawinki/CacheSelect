@@ -357,6 +357,18 @@ class ReviewedMtragPipelineTests(TestCase):
             with self.subTest(token=token):
                 self.assertIn(token, content)
 
+    def test_chatrag_warmup_allows_native_apc(self):
+        script = Path(__file__).resolve().parents[1] / "benchmarks" / "run_runpod_qwen3_14b_counterfactual.sh"
+        guard = next(line for line in script.read_text().splitlines()
+                     if line.startswith('[[ "$POLICY_WARMUP" != 1'))
+        for chatrag, native, expected in ((1, 0, 0), (1, 1, 0), (0, 1, 2)):
+            with self.subTest(chatrag=chatrag, native=native):
+                result = subprocess.run([
+                    "bash", "-c", f"POLICY_WARMUP=1; CHATRAG_EVALUATION={chatrag}; "
+                    f"NATIVE_APC_EVALUATION={native}; {guard}",
+                ])
+                self.assertEqual(result.returncode, expected)
+
     def test_imperial_rope_training_launcher_contract(self):
         script = Path(__file__).resolve().parents[1] / "benchmarks" / "run_imperial_qwen3_14b_rope_training_200.slurm"
         subprocess.run(["bash", "-n", str(script)], check=True)
